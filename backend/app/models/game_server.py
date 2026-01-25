@@ -78,13 +78,14 @@ class GameInfo(BaseModel):
         """Human-readable number of sets.
 
         NbSet encoding from GameInfo bitfield (2 bits):
-        - 0: 1 Set (single set match)
-        - 1: Best of 3 (first to 2 sets)
-        - 2: Best of 5 (first to 3 sets)
-        - 3: Best of 5 (alternate encoding)
+        The value represents the number of sets to play:
+        - 0: Best of 1 (single set match)
+        - 1: Best of 1 (single set)
+        - 2: Best of 3 (first to 2 sets)
+        - 3: Best of 5 (first to 3 sets)
         """
-        set_map = {0: "1 Set", 1: "Best of 3", 2: "Best of 5", 3: "Best of 5"}
-        return set_map.get(self.nb_set, f"{self.nb_set + 1} Sets")
+        set_map = {0: "Best of 1", 1: "Best of 1", 2: "Best of 3", 3: "Best of 5"}
+        return set_map.get(self.nb_set, f"Best of {self.nb_set}")
 
 
 class GameServer(BaseModel):

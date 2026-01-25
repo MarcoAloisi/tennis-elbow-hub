@@ -28,14 +28,26 @@ const players = computed(() => {
   return { player1: name, player2: null }
 })
 
-// Parse score for display
+// Parse score for display and determine who is serving
 const scoreDisplay = computed(() => {
   const score = props.server.score || ''
-  // Format: "6/3 4/6 1/1 -- 00:40•"
+  // Format: "6/3 4/6 1/1 -- 00:40•" or "6/3 4/6 1/1 -- •00:40"
   const parts = score.split(' -- ')
   const sets = parts[0] ? parts[0].trim().split(' ') : []
-  const currentGame = parts[1] ? parts[1].trim() : ''
-  return { sets, currentGame }
+  let currentGame = parts[1] ? parts[1].trim() : ''
+  
+  // Detect which player is serving based on • position
+  // • at the start means player 1 is serving, at the end means player 2
+  let servingPlayer = 0 // 0 = unknown, 1 = player1, 2 = player2
+  if (currentGame.startsWith('•')) {
+    servingPlayer = 1
+    currentGame = currentGame.substring(1) // Remove the •
+  } else if (currentGame.endsWith('•')) {
+    servingPlayer = 2
+    currentGame = currentGame.substring(0, currentGame.length - 1) // Remove the •
+  }
+  
+  return { sets, currentGame, servingPlayer }
 })
 
 // Surface badge class - determine from surface_display (computed by backend)
@@ -99,13 +111,21 @@ const setsDisplay = computed(() => {
     <!-- Players -->
     <div class="match-players" :class="{ 'single-player': !players.player2 }">
       <div class="player">
-        <span class="player-name">{{ players.player1 }}</span>
+        <span class="player-name">
+          <span v-if="scoreDisplay.servingPlayer === 1" class="serving-ball">🎾</span>
+          {{ players.player1 }}
+        </span>
         <span class="player-elo">ELO: {{ server.elo }}</span>
+        <span class="player-games">{{ server.nb_game }} games</span>
       </div>
       <span class="vs-separator" v-if="players.player2">vs</span>
       <div class="player player-right" v-if="players.player2">
-        <span class="player-name">{{ players.player2 }}</span>
+        <span class="player-name">
+          {{ players.player2 }}
+          <span v-if="scoreDisplay.servingPlayer === 2" class="serving-ball">🎾</span>
+        </span>
         <span class="player-elo">ELO: {{ server.other_elo }}</span>
+        <span class="player-games">{{ server.other_elo > 0 ? '' : '' }}</span>
       </div>
     </div>
 
@@ -132,9 +152,6 @@ const setsDisplay = computed(() => {
       </span>
       <span v-if="setsDisplay" class="match-sets">
         {{ setsDisplay }}
-      </span>
-      <span class="match-tag" v-if="server.nb_game">
-        {{ server.nb_game }} games
       </span>
     </div>
   </div>
@@ -213,6 +230,33 @@ const setsDisplay = computed(() => {
 .player-elo {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
+}
+
+.player-games {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  opacity: 0.8;
+}
+
+.serving-ball {
+  display: inline-block;
+  animation: bounce 0.6s infinite ease-in-out;
+  margin-right: 4px;
+  font-size: 0.9em;
+}
+
+.player-right .serving-ball {
+  margin-right: 0;
+  margin-left: 4px;
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
 }
 
 .vs-separator {
