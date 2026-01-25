@@ -162,12 +162,18 @@ function formatDate(dateStr) {
             <!-- Filters -->
             <div class="filters-bar">
                 <div class="filter-group">
-                    <label class="filter-label">Search</label>
-                    <input 
-                        v-model="store.filters.opponent" 
-                        placeholder="Opponent..." 
-                        class="filter-input"
-                    />
+                    <label class="filter-label">Search Opponent</label>
+                    <div class="search-container">
+                        <input 
+                            v-model="store.filters.opponent" 
+                            placeholder="Type to search..." 
+                            class="filter-input"
+                            list="opponents-list"
+                        />
+                        <datalist id="opponents-list">
+                            <option v-for="opp in store.availableOpponents" :key="opp" :value="opp" />
+                        </datalist>
+                    </div>
                 </div>
 
                 <div class="filter-group">
@@ -289,7 +295,7 @@ function formatDate(dateStr) {
                 </div>
                 <StatsTable 
                     :player1="aggregatedPlayerStats"
-                    :player2="aggregatedOpponentStats || { serve:{}, rally:{}, points:{}, break_points:{} }"
+                    :player2="store.filters.opponent ? aggregatedOpponentStats : {}"
                     category="all"
                 />
             </div>

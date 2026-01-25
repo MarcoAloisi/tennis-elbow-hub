@@ -30,6 +30,32 @@ export const useAnalysisStore = defineStore('analysis', () => {
 
     // Getters
     const hasMatches = computed(() => matches.value.length > 0)
+
+    // Automatic User Detection: Find the player name that appears most frequently
+    const mainPlayerName = computed(() => {
+        if (!matches.value.length) return 'Player'
+        const names = {}
+        matches.value.forEach(m => {
+            if (m.info) {
+                names[m.info.player1_name] = (names[m.info.player1_name] || 0) + 1
+                names[m.info.player2_name] = (names[m.info.player2_name] || 0) + 1
+            }
+        })
+        return Object.keys(names).reduce((a, b) => names[a] > names[b] ? a : b, 'Player')
+    })
+
+    const availableOpponents = computed(() => {
+        const opponents = new Set()
+        const main = mainPlayerName.value
+        matches.value.forEach(m => {
+            if (m.info) {
+                if (m.info.player1_name !== main) opponents.add(m.info.player1_name)
+                if (m.info.player2_name !== main) opponents.add(m.info.player2_name)
+            }
+        })
+        return Array.from(opponents).sort()
+    })
+
     const currentMatch = computed(() => matches.value[currentMatchIndex.value] || null)
 
     const player1Stats = computed(() => currentMatch.value?.player1 || null)
@@ -45,24 +71,23 @@ export const useAnalysisStore = defineStore('analysis', () => {
             // Filter by Opponent
             if (filters.value.opponent) {
                 const opp = filters.value.opponent.toLowerCase()
-                if (!info.player1_name.toLowerCase().includes(opp) &&
-                    !info.player2_name.toLowerCase().includes(opp)) {
+                // Strict check: One of the players must be the selected opponent
+                const p1 = info.player1_name.toLowerCase()
+                const p2 = info.player2_name.toLowerCase()
+                if (p1 !== opp && p2 !== opp) {
                     return false
                 }
             }
 
             // Filter CPU Matches
             if (filters.value.cpu) {
-                // Check for CPU indicators in opponent name (assuming User is Player 1, or check both)
-                // CPU names often have levels like "Incredible-10", "Pro-1", "Master-5"
-                // Or sometimes just ends with "-X"
                 const cpuPatterns = [/Incredible-/i, /Pro-/i, /Master-/i, /Junior-/i, /Club-/i, /-\d+$/]
-                const p1IsCpu = cpuPatterns.some(p => p.test(info.player1_name))
-                const p2IsCpu = cpuPatterns.some(p => p.test(info.player2_name))
 
-                // If we assume user is one of them, we usually want to hide matches vs CPU.
-                // Usually the opponent name has the CPU tag.
-                if (p1IsCpu || p2IsCpu) return false
+                // If main player is identified, exclude matches where the OTHER player is CPU
+                const main = mainPlayerName.value
+                const opponentName = info.player1_name === main ? info.player2_name : info.player1_name
+
+                if (cpuPatterns.some(p => p.test(opponentName))) return false
             }
 
             // Filter by Surface
@@ -435,6 +460,8 @@ export const useAnalysisStore = defineStore('analysis', () => {
         matchInfo,
         filteredMatches,
         aggregateStats,
+        availableOpponents,
+        mainPlayerName,
         filters,
         // Actions
         uploadAndAnalyze,

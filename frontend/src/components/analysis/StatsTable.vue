@@ -105,10 +105,25 @@ function formatValue(player, stat) {
   }
 }
 
+const isComparison = computed(() => {
+    return props.player2 && Object.keys(props.player2).length > 0
+})
+
+function hasData(player, stat) {
+    if (!player || !player[stat.path]) return false
+    return true
+}
+
 function isWinner(stat) {
+  // If not comparing, no winner/loser colors
+  if (!isComparison.value) return { p1: false, p2: false }
+
   const v1 = getValue(props.player1, stat)
   const v2 = getValue(props.player2, stat)
   
+  // Checking equality to avoid highlighting draws
+  if (v1 === v2) return { p1: false, p2: false }
+
   // For stats where lower is better (errors), reverse comparison
   if (stat.lower) {
     return { p1: v1 < v2, p2: v2 < v1 }
@@ -118,7 +133,7 @@ function isWinner(stat) {
 </script>
 
 <template>
-  <div class="stats-table">
+  <div class="stats-table" :class="{ 'single-col': !isComparison }">
     <div 
       v-for="stat in displayStats" 
       :key="stat.key"
@@ -126,7 +141,7 @@ function isWinner(stat) {
     >
       <div 
         class="stats-value left"
-        :class="{ winner: isWinner(stat).p1 }"
+        :class="{ winner: isComparison && isWinner(stat).p1 }"
       >
         {{ formatValue(player1, stat) }}
       </div>
@@ -134,8 +149,9 @@ function isWinner(stat) {
         {{ stat.label }}
       </div>
       <div 
+        v-if="isComparison"
         class="stats-value right"
-        :class="{ winner: isWinner(stat).p2 }"
+        :class="{ winner: isComparison && isWinner(stat).p2 }"
       >
         {{ formatValue(player2, stat) }}
       </div>
@@ -156,6 +172,27 @@ function isWinner(stat) {
   padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--color-border);
   transition: background-color var(--transition-fast);
+}
+
+/* Single Column Mode */
+.stats-table.single-col .stats-row {
+    grid-template-columns: 1fr auto; 
+    justify-content: center;
+}
+
+.stats-table.single-col .stats-value.left {
+    text-align: right;
+    width: 50%;
+    margin-left: auto;
+    font-weight: bold;
+    color: var(--color-accent);
+}
+
+.stats-table.single-col .stats-label {
+    text-align: left;
+    width: 50%;
+    margin-right: auto;
+    padding-left: var(--space-4);
 }
 
 .stats-row:hover {
