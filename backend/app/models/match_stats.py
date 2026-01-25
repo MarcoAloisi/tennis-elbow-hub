@@ -108,6 +108,7 @@ class MatchAnalysisResponse(BaseModel):
     """Response model for match analysis endpoint."""
 
     success: bool = Field(description="Whether analysis was successful")
-    stats: MatchStats | None = Field(default=None, description="Parsed match stats")
+    stats: MatchStats | None = Field(default=None, description="Deprecated - use matches instead")
+    matches: list[MatchStats] = Field(default_factory=list, description="List of parsed matches")
     error: str | None = Field(default=None, description="Error message if failed")
     filename: str = Field(description="Original filename")

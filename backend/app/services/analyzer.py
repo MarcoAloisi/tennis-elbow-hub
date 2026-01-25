@@ -401,6 +401,38 @@ def analyze_match_log(html_content: str) -> MatchStats | None:
         return None
 
 
+def parse_match_log_file(html_content: str) -> list[MatchStats]:
+    """Parse a full match log file containing multiple matches.
+
+    Args:
+        html_content: Raw HTML content of the match log.
+
+    Returns:
+        List of MatchStats models.
+    """
+    matches: list[MatchStats] = []
+    
+    # Split by horizontal rules <hr> which separate matches
+    # TE4 logs separate matches with <hr> or <hr/> or <hr >
+    # We'll split by regex to be safe
+    chunks = re.split(r"<hr\s*\/?>", html_content, flags=re.IGNORECASE)
+    
+    logger.info(f"Found {len(chunks)} potential match chunks")
+    
+    for i, chunk in enumerate(chunks):
+        if not chunk.strip():
+            continue
+            
+        stats = analyze_match_log(chunk)
+        if stats:
+            matches.append(stats)
+        else:
+            # Sometimes the first chunk is just a header or script
+            logger.debug(f"Skipping chunk {i} - no valid stats found")
+            
+    return matches
+
+
 async def process_uploaded_file(
     content: bytes,
     filename: str,
@@ -432,18 +464,19 @@ async def process_uploaded_file(
             )
 
         # Analyze the match log
-        stats = analyze_match_log(html_content)
+        matches = parse_match_log_file(html_content)
 
-        if stats:
+        if matches:
             return MatchAnalysisResponse(
                 success=True,
-                stats=stats,
+                matches=matches,
+                stats=matches[0] if matches else None,  # For backward compatibility
                 filename=filename,
             )
         else:
             return MatchAnalysisResponse(
                 success=False,
-                error="Failed to parse match statistics from file",
+                error="Failed to parse any matches from file",
                 filename=filename,
             )
 
