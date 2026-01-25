@@ -174,25 +174,27 @@ function isWinner(stat) {
   transition: background-color var(--transition-fast);
 }
 
-/* Single Column Mode */
+/* Single Column Mode - Improved UI */
 .stats-table.single-col .stats-row {
-    grid-template-columns: 1fr auto; 
-    justify-content: center;
-}
-
-.stats-table.single-col .stats-value.left {
-    text-align: right;
-    width: 50%;
-    margin-left: auto;
-    font-weight: bold;
-    color: var(--color-accent);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-3) var(--space-6);
 }
 
 .stats-table.single-col .stats-label {
     text-align: left;
-    width: 50%;
-    margin-right: auto;
-    padding-left: var(--space-4);
+    min-width: 0; /* Allow flex shrink */
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-medium);
+}
+
+.stats-table.single-col .stats-value.left {
+    text-align: right;
+    width: auto;
+    margin: 0;
+    font-weight: bold;
+    color: var(--color-accent);
 }
 
 .stats-row:hover {

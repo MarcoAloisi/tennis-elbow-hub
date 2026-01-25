@@ -163,8 +163,9 @@ export const useAnalysisStore = defineStore('analysis', () => {
 
         sets.forEach(set => {
             // Handle super tiebreaks or normal sets
-            if (set.includes('-')) {
-                const [g1, g2] = set.split('-').map(v => parseInt(v))
+            const separator = set.includes('/') ? '/' : '-'
+            if (set.includes(separator)) {
+                const [g1, g2] = set.split(separator).map(v => parseInt(v))
                 if (!isNaN(g1) && !isNaN(g2)) {
                     if (g1 > g2) p1Sets++
                     else if (g2 > g1) p2Sets++
@@ -225,10 +226,30 @@ export const useAnalysisStore = defineStore('analysis', () => {
         let gamesWon = 0
         let gamesTotal = 0
 
-        list.forEach(m => {
-            const p1 = m.player1
-            const p2 = m.player2
+        // Determine the "Main Player" (The User) to ensure alignment
+        // If an opponent filter is active, the Main Player is the one NOT matching the opponent filter
+        // Otherwise, use the auto-detected mainPlayerName
+        const currentUser = mainPlayerName.value
 
+        list.forEach(m => {
+            if (!m.info) return
+
+            // Determine which player object is the User and which is the Opponent for this specific match
+            // This fixes the H2H and Stats alignment issues when the User is listed as Player 2
+            let userP, oppP
+            let isUserP1 = true
+
+            if (m.info.player1_name === currentUser) {
+                userP = m.player1
+                oppP = m.player2
+                isUserP1 = true
+            } else {
+                userP = m.player2
+                oppP = m.player1
+                isUserP1 = false
+            }
+
+            // Collection Stats for User
             // Helper to push stats to metrics object
             const pushStats = (targetMetrics, p, otherP) => {
                 if (p) {
@@ -265,27 +286,37 @@ export const useAnalysisStore = defineStore('analysis', () => {
                 }
             }
 
-            // Collect Player 1 Stats
-            pushStats(metrics, p1, p2)
-            // Collect Player 2 Stats (for comparison)
-            pushStats(oppMetrics, p2, p1)
+            // Collect User Stats into 'metrics'
+            pushStats(metrics, userP, oppP)
+            // Collect Opponent Stats into 'oppMetrics'
+            pushStats(oppMetrics, oppP, userP)
 
             // Calculate Winner / H2H
             if (m.info && m.info.score) {
                 const winner = determineWinner(m.info.score)
-                if (winner === 'player1') wins++
-                else if (winner === 'player2') losses++
+                // Determine if User won
+                const userWon = (winner === 'player1' && isUserP1) || (winner === 'player2' && !isUserP1)
+
+                if (userWon) wins++
+                else if (winner) losses++ // Only count losses if there was a winner (not incomplete)
 
                 // Parse sets and games for percentages
                 const cleanScore = m.info.score.replace(/\s*\(RET\)|\s*\(W\/O\)/i, '').trim()
                 const sets = cleanScore.split(' ')
                 sets.forEach(set => {
-                    if (set.includes('-')) {
-                        const [g1, g2] = set.split('-').map(v => parseInt(v))
+                    // Normalize standard '6-4' and alternative '6/4' formats
+                    const separator = set.includes('/') ? '/' : '-'
+                    if (set.includes(separator)) {
+                        const [g1, g2] = set.split(separator).map(v => parseInt(v))
                         if (!isNaN(g1) && !isNaN(g2)) {
-                            gamesWon += g1
-                            gamesTotal += (g1 + g2)
-                            if (g1 > g2) setsWon++
+                            // Assign games to User vs Opponent
+                            const userGames = isUserP1 ? g1 : g2
+                            const oppGames = isUserP1 ? g2 : g1
+
+                            gamesWon += userGames
+                            gamesTotal += (userGames + oppGames)
+
+                            if (userGames > oppGames) setsWon++
                             setsTotal++
                         }
                     }
