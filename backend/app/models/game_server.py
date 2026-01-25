@@ -1,0 +1,134 @@
+"""Pydantic models for game server data.
+
+These models represent the parsed structure of Tennis Elbow 4 server data,
+including the GameInfo bitfield and complete server entries.
+"""
+
+from enum import IntEnum
+
+from pydantic import BaseModel, Field
+
+
+class PlayerConfig(IntEnum):
+    """Game mode configuration from GameInfo bitfield."""
+
+    SINGLES = 0
+    UNKNOWN_1 = 1
+    COMPETITIVE_DOUBLES = 2
+    COOPERATIVE_DOUBLES = 3
+
+
+class SkillMode(IntEnum):
+    """Skill mode from GameInfo bitfield."""
+
+    BEGINNER = 0
+    INTERMEDIATE = 1
+    ADVANCED = 2
+    EXPERT = 3
+
+
+class ControlMode(IntEnum):
+    """Control mode from GameInfo bitfield."""
+
+    KEYBOARD = 0
+    MOUSE = 1
+    GAMEPAD = 2
+    MIXED = 3
+
+
+class GameInfo(BaseModel):
+    """Parsed GameInfo bitfield from server data.
+
+    Bitfield layout (28 bits total):
+    - Bits 0-1: Trial (2 bits)
+    - Bits 2-4: PlayerCfg (3 bits) - game mode
+    - Bits 5-6: NbSet (2 bits) - number of sets
+    - Bits 7-8: SkillMode (2 bits)
+    - Bits 9-17: Empty/reserved (9 bits)
+    - Bits 18-20: GamePerSet (3 bits)
+    - Bit 21: Unused (1 bit)
+    - Bits 22-23: ControlMode (2 bits)
+    - Bits 24-26: Preview (3 bits)
+    - Bit 27: Tiredness (1 bit)
+    """
+
+    trial: int = Field(ge=0, le=3, description="Trial flag (2 bits)")
+    player_config: PlayerConfig = Field(description="Game mode configuration")
+    nb_set: int = Field(ge=0, le=3, description="Number of sets configuration")
+    skill_mode: SkillMode = Field(description="Skill mode")
+    games_per_set: int = Field(ge=0, le=7, description="Games per set")
+    control_mode: ControlMode = Field(description="Control mode")
+    preview: int = Field(ge=0, le=7, description="Preview setting")
+    tiredness: bool = Field(description="Tiredness enabled")
+
+    @property
+    def mode_display(self) -> str:
+        """Human-readable game mode."""
+        mode_names = {
+            PlayerConfig.SINGLES: "Singles",
+            PlayerConfig.COMPETITIVE_DOUBLES: "Competitive Doubles",
+            PlayerConfig.COOPERATIVE_DOUBLES: "Cooperative Doubles",
+        }
+        return mode_names.get(self.player_config, "Unknown")
+
+    @property
+    def sets_display(self) -> str:
+        """Human-readable number of sets."""
+        # nb_set is encoded, typically 0=1 set, 1=3 sets, 2=5 sets
+        set_map = {0: "1 Set", 1: "3 Sets", 2: "5 Sets", 3: "Best of 5"}
+        return set_map.get(self.nb_set, f"{self.nb_set + 1} Sets")
+
+
+class GameServer(BaseModel):
+    """Represents a live tennis match server.
+
+    Format from source:
+    IP Port "Name" GameInfo MaxPing Elo NbGame "TagLine" "Score" OtherElo
+    GiveUpRate Reputation "SurfaceName" CreationTimeInMs
+    """
+
+    ip: str = Field(description="Server IP address (0 if match started)")
+    port: int = Field(ge=0, description="Server port")
+    match_name: str = Field(description="Match name (e.g., 'Player1 vs Player2')")
+    game_info: GameInfo = Field(description="Parsed game configuration")
+    max_ping: int = Field(ge=0, description="Maximum ping in milliseconds")
+    elo: int = Field(ge=0, description="Primary player Elo rating")
+    nb_game: int = Field(ge=0, description="Number of games played")
+    tag_line: str = Field(description="Server tag line or version info")
+    score: str = Field(description="Current match score")
+    other_elo: int = Field(description="Other player Elo rating")
+    give_up_rate: int = Field(description="Give up rate statistic")
+    reputation: int = Field(description="Server/player reputation")
+    surface_name: str = Field(description="Court surface name")
+    creation_time_ms: int = Field(ge=0, description="Server creation timestamp")
+    is_started: bool = Field(description="True if match has started (IP=0)")
+
+    @property
+    def player_names(self) -> tuple[str, str]:
+        """Extract player names from match_name."""
+        if " vs " in self.match_name:
+            parts = self.match_name.split(" vs ", 1)
+            return (parts[0].strip(), parts[1].strip())
+        return (self.match_name, "Unknown")
+
+    @property
+    def surface_display(self) -> str:
+        """Clean surface name for display."""
+        # Remove common prefixes/codes
+        name = self.surface_name.strip()
+        # Map known surface codes to display names
+        surface_map = {
+            "BlueGreenCement": "Hard Court",
+            "Clay": "Clay Court",
+            "Grass": "Grass Court",
+            "Indoor": "Indoor Hard",
+        }
+        return surface_map.get(name, name)
+
+
+class GameServerList(BaseModel):
+    """Response model for list of game servers."""
+
+    servers: list[GameServer] = Field(default_factory=list)
+    total: int = Field(ge=0, description="Total number of servers")
+    timestamp: str = Field(description="ISO timestamp of data fetch")
