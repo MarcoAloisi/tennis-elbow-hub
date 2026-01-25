@@ -6,22 +6,22 @@
  */
 
 :root {
-  /* === Colors - Light Theme === */
-  --color-bg-primary: #ffffff;
-  --color-bg-secondary: #f8fafc;
-  --color-bg-tertiary: #f1f5f9;
+  /* === Colors - Light Theme (ManaGames Style) === */
+  --color-bg-primary: #f0f0ff; /* Lavender Mist */
+  --color-bg-secondary: #e0e0f0; /* Darker Lavender */
+  --color-bg-tertiary: #d8d8e8; /* Even Darker for borders/accents */
   --color-bg-card: #ffffff;
-  --color-bg-hover: #f1f5f9;
+  --color-bg-hover: #e8e8f8;
   
   --color-text-primary: #0f172a;
   --color-text-secondary: #475569;
-  --color-text-muted: #94a3b8;
+  --color-text-muted: #64748b;
   --color-text-inverse: #ffffff;
   
-  --color-accent: #4f46e5;
-  --color-accent-hover: #4338ca;
-  --color-accent-light: #e0e7ff;
-  --color-accent-gradient: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  --color-accent: #3366cc; /* Tennis Deep Blue */
+  --color-accent-hover: #254e99;
+  --color-accent-light: #e0e0f0; /* Matching secondary bg */
+  --color-accent-gradient: linear-gradient(135deg, #3366cc 0%, #4a90e2 100%);
   
   --color-success: #10b981;
   --color-success-light: #d1fae5;
@@ -36,10 +36,16 @@
   --color-border-hover: #cbd5e1;
   
   /* Surface indicators */
-  --color-surface-hard: #3b82f6;
-  --color-surface-clay: #f97316;
-  --color-surface-grass: #22c55e;
-  --color-surface-indoor: #8b5cf6;
+  --color-surface-hard: #3366cc;
+  --color-surface-clay: #e65100;
+  --color-surface-grass: #2e7d32;
+  --color-surface-indoor: #7b1fa2;
+  
+  /* Table Row Colors (ManaGames specific) */
+  --color-table-d1: #f0f0ff;
+  --color-table-d2: #e0e0f0;
+  --color-table-c1: #e8e8f8;
+  --color-table-c2: #d8d8e8;
   
   /* === Shadows === */
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);

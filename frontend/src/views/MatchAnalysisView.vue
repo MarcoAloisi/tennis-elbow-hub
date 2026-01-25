@@ -8,8 +8,19 @@ import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import ErrorAlert from '@/components/common/ErrorAlert.vue'
 
 const store = useAnalysisStore()
+const viewMode = ref('dashboard') // 'dashboard' or 'detail'
 const activeTab = ref('table')
 const selectedCategory = ref('all')
+
+// Watch for match selection to switch view
+function openMatch(index) {
+  store.selectMatch(index)
+  viewMode.value = 'detail'
+}
+
+function backToDashboard() {
+  viewMode.value = 'dashboard'
+}
 
 const categories = [
   { value: 'all', label: 'All Stats' },
@@ -63,7 +74,7 @@ function formatDate(dateStr) {
     />
 
     <!-- Upload Section (shown when no analysis) -->
-    <div v-if="!store.hasAnalysis" class="upload-section">
+    <div v-if="!store.hasMatches" class="upload-section">
       <FileUploader 
         :is-loading="store.isLoading"
         @upload="handleUpload"
@@ -79,11 +90,106 @@ function formatDate(dateStr) {
 
     <!-- Analysis Results -->
     <div v-else class="analysis-results">
+        
+      <!-- DASHBOARD MODE -->
+      <div v-if="viewMode === 'dashboard'" class="dashboard-container">
+        <!-- Dashboard Header -->
+        <div class="dashboard-header">
+            <div class="header-left">
+                <button class="btn btn-ghost" @click="store.clearAnalysis">← Upload New File</button>
+                <h2>Career Dashboard</h2>
+            </div>
+            
+            <!-- Filters -->
+            <div class="filters-bar">
+                <input 
+                    v-model="store.filters.opponent" 
+                    placeholder="Search Opponent..." 
+                    class="filter-input"
+                    @input="store.filters.opponent = $event.target.value"
+                />
+                 <input 
+                    v-model="store.filters.tournament" 
+                    placeholder="Filter Tournament..." 
+                    class="filter-input"
+                    @input="store.filters.tournament = $event.target.value"
+                />
+                <select v-model="store.filters.surface" class="filter-select">
+                    <option :value="null">All Surfaces</option>
+                    <option value="Hard">Hard</option>
+                    <option value="Clay">Clay</option>
+                    <option value="Grass">Grass</option>
+                    <option value="Indoor">Indoor</option>
+                </select>
+                <select v-model="store.filters.sets" class="filter-select">
+                    <option :value="null">All Sets</option>
+                    <option value="3">Best of 3</option>
+                    <option value="5">Best of 5</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Aggregate Stats Cards -->
+        <div class="stats-overview" v-if="store.aggregateStats">
+            <div class="stat-card">
+                <div class="stat-value">{{ store.aggregateStats.totalMatches }}</div>
+                <div class="stat-label">Matches</div>
+            </div>
+             <div class="stat-card">
+                <div class="stat-value">{{ store.aggregateStats.avgWinners }}</div>
+                <div class="stat-label">Avg Winners</div>
+            </div>
+             <div class="stat-card">
+                <div class="stat-value">{{ store.aggregateStats.avgUnforcedErrors }}</div>
+                <div class="stat-label">Avg Errors</div>
+            </div>
+             <div class="stat-card">
+                <div class="stat-value">{{ store.aggregateStats.avgAces }}</div>
+                <div class="stat-label">Avg Aces</div>
+            </div>
+             <div class="stat-card">
+                <div class="stat-value">{{ store.aggregateStats.avgDuration }}</div>
+                <div class="stat-label">Avg Duration</div>
+            </div>
+        </div>
+
+        <!-- Match List Table -->
+        <div class="match-list-container">
+            <table class="match-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Tournament</th>
+                        <th>Opponent</th>
+                        <th>Score</th>
+                        <th>Duration</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="(match, index) in store.filteredMatches" :key="index" @click="openMatch(store.matches.indexOf(match))" class="clickable-row">
+                        <td>{{ formatDate(match.info?.date) }}</td>
+                        <td>{{ match.info?.tournament }}</td>
+                        <td>{{ match.player1.name === 'Player 1' ? match.player2.name : (match.player1.name) }} vs {{ match.player2.name }}</td> 
+                        <td class="score-cell">{{ match.info?.score }}</td>
+                        <td>{{ match.info?.duration }}</td>
+                        <td><button class="btn btn-sm btn-primary">View</button></td>
+                    </tr>
+                    <tr v-if="store.filteredMatches.length === 0">
+                        <td colspan="6" class="text-center">No matches found matching filters</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+      </div>
+
+      <!-- DETAIL MODE -->
+      <div v-else class="match-detail-view">
       <!-- Match Info Header -->
       <div class="match-info-card">
         <div class="match-info-header">
-          <button class="btn btn-ghost" @click="store.clearAnalysis">
-            ← Back to Upload
+          <button class="btn btn-ghost" @click="backToDashboard">
+            ← Back to Dashboard
           </button>
           <span class="badge badge-success">Analysis Complete</span>
         </div>
@@ -181,7 +287,8 @@ function formatDate(dateStr) {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+      </div>
   </div>
 </template>
 
@@ -422,5 +529,92 @@ function formatDate(dateStr) {
     flex-direction: column;
     gap: var(--space-2);
   }
+}
+
+/* Dashboard Styles */
+.dashboard-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+}
+
+.dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+}
+
+.filters-bar {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.filter-input, .filter-select {
+    padding: var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-card);
+}
+
+.stats-overview {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--space-4);
+}
+
+.stat-card {
+    background: var(--color-bg-card);
+    padding: var(--space-4);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border);
+    text-align: center;
+    box-shadow: var(--shadow-sm);
+}
+
+.stat-value {
+    font-size: var(--font-size-2xl);
+    font-weight: bold;
+    color: var(--color-accent);
+}
+
+.stat-label {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+}
+
+.match-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--color-bg-card);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+.match-table th, .match-table td {
+    padding: var(--space-3);
+    text-align: left;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.match-table th {
+    background: var(--color-bg-secondary);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+}
+
+.clickable-row {
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+
+.clickable-row:hover {
+    background-color: var(--color-bg-hover);
+}
+
+.score-cell {
+    font-family: var(--font-mono);
+    font-weight: bold;
 }
 </style>
