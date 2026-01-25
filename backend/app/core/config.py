@@ -8,7 +8,6 @@ This module provides centralized configuration management that:
 
 from functools import lru_cache
 
-from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -31,20 +30,15 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
 
-    # CORS
-    cors_origins: list[str] = []
+    # CORS - stored as comma-separated string, parsed via property
+    cors_origins_str: str = ""
 
-    @field_validator("cors_origins", mode="before")
-    @classmethod
-    def parse_cors_origins(cls, value) -> list[str]:
-        """Parse comma-separated CORS origins string into list."""
-        if value is None or value == "":
+    @property
+    def cors_origins(self) -> list[str]:
+        """Get CORS origins as a list."""
+        if not self.cors_origins_str:
             return []
-        if isinstance(value, str):
-            return [origin.strip() for origin in value.split(",") if origin.strip()]
-        if isinstance(value, list):
-            return value
-        return []
+        return [origin.strip() for origin in self.cors_origins_str.split(",") if origin.strip()]
 
     # Live Scores
     live_scores_url: str = ""
