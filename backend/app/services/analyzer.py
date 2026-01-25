@@ -422,13 +422,22 @@ def parse_match_log_file(html_content: str) -> list[MatchStats]:
     for i, chunk in enumerate(chunks):
         if not chunk.strip():
             continue
+
+        # Check for valid match indicators before parsing
+        if " def. " not in chunk and " vs " not in chunk:
+            logger.debug(f"Skipping chunk {i} - no match indicators found")
+            continue
             
         try:
             stats = analyze_match_log(chunk)
-            if stats:
-                matches.append(stats)
+            # Only add if we actually extracted stats or have valid header info
+            if stats and (stats.player1.points.total_points_won > 0 or (stats.info and stats.info.score)):
+                 matches.append(stats)
+            elif stats and stats.info.score:
+                 # Case where we have info but maybe no stats table (rare)
+                 matches.append(stats)
             else:
-                logger.debug(f"Skipping chunk {i} - no valid stats found")
+                 logger.debug(f"Skipping chunk {i} - parsed stats appeared empty/invalid")
         except Exception as e:
             logger.warning(f"Failed to parse match chunk {i}: {e}")
             continue
