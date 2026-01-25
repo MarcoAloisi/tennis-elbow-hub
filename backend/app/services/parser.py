@@ -82,15 +82,16 @@ def parse_game_info_bitfield(value: int) -> GameInfo:
 
 
 # Regex pattern to match server entry components
-# Matches: hex_value "quoted_string" or standalone hex_value
+# IMPORTANT: IP-like pattern MUST come before hex pattern!
+# Otherwise "0.0.0.0" gets split: "0" matches hex, ".0.0.0" matches IP-like
 SERVER_PATTERN = re.compile(
-    r'"([^"]*)"'  # Quoted strings
+    r'"([^"]*)"'  # Group 1: Quoted strings (including empty)
     r"|"
-    r"([0-9A-Fa-f]+)"  # Hex values
+    r"(\d+\.\d+\.\d+\.\d+)"  # Group 2: Full IP addresses (must be before hex!)
     r"|"
-    r"(\*)"  # Asterisk marker
+    r"([0-9A-Fa-f]+)"  # Group 3: Hex values
     r"|"
-    r"([0-9.]+)"  # IP-like values
+    r"(\*)"  # Group 4: Asterisk marker
 )
 
 
@@ -106,14 +107,14 @@ def tokenize_server_line(line: str) -> list[str]:
     tokens = []
     for match in SERVER_PATTERN.finditer(line):
         # Check each group explicitly - empty strings "" are valid tokens!
-        # Using 'or' chain would skip empty strings since "" is falsy in Python
+        # Group order: 1=quoted string, 2=IP address, 3=hex value, 4=asterisk
         if match.group(1) is not None:  # Quoted string (can be empty "")
             tokens.append(match.group(1))
-        elif match.group(2) is not None:  # Hex value
+        elif match.group(2) is not None:  # Full IP address (e.g., 0.0.0.0)
             tokens.append(match.group(2))
-        elif match.group(3) is not None:  # Asterisk marker
+        elif match.group(3) is not None:  # Hex value
             tokens.append(match.group(3))
-        elif match.group(4) is not None:  # IP-like value
+        elif match.group(4) is not None:  # Asterisk marker
             tokens.append(match.group(4))
     return tokens
 
