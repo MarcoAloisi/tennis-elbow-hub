@@ -7,7 +7,6 @@ This module provides centralized configuration management that:
 """
 
 from functools import lru_cache
-from typing import Annotated
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -33,15 +32,19 @@ class Settings(BaseSettings):
     api_port: int = 8000
 
     # CORS
-    cors_origins: Annotated[list[str], Field(default_factory=list)]
+    cors_origins: list[str] = []
 
     @field_validator("cors_origins", mode="before")
     @classmethod
-    def parse_cors_origins(cls, value: str | list[str]) -> list[str]:
+    def parse_cors_origins(cls, value) -> list[str]:
         """Parse comma-separated CORS origins string into list."""
+        if value is None or value == "":
+            return []
         if isinstance(value, str):
             return [origin.strip() for origin in value.split(",") if origin.strip()]
-        return value
+        if isinstance(value, list):
+            return value
+        return []
 
     # Live Scores
     live_scores_url: str = ""
