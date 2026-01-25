@@ -24,12 +24,9 @@ function backToDashboard() {
 }
 
 // Stats mapping for the aggregate table
-const aggregatedPlayerStats = computed(() => {
-    const s = store.aggregateStats
+// Helper to map flat stats to nested structure
+function mapStatsToStructure(s) {
     if (!s) return null
-    
-    // Helper to extract value since we flattened the structure in store
-    // Use optional chaining or defaults as safety
     return {
         serve: {
             first_serve_pct: s.first_serve_pct,
@@ -38,12 +35,12 @@ const aggregatedPlayerStats = computed(() => {
             fastest_serve_kmh: s.fastest_serve,
             avg_first_serve_kmh: s.avg_first_serve,
             avg_second_serve_kmh: s.avg_second_serve,
-            first_serve_in: 0, // No total for aggregates
+            first_serve_in: 0,
             first_serve_total: 0
         },
         rally: {
             short_rallies_won: s.short_rally_won_pct,
-            short_rallies_total: 0, // Using pct directly
+            short_rallies_total: 0,
             normal_rallies_won: s.medium_rally_won_pct,
             normal_rallies_total: 0,
             long_rallies_won: s.long_rally_won_pct,
@@ -55,7 +52,7 @@ const aggregatedPlayerStats = computed(() => {
             forced_errors: s.forced_errors,
             unforced_errors: s.unforced_errors,
             points_on_first_serve_won: s.first_serve_won_pct,
-            points_on_first_serve_total: 0, // pct
+            points_on_first_serve_total: 0,
             points_on_second_serve_won: s.second_serve_won_pct,
             points_on_second_serve_total: 0,
             return_points_won: s.return_points_won_pct,
@@ -74,6 +71,14 @@ const aggregatedPlayerStats = computed(() => {
             match_points_saved: s.match_points_saved
         }
     }
+}
+
+const aggregatedPlayerStats = computed(() => {
+    return mapStatsToStructure(store.aggregateStats)
+})
+
+const aggregatedOpponentStats = computed(() => {
+    return mapStatsToStructure(store.aggregateStats?.opponent)
 })
 
 const categories = [
@@ -208,7 +213,18 @@ function formatDate(dateStr) {
         <!-- Global Stats Section -->
         <div class="global-stats-section" v-if="store.aggregateStats">
              <div class="section-header">
-                <h3>Global Statistics ({{ store.aggregateStats.totalMatches }} Matches)</h3>
+                <h3>
+                    <span v-if="store.filters.opponent">
+                        Vs {{ store.filters.opponent }}: 
+                        <span :class="{'text-success': store.aggregateStats.wins > store.aggregateStats.losses, 'text-danger': store.aggregateStats.wins < store.aggregateStats.losses}">
+                            {{ store.aggregateStats.wins }} - {{ store.aggregateStats.losses }}
+                        </span>
+                        <span class="text-muted text-sm"> ({{ store.aggregateStats.win_pct }}%)</span>
+                    </span>
+                    <span v-else>
+                        Global Statistics ({{ store.aggregateStats.totalMatches }} Matches)
+                    </span>
+                </h3>
                 <div class="stats-controls">
                      <div class="mode-toggle">
                         <button 
@@ -227,6 +243,22 @@ function formatDate(dateStr) {
                     </button>
                 </div>
              </div>
+
+             <!-- Win Rates Row -->
+             <div class="stats-overview secondary">
+                 <div class="stat-card mini">
+                    <div class="stat-value">{{ store.aggregateStats.win_pct }}%</div>
+                    <div class="stat-label">Match Win %</div>
+                </div>
+                 <div class="stat-card mini">
+                    <div class="stat-value">{{ store.aggregateStats.set_win_pct }}%</div>
+                    <div class="stat-label">Set Win %</div>
+                </div>
+                 <div class="stat-card mini">
+                    <div class="stat-value">{{ store.aggregateStats.game_win_pct }}%</div>
+                    <div class="stat-label">Game Win %</div>
+                </div>
+            </div>
 
              <!-- Summary Cards -->
              <div class="stats-overview">
@@ -250,9 +282,14 @@ function formatDate(dateStr) {
             
             <!-- Full Extended Stats Table -->
             <div v-if="showAllStats" class="extended-stats-container">
+                <div class="comparison-header" v-if="store.filters.opponent">
+                    <div class="col-left">You</div>
+                    <div class="col-center">Stat</div>
+                    <div class="col-right">{{ store.filters.opponent }}</div>
+                </div>
                 <StatsTable 
                     :player1="aggregatedPlayerStats"
-                    :player2="{ serve:{}, rally:{}, points:{}, break_points:{} }"
+                    :player2="aggregatedOpponentStats || { serve:{}, rally:{}, points:{}, break_points:{} }"
                     category="all"
                 />
             </div>
@@ -797,6 +834,38 @@ function formatDate(dateStr) {
     flex-direction: column;
     gap: var(--space-6);
 }
+
+.secondary {
+    grid-template-columns: repeat(3, 1fr);
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.mini {
+    padding: var(--space-2) var(--space-4);
+}
+
+.mini .stat-value {
+    font-size: var(--font-size-xl);
+}
+
+.text-success { color: var(--color-success); }
+.text-danger { color: var(--color-danger); }
+.text-muted { color: var(--color-text-muted); }
+.text-sm { font-size: var(--font-size-sm); }
+
+.comparison-header {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    padding: 0 var(--space-4) var(--space-2);
+    font-weight: bold;
+    color: var(--color-text-secondary);
+    border-bottom: 2px solid var(--color-border);
+    margin-bottom: var(--space-2);
+}
+.col-left { text-align: right; }
+.col-center { text-align: center; width: 160px;}
+.col-right { text-align: left;}
 
 .section-header {
     display: flex;

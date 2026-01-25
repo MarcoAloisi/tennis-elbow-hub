@@ -84,9 +84,20 @@ function formatValue(player, stat) {
     case 'ratio':
       return total ? `${val}/${total}` : val.toString()
     case 'rate_pct':
-      if (!total) return val.toString()
-      const pct = total > 0 ? Math.round((val / total) * 100) : 0
-      return `${val} / ${total} = ${pct}%`
+      if (!total) {
+          // If we have just the pct (from aggregate), display as pct
+          // But check if it's looking for a total
+          if (stat.total && !player[stat.path]?.[stat.total]) {
+              return `${val.toFixed(1)}%`
+          }
+          return val.toString()
+      }
+      const totalVal = player[stat.path]?.[stat.total] || 0
+      if (!totalVal) return `${val.toFixed(1)}%` // Fallback if total missing but val exists (aggregate case)
+      
+      const pct = totalVal > 0 ? Math.round((val / totalVal) * 100) : 0
+      // Smart format: "3/10 (30%)"
+      return `${val}/${totalVal} (${pct}%)`
     case 'dec':
       return val.toFixed(1)
     default:
