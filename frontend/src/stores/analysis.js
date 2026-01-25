@@ -211,9 +211,9 @@ export const useAnalysisStore = defineStore('analysis', () => {
 
             if (mode === 'avg') {
                 const sum = values.reduce((a, b) => a + b, 0)
-                result[key] = (sum / values.length).toFixed(1)
+                result[key] = parseFloat((sum / values.length).toFixed(1))
             } else {
-                result[key] = calculateMedian(values).toFixed(1)
+                result[key] = parseFloat(calculateMedian(values).toFixed(1))
             }
         })
 

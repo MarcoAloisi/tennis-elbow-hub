@@ -231,19 +231,19 @@ function formatDate(dateStr) {
              <!-- Summary Cards -->
              <div class="stats-overview">
                 <div class="stat-card">
-                    <div class="stat-value">{{ store.aggregateStats.avgWinners }}</div>
+                    <div class="stat-value">{{ store.aggregateStats.winners }}</div>
                     <div class="stat-label">{{ store.statsMode === 'avg' ? 'Avg' : 'Median' }} Winners</div>
                 </div>
                  <div class="stat-card">
-                    <div class="stat-value">{{ store.aggregateStats.avgUnforcedErrors }}</div>
+                    <div class="stat-value">{{ store.aggregateStats.unforced_errors }}</div>
                     <div class="stat-label">{{ store.statsMode === 'avg' ? 'Avg' : 'Median' }} Errors</div>
                 </div>
                  <div class="stat-card">
-                    <div class="stat-value">{{ store.aggregateStats.avgAces }}</div>
+                    <div class="stat-value">{{ store.aggregateStats.aces }}</div>
                     <div class="stat-label">{{ store.statsMode === 'avg' ? 'Avg' : 'Median' }} Aces</div>
                 </div>
                  <div class="stat-card">
-                    <div class="stat-value">{{ store.aggregateStats.avgDoubleFaults }}</div>
+                    <div class="stat-value">{{ store.aggregateStats.double_faults }}</div>
                     <div class="stat-label">{{ store.statsMode === 'avg' ? 'Avg' : 'Median' }} D.Faults</div>
                 </div>
             </div>
@@ -664,7 +664,9 @@ function formatDate(dateStr) {
 
 .filters-bar {
     display: flex;
-    gap: var(--space-2);
+    gap: var(--space-4);
+    flex-wrap: wrap;
+    align-items: flex-end;
 }
 
 .filter-input, .filter-select {
@@ -768,8 +770,9 @@ function formatDate(dateStr) {
 }
 
 .options-group {
+    display: flex;
+    flex-direction: column;
     justify-content: flex-end;
-    align-items: flex-end;
     gap: var(--space-2); 
     margin-left: auto;
 }
