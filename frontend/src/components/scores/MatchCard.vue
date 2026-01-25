@@ -112,7 +112,6 @@ const setsDisplay = computed(() => {
     <div class="match-players" :class="{ 'single-player': !players.player2 }">
       <div class="player">
         <div class="player-name-row">
-          <span v-if="scoreDisplay.servingPlayer === 1" class="serving-dot" title="Serving"></span>
           <span class="player-name">{{ players.player1 }}</span>
           <span class="host-badge" title="Match Host">HOST</span>
         </div>
@@ -123,7 +122,6 @@ const setsDisplay = computed(() => {
       <div class="player player-right" v-if="players.player2">
         <div class="player-name-row">
           <span class="player-name">{{ players.player2 }}</span>
-          <span v-if="scoreDisplay.servingPlayer === 2" class="serving-dot" title="Serving"></span>
         </div>
         <span class="player-elo">ELO: {{ server.other_elo }}</span>
       </div>
@@ -141,7 +139,9 @@ const setsDisplay = computed(() => {
         </span>
       </div>
       <div class="score-current" v-if="scoreDisplay.currentGame">
+        <span v-if="scoreDisplay.servingPlayer === 1" class="serving-dot-score"></span>
         {{ scoreDisplay.currentGame }}
+        <span v-if="scoreDisplay.servingPlayer === 2" class="serving-dot-score"></span>
       </div>
     </div>
 
@@ -259,13 +259,15 @@ const setsDisplay = computed(() => {
   letter-spacing: 0.5px;
 }
 
-.serving-dot {
+.serving-dot-score {
   display: inline-block;
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background-color: var(--color-accent, #6366f1);
   animation: pulse 1.5s infinite;
+  margin: 0 8px;
+  vertical-align: middle;
 }
 
 @keyframes pulse {

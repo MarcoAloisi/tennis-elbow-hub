@@ -14,13 +14,19 @@ export const useAnalysisStore = defineStore('analysis', () => {
     const error = ref(null)
     const uploadProgress = ref(0)
 
-    // Filters
+    // Filters & View Options
     const filters = ref({
         opponent: null,
         surface: null,
         tournament: null,
-        sets: null // '3', '5', or null
+        sets: null, // '3', '5', or null
+        cpu: true, // Hide CPU matches by default
+        dateStart: null,
+        dateEnd: null
     })
+
+    const sortDesc = ref(true) // Default to Newest first
+    const statsMode = ref('avg') // 'avg' or 'median'
 
     // Getters
     const hasMatches = computed(() => matches.value.length > 0)
@@ -32,11 +38,11 @@ export const useAnalysisStore = defineStore('analysis', () => {
 
     // Filtered Matches
     const filteredMatches = computed(() => {
-        return matches.value.filter(match => {
+        let result = matches.value.filter(match => {
             if (!match.info) return false
             const info = match.info
 
-            // Filter by Opponent (either player name matches)
+            // Filter by Opponent
             if (filters.value.opponent) {
                 const opp = filters.value.opponent.toLowerCase()
                 if (!info.player1_name.toLowerCase().includes(opp) &&
@@ -45,8 +51,21 @@ export const useAnalysisStore = defineStore('analysis', () => {
                 }
             }
 
-            // Filter by Surface (assuming surface is part of tournament name or separate metadata if available)
-            // Note: Parser currently extracts "Tournament", surface might need inference or better parsing
+            // Filter CPU Matches
+            if (filters.value.cpu) {
+                // Check for CPU indicators in opponent name (assuming User is Player 1, or check both)
+                // CPU names often have levels like "Incredible-10", "Pro-1", "Master-5"
+                // Or sometimes just ends with "-X"
+                const cpuPatterns = [/Incredible-/i, /Pro-/i, /Master-/i, /Junior-/i, /Club-/i, /-\d+$/]
+                const p1IsCpu = cpuPatterns.some(p => p.test(info.player1_name))
+                const p2IsCpu = cpuPatterns.some(p => p.test(info.player2_name))
+
+                // If we assume user is one of them, we usually want to hide matches vs CPU.
+                // Usually the opponent name has the CPU tag.
+                if (p1IsCpu || p2IsCpu) return false
+            }
+
+            // Filter by Surface
             if (filters.value.surface && info.tournament) {
                 if (!info.tournament.toLowerCase().includes(filters.value.surface.toLowerCase())) {
                     return false
@@ -60,17 +79,10 @@ export const useAnalysisStore = defineStore('analysis', () => {
                 }
             }
 
-            // Filter by Sets (Best of 3 vs Best of 5 vs 1 Set)
+            // Filter by Sets
             if (filters.value.sets && info.score) {
                 const score = info.score
-                // Heuristic: Best of 5 matches usually have scores like "6/3 4/6 6/1"
-                // Check if score implies 5 sets (e.g. contains "2/" or "3/" in set lines for older TE games, or just check set count)
-                // Better heuristic: check for "3-" or "-3" which implies someone reached 3 sets? No, strings form varies.
-                // Simple logic: Check existing logic for B05 vs B03
                 const isBestOf5 = score.includes('3/') || score.includes('/3') || score.includes('3-') || score.includes('-3')
-
-                // Count sets by spaces or typical separators
-                // Example score: "6/3 6/4" (2 sets)
                 const setParts = score.split(' ').filter(s => s.includes('/') || s.includes('-'))
                 const numSets = setParts.length
 
@@ -79,40 +91,134 @@ export const useAnalysisStore = defineStore('analysis', () => {
                 if (filters.value.sets === '1' && numSets > 1) return false
             }
 
+            // Filter by Date
+            if (filters.value.dateStart || filters.value.dateEnd) {
+                if (!info.date) return false
+                const matchDate = new Date(info.date)
+                if (filters.value.dateStart && matchDate < new Date(filters.value.dateStart)) return false
+                if (filters.value.dateEnd) {
+                    const endDate = new Date(filters.value.dateEnd)
+                    endDate.setHours(23, 59, 59, 999) // End of day
+                    if (matchDate > endDate) return false
+                }
+            }
+
             return true
         })
+
+        // Sorting
+        result.sort((a, b) => {
+            const dateA = a.info?.date ? new Date(a.info.date) : new Date(0)
+            const dateB = b.info?.date ? new Date(b.info.date) : new Date(0)
+            return sortDesc.value ? dateB - dateA : dateA - dateB
+        })
+
+        return result
     })
 
-    // Aggregates
+    // Helper for median calculation
+    function calculateMedian(values) {
+        if (values.length === 0) return 0
+        values.sort((a, b) => a - b)
+        const half = Math.floor(values.length / 2)
+        if (values.length % 2) return values[half]
+        return (values[half - 1] + values[half]) / 2.0
+    }
+
+    // Comprehensive Aggregates
     const aggregateStats = computed(() => {
         const list = filteredMatches.value
         if (!list.length) return null
 
-        let totalAces = 0
-        let totalDoubleFaults = 0
-        let totalWinners = 0
-        let totalUnforcedErrors = 0
-        let totalMatches = list.length
+        // metrics to collect
+        const metrics = {
+            matches: [],
+            // Serve
+            first_serve_pct: [],
+            aces: [],
+            double_faults: [],
+            fastest_serve: [],
+            avg_first_serve: [],
+            avg_second_serve: [],
+            first_serve_won_pct: [],
+            second_serve_won_pct: [],
+            // Rally
+            short_rally_won_pct: [],
+            medium_rally_won_pct: [],
+            long_rally_won_pct: [],
+            avg_rally_length: [],
+            // Points
+            winners: [],
+            forced_errors: [],
+            unforced_errors: [],
+            net_points_won_pct: [],
+            return_points_won_pct: [],
+            return_winners: [],
+            total_points_won_pct: [],
+            // Breaks
+            break_points_won_pct: [],
+            break_games_won_pct: [],
+            set_points_saved: [],
+            match_points_saved: []
+        }
 
         list.forEach(m => {
-            // Aggregate stats for the "Main Player" (Player 1 usually, or logic to detect user)
-            // For now assuming Player 1 is the user
             const p1 = m.player1
             if (p1) {
-                totalAces += p1.serve.aces
-                totalDoubleFaults += p1.serve.double_faults
-                totalWinners += p1.points.winners
-                totalUnforcedErrors += p1.points.unforced_errors
+                // Serve
+                metrics.first_serve_pct.push(p1.serve.first_serve_pct)
+                metrics.aces.push(p1.serve.aces)
+                metrics.double_faults.push(p1.serve.double_faults)
+                if (p1.serve.fastest_serve_kmh) metrics.fastest_serve.push(p1.serve.fastest_serve_kmh)
+                if (p1.serve.avg_first_serve_kmh) metrics.avg_first_serve.push(p1.serve.avg_first_serve_kmh)
+                if (p1.serve.avg_second_serve_kmh) metrics.avg_second_serve.push(p1.serve.avg_second_serve_kmh)
+                metrics.first_serve_won_pct.push(p1.points.points_on_first_serve_won / p1.points.points_on_first_serve_total * 100 || 0)
+                metrics.second_serve_won_pct.push(p1.points.points_on_second_serve_won / p1.points.points_on_second_serve_total * 100 || 0)
+
+                // Rally - calculate percentages for won/total if total > 0
+                if (p1.rally.short_rallies_total > 0) metrics.short_rally_won_pct.push(p1.rally.short_rallies_won / p1.rally.short_rallies_total * 100)
+                if (p1.rally.normal_rallies_total > 0) metrics.medium_rally_won_pct.push(p1.rally.normal_rallies_won / p1.rally.normal_rallies_total * 100)
+                if (p1.rally.long_rallies_total > 0) metrics.long_rally_won_pct.push(p1.rally.long_rallies_won / p1.rally.long_rallies_total * 100)
+                if (p1.rally.avg_rally_length > 0) metrics.avg_rally_length.push(p1.rally.avg_rally_length)
+
+                // Points
+                metrics.winners.push(p1.points.winners)
+                metrics.forced_errors.push(p1.points.forced_errors)
+                metrics.unforced_errors.push(p1.points.unforced_errors)
+                if (p1.points.net_points_total > 0) metrics.net_points_won_pct.push(p1.points.net_points_won / p1.points.net_points_total * 100)
+                if (p1.points.return_points_total > 0) metrics.return_points_won_pct.push(p1.points.return_points_won / p1.points.return_points_total * 100)
+                metrics.return_winners.push(p1.points.return_winners)
+                metrics.total_points_won_pct.push(p1.points.total_points_won / (p1.points.total_points_won + (m.player2?.points?.total_points_won || 0)) * 100 || 0)
+
+                // Breaks
+                if (p1.break_points.break_points_total > 0) metrics.break_points_won_pct.push(p1.break_points.break_points_won / p1.break_points.break_points_total * 100)
+                if (p1.break_points.break_games_total > 0) metrics.break_games_won_pct.push(p1.break_points.break_games_won / p1.break_points.break_games_total * 100)
+                metrics.set_points_saved.push(p1.break_points.set_points_saved)
+                metrics.match_points_saved.push(p1.break_points.match_points_saved)
             }
         })
 
-        return {
-            totalMatches,
-            avgAces: (totalAces / totalMatches).toFixed(1),
-            avgDoubleFaults: (totalDoubleFaults / totalMatches).toFixed(1),
-            avgWinners: (totalWinners / totalMatches).toFixed(1),
-            avgUnforcedErrors: (totalUnforcedErrors / totalMatches).toFixed(1)
-        }
+        const result = {}
+        const mode = statsMode.value
+
+        Object.keys(metrics).forEach(key => {
+            if (key === 'matches') return
+            const values = metrics[key]
+            if (values.length === 0) {
+                result[key] = 0
+                return
+            }
+
+            if (mode === 'avg') {
+                const sum = values.reduce((a, b) => a + b, 0)
+                result[key] = (sum / values.length).toFixed(1)
+            } else {
+                result[key] = calculateMedian(values).toFixed(1)
+            }
+        })
+
+        result.totalMatches = list.length
+        return result
     })
 
     // Actions
@@ -217,7 +323,10 @@ export const useAnalysisStore = defineStore('analysis', () => {
             opponent: null,
             surface: null,
             tournament: null,
-            sets: null
+            sets: null,
+            cpu: true,
+            dateStart: null,
+            dateEnd: null
         }
     }
 
@@ -229,6 +338,8 @@ export const useAnalysisStore = defineStore('analysis', () => {
         isLoading,
         error,
         uploadProgress,
+        sortDesc,
+        statsMode,
         // Getters
         hasMatches,
         currentMatch,
