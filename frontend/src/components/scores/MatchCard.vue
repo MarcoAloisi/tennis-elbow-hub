@@ -112,7 +112,7 @@ const setsDisplay = computed(() => {
     <div class="match-players" :class="{ 'single-player': !players.player2 }">
       <div class="player">
         <div class="player-name-row">
-          <span v-if="scoreDisplay.servingPlayer === 1" class="serving-indicator" title="Serving">🎾</span>
+          <span v-if="scoreDisplay.servingPlayer === 1" class="serving-dot" title="Serving"></span>
           <span class="player-name">{{ players.player1 }}</span>
           <span class="host-badge" title="Match Host">HOST</span>
         </div>
@@ -123,7 +123,7 @@ const setsDisplay = computed(() => {
       <div class="player player-right" v-if="players.player2">
         <div class="player-name-row">
           <span class="player-name">{{ players.player2 }}</span>
-          <span v-if="scoreDisplay.servingPlayer === 2" class="serving-indicator" title="Serving">🎾</span>
+          <span v-if="scoreDisplay.servingPlayer === 2" class="serving-dot" title="Serving"></span>
         </div>
         <span class="player-elo">ELO: {{ server.other_elo }}</span>
       </div>
@@ -259,19 +259,22 @@ const setsDisplay = computed(() => {
   letter-spacing: 0.5px;
 }
 
-.serving-indicator {
-  font-size: 14px;
-  animation: bounce 0.6s infinite ease-in-out;
+.serving-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--color-accent, #6366f1);
+  animation: pulse 1.5s infinite;
 }
 
-@keyframes bounce {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-3px);
-  }
+@keyframes pulse {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.1); opacity: 1; box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2); }
+  100% { transform: scale(0.95); opacity: 0.8; }
 }
+
+
 
 .vs-separator {
   font-size: var(--font-size-sm);
