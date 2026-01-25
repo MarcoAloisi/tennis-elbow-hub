@@ -1,4 +1,4 @@
-# 🎾 Tennis Tracker
+# 🎾 Tennis Elbow Hub
 
 A modern web application for tracking live Tennis Elbow 4 scores and analyzing match logs.
 
