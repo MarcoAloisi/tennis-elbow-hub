@@ -111,21 +111,21 @@ const setsDisplay = computed(() => {
     <!-- Players -->
     <div class="match-players" :class="{ 'single-player': !players.player2 }">
       <div class="player">
-        <span class="player-name">
-          <span v-if="scoreDisplay.servingPlayer === 1" class="serving-ball">🎾</span>
-          {{ players.player1 }}
-        </span>
+        <div class="player-name-row">
+          <span v-if="scoreDisplay.servingPlayer === 1" class="serving-indicator" title="Serving">🎾</span>
+          <span class="player-name">{{ players.player1 }}</span>
+          <span class="host-badge" title="Match Host">HOST</span>
+        </div>
         <span class="player-elo">ELO: {{ server.elo }}</span>
-        <span class="player-games">{{ server.nb_game }} games</span>
+        <span class="player-games">{{ server.nb_game }} games played</span>
       </div>
       <span class="vs-separator" v-if="players.player2">vs</span>
       <div class="player player-right" v-if="players.player2">
-        <span class="player-name">
-          {{ players.player2 }}
-          <span v-if="scoreDisplay.servingPlayer === 2" class="serving-ball">🎾</span>
-        </span>
+        <div class="player-name-row">
+          <span class="player-name">{{ players.player2 }}</span>
+          <span v-if="scoreDisplay.servingPlayer === 2" class="serving-indicator" title="Serving">🎾</span>
+        </div>
         <span class="player-elo">ELO: {{ server.other_elo }}</span>
-        <span class="player-games">{{ server.other_elo > 0 ? '' : '' }}</span>
       </div>
     </div>
 
@@ -238,16 +238,30 @@ const setsDisplay = computed(() => {
   opacity: 0.8;
 }
 
-.serving-ball {
-  display: inline-block;
-  animation: bounce 0.6s infinite ease-in-out;
-  margin-right: 4px;
-  font-size: 0.9em;
+.player-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.player-right .serving-ball {
-  margin-right: 0;
-  margin-left: 4px;
+.player-right .player-name-row {
+  justify-content: flex-end;
+}
+
+.host-badge {
+  font-size: 9px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-accent);
+  background: var(--color-accent-light, rgba(99, 102, 241, 0.1));
+  padding: 1px 4px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.serving-indicator {
+  font-size: 14px;
+  animation: bounce 0.6s infinite ease-in-out;
 }
 
 @keyframes bounce {
