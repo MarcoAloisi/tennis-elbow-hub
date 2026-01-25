@@ -423,12 +423,15 @@ def parse_match_log_file(html_content: str) -> list[MatchStats]:
         if not chunk.strip():
             continue
             
-        stats = analyze_match_log(chunk)
-        if stats:
-            matches.append(stats)
-        else:
-            # Sometimes the first chunk is just a header or script
-            logger.debug(f"Skipping chunk {i} - no valid stats found")
+        try:
+            stats = analyze_match_log(chunk)
+            if stats:
+                matches.append(stats)
+            else:
+                logger.debug(f"Skipping chunk {i} - no valid stats found")
+        except Exception as e:
+            logger.warning(f"Failed to parse match chunk {i}: {e}")
+            continue
             
     return matches
 

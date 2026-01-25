@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     def cors_origins(self) -> list[str]:
         """Get CORS origins as a list."""
         if not self.cors_origins_str:
+            if self.app_env.lower() == "development":
+                return ["*"]
             return []
         return [origin.strip() for origin in self.cors_origins_str.split(",") if origin.strip()]
 

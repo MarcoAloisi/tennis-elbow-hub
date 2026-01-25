@@ -60,6 +60,25 @@ export const useAnalysisStore = defineStore('analysis', () => {
                 }
             }
 
+            // Filter by Sets (Best of 3 vs Best of 5 vs 1 Set)
+            if (filters.value.sets && info.score) {
+                const score = info.score
+                // Heuristic: Best of 5 matches usually have scores like "6/3 4/6 6/1"
+                // Check if score implies 5 sets (e.g. contains "2/" or "3/" in set lines for older TE games, or just check set count)
+                // Better heuristic: check for "3-" or "-3" which implies someone reached 3 sets? No, strings form varies.
+                // Simple logic: Check existing logic for B05 vs B03
+                const isBestOf5 = score.includes('3/') || score.includes('/3') || score.includes('3-') || score.includes('-3')
+
+                // Count sets by spaces or typical separators
+                // Example score: "6/3 6/4" (2 sets)
+                const setParts = score.split(' ').filter(s => s.includes('/') || s.includes('-'))
+                const numSets = setParts.length
+
+                if (filters.value.sets === '5' && !isBestOf5) return false
+                if (filters.value.sets === '3' && (isBestOf5 || numSets === 1)) return false
+                if (filters.value.sets === '1' && numSets > 1) return false
+            }
+
             return true
         })
     })

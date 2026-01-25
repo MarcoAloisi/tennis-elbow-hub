@@ -11,11 +11,21 @@ const props = defineProps({
 // Parse player names from match_name
 const players = computed(() => {
   const name = props.server.match_name || ''
+  
+  // Try " vs " separator
   if (name.includes(' vs ')) {
     const parts = name.split(' vs ')
     return { player1: parts[0].trim(), player2: parts[1].trim() }
   }
-  return { player1: name, player2: 'Unknown' }
+  
+  // Try " - " separator
+  if (name.includes(' - ')) {
+    const parts = name.split(' - ')
+    return { player1: parts[0].trim(), player2: parts[1].trim() }
+  }
+  
+  // Single player or unknown format
+  return { player1: name, player2: null }
 })
 
 // Parse score for display
@@ -63,13 +73,13 @@ const surfaceDisplay = computed(() => {
     </div>
 
     <!-- Players -->
-    <div class="match-players">
+    <div class="match-players" :class="{ 'single-player': !players.player2 }">
       <div class="player">
         <span class="player-name">{{ players.player1 }}</span>
         <span class="player-elo">ELO: {{ server.elo }}</span>
       </div>
-      <span class="vs-separator">vs</span>
-      <div class="player player-right">
+      <span class="vs-separator" v-if="players.player2">vs</span>
+      <div class="player player-right" v-if="players.player2">
         <span class="player-name">{{ players.player2 }}</span>
         <span class="player-elo">ELO: {{ server.other_elo }}</span>
       </div>
@@ -149,6 +159,12 @@ const surfaceDisplay = computed(() => {
   align-items: center;
   gap: var(--space-3);
   margin-bottom: var(--space-4);
+}
+
+.match-players.single-player {
+  display: flex;
+  justify-content: center;
+  text-align: center;
 }
 
 .player {

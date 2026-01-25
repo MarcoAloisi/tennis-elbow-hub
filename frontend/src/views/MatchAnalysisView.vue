@@ -123,6 +123,7 @@ function formatDate(dateStr) {
                 </select>
                 <select v-model="store.filters.sets" class="filter-select">
                     <option :value="null">All Sets</option>
+                    <option value="1">1 Set</option>
                     <option value="3">Best of 3</option>
                     <option value="5">Best of 5</option>
                 </select>
