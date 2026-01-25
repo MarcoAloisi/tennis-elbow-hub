@@ -28,29 +28,50 @@ const players = computed(() => {
   return { player1: name, player2: null }
 })
 
-// Parse score for display and determine who is serving
+// Enhanced score parsing for grid display
 const scoreDisplay = computed(() => {
   const score = props.server.score || ''
   // Format: "6/3 4/6 1/1 -- 00:40•" or "6/3 4/6 1/1 -- •00:40"
+  
   const parts = score.split(' -- ')
-  const sets = parts[0] ? parts[0].trim().split(' ') : []
-  let currentGame = parts[1] ? parts[1].trim() : ''
+  const setsRaw = parts[0] ? parts[0].trim().split(' ') : []
+  let currentGameRaw = parts[1] ? parts[1].trim() : ''
   
-  // Detect which player is serving based on • position
-  // • at the start means player 1 is serving, at the end means player 2
+  // Detect serving player
   let servingPlayer = 0 // 0 = unknown, 1 = player1, 2 = player2
-  if (currentGame.startsWith('•')) {
+  if (currentGameRaw.startsWith('•')) {
     servingPlayer = 1
-    currentGame = currentGame.substring(1) // Remove the •
-  } else if (currentGame.endsWith('•')) {
+    currentGameRaw = currentGameRaw.substring(1) // Remove the •
+  } else if (currentGameRaw.endsWith('•')) {
     servingPlayer = 2
-    currentGame = currentGame.substring(0, currentGame.length - 1) // Remove the •
+    currentGameRaw = currentGameRaw.substring(0, currentGameRaw.length - 1) // Remove the •
   }
-  
-  return { sets, currentGame, servingPlayer }
+
+  // Parse sets into { p1: val, p2: val }
+  // Example "6/3" -> { p1: "6", p2: "3" }
+  const sets = setsRaw.map(setStr => {
+    if (setStr.includes('/')) {
+      const [p1, p2] = setStr.split('/')
+      return { p1, p2 }
+    }
+    return { p1: setStr, p2: '' }
+  }).filter(s => s.p1 || s.p2) // Filter empty entries
+
+  // Parse current game points
+  // Example "00:40" or "40:Ad"
+  let points = { p1: '', p2: '' }
+  if (currentGameRaw.includes(':')) {
+    const [p1, p2] = currentGameRaw.split(':')
+    points = { p1, p2 }
+  } else if (currentGameRaw) {
+    // Fallback if no separator
+    points = { p1: currentGameRaw, p2: '' }
+  }
+
+  return { sets, points, servingPlayer }
 })
 
-// Surface badge class - determine from surface_display (computed by backend)
+// Surface badge class
 const surfaceClass = computed(() => {
   const surface = (props.server.surface_display || props.server.surface_name || '').toLowerCase()
   if (surface.includes('clay')) return 'badge-surface-clay'
@@ -59,12 +80,9 @@ const surfaceClass = computed(() => {
   return 'badge-surface-hard'
 })
 
-// Format surface name - prefer backend-computed value
+// Format surface name
 const surfaceDisplay = computed(() => {
-  // Use backend-computed surface_display if available
-  if (props.server.surface_display) {
-    return props.server.surface_display
-  }
+  if (props.server.surface_display) return props.server.surface_display
   
   const name = props.server.surface_name || ''
   const map = {
@@ -76,19 +94,24 @@ const surfaceDisplay = computed(() => {
   return map[name] || name
 })
 
-// Tournament name - cleaned up (without numeric prefix)
+// Tournament name
 const tournamentDisplay = computed(() => {
-  // Use backend-computed tournament_display if available
-  if (props.server.tournament_display) {
-    return props.server.tournament_display
-  }
-  
+  if (props.server.tournament_display) return props.server.tournament_display
   const name = props.server.surface_name || ''
-  // Remove numeric prefix like "0010 " or "00031 "
-  return name.replace(/^\d+\s+/, '')
+  return name.replace(/^\d+\s+/, '') // Fallback cleanup
 })
 
-// Number of sets display
+// Mod display (e.g., "XKT v4.2d")
+const modDisplay = computed(() => {
+  const tagline = props.server.tag_line || ''
+  // Basic cleanup if needed, but usually tag_line contains exactly what we want
+  // E.g. "XKT v4.2d" or "TE4 v1.0"
+  // If it's empty or irrelevant, return null
+  if (!tagline || tagline === '0' || tagline === '0.0.0.0') return ''
+  return tagline
+})
+
+// Sets format display
 const setsDisplay = computed(() => {
   return props.server.game_info?.sets_display || ''
 })
@@ -99,60 +122,84 @@ const setsDisplay = computed(() => {
   <div class="match-card" :class="{ 'is-live': server.is_started }">
     <!-- Header -->
     <div class="match-header">
-      <span v-if="server.is_started" class="badge badge-live">
-        <span class="live-dot"></span>
-        LIVE
-      </span>
-      <span v-else class="badge badge-info">WAITING</span>
-      <span v-if="tournamentDisplay" class="badge badge-tournament">{{ tournamentDisplay }}</span>
-      <span v-else class="badge" :class="surfaceClass">{{ surfaceDisplay }}</span>
-    </div>
-
-    <!-- Players -->
-    <div class="match-players" :class="{ 'single-player': !players.player2 }">
-      <div class="player">
-        <div class="player-name-row">
-          <span class="player-name">{{ players.player1 }}</span>
-          <span class="host-badge" title="Match Host">HOST</span>
-        </div>
-        <span class="player-elo">ELO: {{ server.elo }}</span>
-        <span class="player-games">{{ server.nb_game }} games played</span>
-      </div>
-      <span class="vs-separator" v-if="players.player2">vs</span>
-      <div class="player player-right" v-if="players.player2">
-        <div class="player-name-row">
-          <span class="player-name">{{ players.player2 }}</span>
-        </div>
-        <span class="player-elo">ELO: {{ server.other_elo }}</span>
-      </div>
-    </div>
-
-    <!-- Score -->
-    <div class="match-score" v-if="server.is_started && scoreDisplay.sets.length">
-      <div class="score-sets">
-        <span 
-          v-for="(set, idx) in scoreDisplay.sets" 
-          :key="idx"
-          class="score-set"
-        >
-          {{ set }}
+      <div class="status-badges">
+        <span v-if="server.is_started" class="badge badge-live">
+          <span class="live-dot-pulse"></span>
+          LIVE
         </span>
+        <span v-else class="badge badge-waiting">WAITING</span>
+        
+        <span v-if="tournamentDisplay" class="badge badge-tournament">{{ tournamentDisplay }}</span>
+        <span v-else class="badge" :class="surfaceClass">{{ surfaceDisplay }}</span>
       </div>
-      <div class="score-current" v-if="scoreDisplay.currentGame">
-        <span v-if="scoreDisplay.servingPlayer === 1" class="serving-dot-score"></span>
-        {{ scoreDisplay.currentGame }}
-        <span v-if="scoreDisplay.servingPlayer === 2" class="serving-dot-score"></span>
+    </div>
+
+    <!-- Match Grid Layout -->
+    <div class="match-grid">
+      <!-- Row 1: Player 1 -->
+      <div class="player-row">
+        <div class="player-info">
+          <div class="name-container">
+            <span class="player-name">{{ players.player1 || 'Player 1' }}</span>
+            <span class="host-badge" title="Match Host">HOST</span>
+          </div>
+          <span class="player-elo">elo: {{ server.elo }}</span>
+        </div>
+        
+        <!-- Serving Indicator P1 -->
+        <div class="serving-column">
+          <span v-if="scoreDisplay.servingPlayer === 1" class="serving-dot"></span>
+        </div>
+
+        <!-- Sets P1 -->
+        <div class="sets-column">
+          <span v-for="(set, idx) in scoreDisplay.sets" :key="idx" class="set-score">
+            {{ set.p1 }}
+          </span>
+        </div>
+
+        <!-- Points P1 -->
+        <div class="points-column" :class="{ 'has-points': server.is_started }">
+          <span class="point-score">{{ scoreDisplay.points.p1 }}</span>
+        </div>
+      </div>
+
+      <!-- Row 2: Player 2 -->
+      <div class="player-row">
+        <div class="player-info">
+          <div class="name-container">
+            <span class="player-name">{{ players.player2 || 'Player 2' }}</span>
+          </div>
+          <span class="player-elo">elo: {{ server.other_elo }}</span>
+        </div>
+
+        <!-- Serving Indicator P2 -->
+        <div class="serving-column">
+          <span v-if="scoreDisplay.servingPlayer === 2" class="serving-dot"></span>
+        </div>
+
+        <!-- Sets P2 -->
+        <div class="sets-column">
+          <span v-for="(set, idx) in scoreDisplay.sets" :key="idx" class="set-score">
+            {{ set.p2 }}
+          </span>
+        </div>
+
+        <!-- Points P2 -->
+        <div class="points-column" :class="{ 'has-points': server.is_started }">
+          <span class="point-score">{{ scoreDisplay.points.p2 }}</span>
+        </div>
       </div>
     </div>
 
     <!-- Footer -->
     <div class="match-footer">
-      <span class="match-mode">
-        {{ server.game_info?.mode_display || 'Singles' }}
-      </span>
-      <span v-if="setsDisplay" class="match-sets">
-        {{ setsDisplay }}
-      </span>
+      <span class="footer-tag">{{ server.game_info?.mode_display || 'Singles' }}</span>
+      
+      <!-- Mod Version -->
+      <span v-if="modDisplay" class="footer-tag mod-tag">{{ modDisplay }}</span>
+      
+      <span v-if="setsDisplay" class="footer-tag sets-tag">{{ setsDisplay }}</span>
     </div>
   </div>
 </template>
@@ -162,8 +209,11 @@ const setsDisplay = computed(() => {
   background: var(--color-bg-card);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  padding: var(--space-5);
+  padding: var(--space-4);
   transition: all var(--transition-base);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
 }
 
 .match-card:hover {
@@ -173,58 +223,86 @@ const setsDisplay = computed(() => {
 }
 
 .match-card.is-live {
-  border-color: var(--color-error);
-  box-shadow: 0 0 0 1px var(--color-error);
+  border-left: 4px solid var(--color-error);
 }
 
+/* Header */
 .match-header {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-4);
 }
 
-.live-dot {
-  width: 6px;
-  height: 6px;
-  background: currentColor;
+.status-badges {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.badge-live {
+  background-color: var(--color-error);
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.live-dot-pulse {
+  width: 8px;
+  height: 8px;
+  background-color: white;
   border-radius: 50%;
   animation: pulse 1.5s infinite;
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.9); }
 }
 
-.match-players {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: var(--space-3);
-  margin-bottom: var(--space-4);
+.badge-waiting {
+  background-color: var(--color-bg-tertiary);
+  color: var(--color-text-muted);
 }
 
-.match-players.single-player {
-  display: flex;
-  justify-content: center;
-  text-align: center;
-}
-
-.player {
+/* Match Grid */
+.match-grid {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
 }
 
-.player-right {
-  text-align: right;
+.player-row {
+  display: flex;
+  align-items: center;
+  height: 36px; /* Fixed height for consistency */
+}
+
+/* 1. Player Info Column */
+.player-info {
+  flex: 1; /* Takes remaining space */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 140px;
+  overflow: hidden;
+}
+
+.name-container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .player-name {
   font-weight: var(--font-weight-semibold);
   font-size: var(--font-size-base);
   color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .player-elo {
@@ -232,124 +310,123 @@ const setsDisplay = computed(() => {
   color: var(--color-text-muted);
 }
 
-.player-games {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  opacity: 0.8;
-}
-
-.player-name-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.player-right .player-name-row {
-  justify-content: flex-end;
-}
-
 .host-badge {
-  font-size: 9px;
-  font-weight: var(--font-weight-bold);
+  font-size: 8px;
+  font-weight: bold;
   color: var(--color-accent);
-  background: var(--color-accent-light, rgba(99, 102, 241, 0.1));
-  padding: 1px 4px;
-  border-radius: 3px;
+  background: rgba(99, 102, 241, 0.1);
+  padding: 1px 3px;
+  border-radius: 2px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  flex-shrink: 0;
 }
 
-.serving-dot-score {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background-color: var(--color-accent, #6366f1);
-  animation: pulse 1.5s infinite;
-  margin: 0 8px;
-  vertical-align: middle;
-}
-
-@keyframes pulse {
-  0% { transform: scale(0.95); opacity: 0.8; }
-  50% { transform: scale(1.1); opacity: 1; box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2); }
-  100% { transform: scale(0.95); opacity: 0.8; }
-}
-
-
-
-.vs-separator {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-  font-weight: var(--font-weight-medium);
-}
-
-.match-score {
+/* 2. Serving Column */
+.serving-column {
+  width: 24px;
   display: flex;
-  flex-direction: column;
+  justify-content: center;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  background: var(--color-bg-secondary);
-  border-radius: var(--radius-md);
-  margin-bottom: var(--space-4);
+  margin-right: 8px;
 }
 
-.score-sets {
+.serving-dot {
+  width: 10px;
+  height: 10px;
+  background-color: #007bff; /* Bright Blue */
+  border-radius: 50%;
+}
+
+/* 3. Sets Column */
+.sets-column {
   display: flex;
-  gap: var(--space-2);
+  gap: 12px;
+  margin-right: 16px;
 }
 
-.score-set {
+.set-score {
+  width: 20px;
+  text-align: center;
   font-family: var(--font-mono);
   font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-bold);
-  padding: var(--space-1) var(--space-2);
-  background: var(--color-bg-tertiary);
-  border-radius: var(--radius-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
 }
 
-.score-current {
+/* 4. Points Column */
+.points-column {
+  width: 40px;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: transparent; /* Default */
+  border-radius: 0;
+}
+
+/* Row-spanning background for points */
+.match-grid {
+  position: relative;
+}
+
+/* To create the blue box effect for points, we apply background to the column 
+   but we want it to look connected.  */
+.points-column.has-points {
+  background-color: #007bff;
+  color: white;
+}
+
+.player-row:first-child .points-column.has-points {
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+  margin-bottom: 1px; /* Tiny gap */
+}
+
+.player-row:last-child .points-column.has-points {
+  border-bottom-left-radius: 4px;
+  border-bottom-right-radius: 4px;
+}
+
+.point-score {
   font-family: var(--font-mono);
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-lg); /* Slightly larger */
   font-weight: var(--font-weight-bold);
-  color: var(--color-accent);
 }
 
+
+/* Footer */
 .match-footer {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: var(--space-2);
+  gap: 8px;
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-3);
+}
+
+.footer-tag {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
-}
-
-.match-mode {
-  padding: var(--space-1) var(--space-2);
   background: var(--color-bg-secondary);
-  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 500;
 }
 
-.match-sets {
-  padding: var(--space-1) var(--space-2);
-  background: var(--color-accent-light, rgba(99, 102, 241, 0.1));
+.mod-tag {
+  color: var(--color-text-primary);
+  background-color: rgba(99, 102, 241, 0.05); /* Light Indigo tint */
+}
+
+.sets-tag {
   color: var(--color-accent);
-  border-radius: var(--radius-sm);
-  font-weight: var(--font-weight-medium);
-}
-
-.match-tag {
-  max-width: 100px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  background-color: rgba(99, 102, 241, 0.1);
+  margin-left: auto; /* Push to right */
 }
 
 .badge-tournament {
-  background: var(--color-bg-tertiary, #f3f4f6);
-  color: var(--color-text-secondary, #6b7280);
-  max-width: 140px;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  max-width: 150px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

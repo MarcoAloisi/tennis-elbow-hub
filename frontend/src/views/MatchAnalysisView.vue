@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useAnalysisStore } from '@/stores/analysis'
 import FileUploader from '@/components/analysis/FileUploader.vue'
 import StatsTable from '@/components/analysis/StatsTable.vue'
