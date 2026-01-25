@@ -67,7 +67,7 @@ export const useScoresStore = defineStore('scores', () => {
             if (filters.value.minElo) params.append('min_elo', filters.value.minElo)
             if (filters.value.maxElo) params.append('max_elo', filters.value.maxElo)
 
-            const url = apiUrl(`/scores${params.toString() ? '?' + params.toString() : ''}`)
+            const url = apiUrl(`/api/scores${params.toString() ? '?' + params.toString() : ''}`)
             const response = await fetch(url)
 
             if (!response.ok) {

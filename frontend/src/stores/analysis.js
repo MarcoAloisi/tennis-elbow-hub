@@ -30,7 +30,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
             const formData = new FormData()
             formData.append('file', file)
 
-            const response = await fetch(apiUrl('/analysis/upload'), {
+            const response = await fetch(apiUrl('/api/analysis/upload'), {
                 method: 'POST',
                 body: formData
             })
@@ -74,7 +74,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
         error.value = null
 
         try {
-            const response = await fetch(apiUrl('/analysis/sample'))
+            const response = await fetch(apiUrl('/api/analysis/sample'))
 
             if (!response.ok) {
                 throw new Error(`HTTP error ${response.status}`)

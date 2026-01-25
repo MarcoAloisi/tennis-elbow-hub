@@ -11,7 +11,7 @@ import ErrorAlert from '@/components/common/ErrorAlert.vue'
 const store = useScoresStore()
 
 // WebSocket for real-time updates
-const { data: wsData, isConnected, error: wsError } = useWebSocket(wsUrl('/scores/ws'))
+const { data: wsData, isConnected, error: wsError } = useWebSocket(wsUrl('/api/scores/ws'))
 
 // Update store when WebSocket receives data
 watch(wsData, (newData) => {
