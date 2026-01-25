@@ -333,6 +333,7 @@ def build_player_stats(
         points_on_second_serve_total=second_serve_pts[1],
         return_points_won=return_pts[0],
         return_points_total=return_pts[1],
+        return_winners=parse_ratio(get_stat(["RETURN WINNERS"]))[0],
         total_points_won=parse_ratio(get_stat(["TOTAL POINTS WON"]))[0],
     )
 
@@ -344,6 +345,7 @@ def build_player_stats(
         break_points_won=break_pts[0],
         break_points_total=break_pts[1],
         break_games_won=break_games[0],
+        break_games_total=break_games[1],
         set_points_saved=parse_ratio(get_stat(["SET POINTS SAVED"]))[0],
         match_points_saved=parse_ratio(get_stat(["MATCH POINTS SAVED"]))[0],
     )

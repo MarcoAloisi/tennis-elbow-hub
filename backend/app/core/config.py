@@ -40,7 +40,16 @@ class Settings(BaseSettings):
             if self.app_env.lower() == "development":
                 return ["*"]
             return []
-        return [origin.strip() for origin in self.cors_origins_str.split(",") if origin.strip()]
+        origins = []
+        for origin in self.cors_origins_str.split(","):
+            origin = origin.strip()
+            if not origin:
+                continue
+            if not origin.startswith(("http://", "https://")) and origin != "*":
+                origins.append(f"https://{origin}")
+            else:
+                origins.append(origin)
+        return origins
 
     # Live Scores
     live_scores_url: str = ""

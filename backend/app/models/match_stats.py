@@ -54,6 +54,7 @@ class PointStats(BaseModel):
     points_on_second_serve_total: int = Field(ge=0, description="Total 2nd serve points")
     return_points_won: int = Field(ge=0, description="Return points won")
     return_points_total: int = Field(ge=0, description="Total return points")
+    return_winners: int = Field(ge=0, description="Return winners")
     total_points_won: int = Field(ge=0, description="Total points won")
 
 
@@ -63,6 +64,7 @@ class BreakPointStats(BaseModel):
     break_points_won: int = Field(ge=0, description="Break points converted")
     break_points_total: int = Field(ge=0, description="Total break point opportunities")
     break_games_won: int = Field(ge=0, description="Games broken")
+    break_games_total: int = Field(ge=0, description="Total return games opportunity")
     set_points_saved: int = Field(ge=0, description="Set points saved")
     match_points_saved: int = Field(ge=0, description="Match points saved")
 
