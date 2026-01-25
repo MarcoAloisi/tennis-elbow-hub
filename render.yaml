@@ -1,7 +1,7 @@
 services:
   # Backend API Service
   - type: web
-    name: tennis-tracker-api
+    name: tennis-elbow-hub-api
     runtime: python
     region: frankfurt
     plan: free
@@ -20,7 +20,7 @@ services:
 
   # Frontend Static Site
   - type: web
-    name: tennis-tracker-web
+    name: tennis-elbow-hub-web
     runtime: static
     buildCommand: cd frontend && npm install && npm run build
     staticPublishPath: ./frontend/dist

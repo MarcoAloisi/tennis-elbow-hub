@@ -10,7 +10,7 @@ import ThemeToggle from './components/common/ThemeToggle.vue'
       <div class="header-content">
         <div class="logo">
           <span class="logo-icon">🎾</span>
-          <span class="logo-text">Tennis Tracker</span>
+          <span class="logo-text">Tennis Elbow Hub</span>
         </div>
         
         <nav class="nav-links">
@@ -37,7 +37,7 @@ import ThemeToggle from './components/common/ThemeToggle.vue'
     
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Tennis Tracker &copy; 2025 - Tennis Elbow 4 Live Scores & Analysis</p>
+      <p>Tennis Elbow Hub &copy; 2025 - Tennis Elbow 4 Live Scores & Analysis</p>
     </footer>
   </div>
 </template>

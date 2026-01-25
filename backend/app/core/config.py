@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     )
 
     # Application
-    app_name: str = "Tennis Tracker"
+    app_name: str = "Tennis Elbow Hub"
     app_env: str = "development"
     debug: bool = True
 

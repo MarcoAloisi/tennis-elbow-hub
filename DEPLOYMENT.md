@@ -1,6 +1,6 @@
 # 🚀 Deployment Guide - Render
 
-Step-by-step guide to deploy Tennis Tracker on Render.
+Step-by-step guide to deploy Tennis Elbow Hub on Render.
 
 ---
 
@@ -22,10 +22,10 @@ git init
 git add .
 
 # Commit
-git commit -m "Initial commit - Tennis Tracker"
+git commit -m "Initial commit - Tennis Elbow Hub"
 
 # Create repo on GitHub, then:
-git remote add origin https://github.com/YOUR_USERNAME/tennis-tracker.git
+git remote add origin https://github.com/YOUR_USERNAME/tennis-elbow-hub.git
 git branch -M main
 git push -u origin main
 ```
@@ -48,7 +48,7 @@ git push -u origin main
 1. Click **"New"** → **"Web Service"**
 2. Connect your GitHub repo
 3. Configure:
-   - **Name**: `tennis-tracker-api`
+   - **Name**: `tennis-elbow-hub-api`
    - **Root Directory**: `backend`
    - **Runtime**: Python 3
    - **Build Command**: `pip install -r requirements.txt`
@@ -58,14 +58,14 @@ git push -u origin main
    - `DEBUG` = `false`
    - `LIVE_SCORES_URL` = `your-private-url`
 5. Click **"Create Web Service"**
-6. **Copy the URL** (e.g., `https://tennis-tracker-api.onrender.com`)
+6. **Copy the URL** (e.g., `https://tennis-elbow-hub-api.onrender.com`)
 
 #### Deploy Frontend:
 
 1. Click **"New"** → **"Static Site"**
 2. Connect same GitHub repo
 3. Configure:
-   - **Name**: `tennis-tracker-web`
+   - **Name**: `tennis-elbow-hub-web`
    - **Root Directory**: `frontend`
    - **Build Command**: `npm install && npm run build`
    - **Publish Directory**: `dist`

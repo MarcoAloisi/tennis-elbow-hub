@@ -28,7 +28,7 @@ const router = createRouter({
 
 // Update page title on navigation
 router.beforeEach((to, from, next) => {
-    document.title = `${to.meta.title || 'Tennis Tracker'} | Tennis Tracker`
+    document.title = `${to.meta.title || 'Tennis Elbow Hub'} | Tennis Elbow Hub`
     next()
 })
 
