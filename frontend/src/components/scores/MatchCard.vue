@@ -38,17 +38,22 @@ const scoreDisplay = computed(() => {
   return { sets, currentGame }
 })
 
-// Surface badge class
+// Surface badge class - determine from surface_display (computed by backend)
 const surfaceClass = computed(() => {
-  const surface = (props.server.surface_name || '').toLowerCase()
+  const surface = (props.server.surface_display || props.server.surface_name || '').toLowerCase()
   if (surface.includes('clay')) return 'badge-surface-clay'
   if (surface.includes('grass')) return 'badge-surface-grass'
   if (surface.includes('indoor')) return 'badge-surface-indoor'
   return 'badge-surface-hard'
 })
 
-// Format surface name
+// Format surface name - prefer backend-computed value
 const surfaceDisplay = computed(() => {
+  // Use backend-computed surface_display if available
+  if (props.server.surface_display) {
+    return props.server.surface_display
+  }
+  
   const name = props.server.surface_name || ''
   const map = {
     'BlueGreenCement': 'Hard Court',
@@ -58,6 +63,24 @@ const surfaceDisplay = computed(() => {
   }
   return map[name] || name
 })
+
+// Tournament name - cleaned up (without numeric prefix)
+const tournamentDisplay = computed(() => {
+  // Use backend-computed tournament_display if available
+  if (props.server.tournament_display) {
+    return props.server.tournament_display
+  }
+  
+  const name = props.server.surface_name || ''
+  // Remove numeric prefix like "0010 " or "00031 "
+  return name.replace(/^\d+\s+/, '')
+})
+
+// Number of sets display
+const setsDisplay = computed(() => {
+  return props.server.game_info?.sets_display || ''
+})
+
 </script>
 
 <template>
@@ -69,7 +92,8 @@ const surfaceDisplay = computed(() => {
         LIVE
       </span>
       <span v-else class="badge badge-info">WAITING</span>
-      <span class="badge" :class="surfaceClass">{{ surfaceDisplay }}</span>
+      <span v-if="tournamentDisplay" class="badge badge-tournament">{{ tournamentDisplay }}</span>
+      <span v-else class="badge" :class="surfaceClass">{{ surfaceDisplay }}</span>
     </div>
 
     <!-- Players -->
@@ -106,8 +130,11 @@ const surfaceDisplay = computed(() => {
       <span class="match-mode">
         {{ server.game_info?.mode_display || 'Singles' }}
       </span>
-      <span class="match-tag" v-if="server.tag_line">
-        {{ server.tag_line }}
+      <span v-if="setsDisplay" class="match-sets">
+        {{ setsDisplay }}
+      </span>
+      <span class="match-tag" v-if="server.nb_game">
+        {{ server.nb_game }} games
       </span>
     </div>
   </div>
@@ -230,6 +257,7 @@ const surfaceDisplay = computed(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: var(--space-2);
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
@@ -240,8 +268,25 @@ const surfaceDisplay = computed(() => {
   border-radius: var(--radius-sm);
 }
 
+.match-sets {
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-accent-light, rgba(99, 102, 241, 0.1));
+  color: var(--color-accent);
+  border-radius: var(--radius-sm);
+  font-weight: var(--font-weight-medium);
+}
+
 .match-tag {
-  max-width: 120px;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badge-tournament {
+  background: var(--color-bg-tertiary, #f3f4f6);
+  color: var(--color-text-secondary, #6b7280);
+  max-width: 140px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

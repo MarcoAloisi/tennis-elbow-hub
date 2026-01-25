@@ -6,7 +6,7 @@ including the GameInfo bitfield and complete server entries.
 
 from enum import IntEnum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 
 class PlayerConfig(IntEnum):
@@ -61,6 +61,7 @@ class GameInfo(BaseModel):
     preview: int = Field(ge=0, le=7, description="Preview setting")
     tiredness: bool = Field(description="Tiredness enabled")
 
+    @computed_field
     @property
     def mode_display(self) -> str:
         """Human-readable game mode."""
@@ -71,11 +72,18 @@ class GameInfo(BaseModel):
         }
         return mode_names.get(self.player_config, "Unknown")
 
+    @computed_field
     @property
     def sets_display(self) -> str:
-        """Human-readable number of sets."""
-        # nb_set is encoded, typically 0=1 set, 1=3 sets, 2=5 sets
-        set_map = {0: "1 Set", 1: "3 Sets", 2: "5 Sets", 3: "Best of 5"}
+        """Human-readable number of sets.
+
+        NbSet encoding from GameInfo bitfield (2 bits):
+        - 0: 1 Set (single set match)
+        - 1: Best of 3 (first to 2 sets)
+        - 2: Best of 5 (first to 3 sets)
+        - 3: Best of 5 (alternate encoding)
+        """
+        set_map = {0: "1 Set", 1: "Best of 3", 2: "Best of 5", 3: "Best of 5"}
         return set_map.get(self.nb_set, f"{self.nb_set + 1} Sets")
 
 
@@ -103,6 +111,7 @@ class GameServer(BaseModel):
     creation_time_ms: int = Field(ge=0, description="Server creation timestamp")
     is_started: bool = Field(description="True if match has started (IP=0)")
 
+    @computed_field
     @property
     def player_names(self) -> tuple[str, str]:
         """Extract player names from match_name."""
@@ -111,19 +120,85 @@ class GameServer(BaseModel):
             return (parts[0].strip(), parts[1].strip())
         return (self.match_name, "Unknown")
 
+    @computed_field
     @property
     def surface_display(self) -> str:
-        """Clean surface name for display."""
-        # Remove common prefixes/codes
+        """Clean surface name for display.
+
+        The surface_name field may contain:
+        - Actual surface types: "BlueGreenCement", "Clay", "Grass", "Indoor"
+        - Tournament names with codes: "0010 AO Rod Laver Night"
+        """
+        import re
+
         name = self.surface_name.strip()
+
         # Map known surface codes to display names
         surface_map = {
             "BlueGreenCement": "Hard Court",
             "Clay": "Clay Court",
             "Grass": "Grass Court",
             "Indoor": "Indoor Hard",
+            "Carpet": "Carpet",
         }
-        return surface_map.get(name, name)
+
+        # Check if it's a known surface type
+        if name in surface_map:
+            return surface_map[name]
+
+        # Check if surface type is embedded in the name
+        name_lower = name.lower()
+        if "clay" in name_lower:
+            return "Clay Court"
+        if "grass" in name_lower:
+            return "Grass Court"
+        if "indoor" in name_lower:
+            return "Indoor Hard"
+        if "cement" in name_lower or "hard" in name_lower:
+            return "Hard Court"
+
+        # For tournament names (like "0010 AO Rod Laver Night"), return generic
+        # based on tournament context
+        if re.match(r"^\d+\s+", name):
+            # Has numeric prefix - it's a tournament name, try to infer surface
+            if "AO" in name or "Australian" in name:
+                return "Hard Court"  # Australian Open is hard court
+            if "Wimbledon" in name:
+                return "Grass Court"
+            if "Roland Garros" in name or "French" in name or "Roma" in name:
+                return "Clay Court"
+            if "US Open" in name:
+                return "Hard Court"
+            # Default for tournaments
+            return "Hard Court"
+
+        return name
+
+    @computed_field
+    @property
+    def tournament_display(self) -> str:
+        """Extract tournament name for display.
+
+        Cleans up tournament names by removing numeric prefix codes.
+        E.g., "0010 AO Rod Laver Night" -> "AO Rod Laver Night"
+        """
+        import re
+
+        name = self.surface_name.strip()
+
+        # Known surface types are not tournament names
+        known_surfaces = {"BlueGreenCement", "Clay", "Grass", "Indoor", "Carpet"}
+        if name in known_surfaces:
+            return ""
+
+        # Remove numeric prefix (e.g., "0010 " or "00031 ")
+        cleaned = re.sub(r"^\d+\s+", "", name)
+
+        # If the name is just a surface type after cleaning, return empty
+        if cleaned in known_surfaces:
+            return ""
+
+        return cleaned if cleaned != name else name
 
 
 class GameServerList(BaseModel):
