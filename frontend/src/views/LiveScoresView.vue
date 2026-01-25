@@ -2,6 +2,7 @@
 import { onMounted, watch } from 'vue'
 import { useScoresStore } from '@/stores/scores'
 import { useWebSocket } from '@/composables/useWebSocket'
+import { wsUrl } from '@/config/api'
 import MatchCard from '@/components/scores/MatchCard.vue'
 import FilterBar from '@/components/scores/FilterBar.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
@@ -10,7 +11,7 @@ import ErrorAlert from '@/components/common/ErrorAlert.vue'
 const store = useScoresStore()
 
 // WebSocket for real-time updates
-const { data: wsData, isConnected, error: wsError } = useWebSocket('/api/scores/ws')
+const { data: wsData, isConnected, error: wsError } = useWebSocket(wsUrl('/scores/ws'))
 
 // Update store when WebSocket receives data
 watch(wsData, (newData) => {

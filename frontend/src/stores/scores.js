@@ -3,6 +3,7 @@
  */
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { apiUrl } from '@/config/api'
 
 export const useScoresStore = defineStore('scores', () => {
     // State
@@ -66,7 +67,7 @@ export const useScoresStore = defineStore('scores', () => {
             if (filters.value.minElo) params.append('min_elo', filters.value.minElo)
             if (filters.value.maxElo) params.append('max_elo', filters.value.maxElo)
 
-            const url = `/api/scores${params.toString() ? '?' + params.toString() : ''}`
+            const url = apiUrl(`/scores${params.toString() ? '?' + params.toString() : ''}`)
             const response = await fetch(url)
 
             if (!response.ok) {

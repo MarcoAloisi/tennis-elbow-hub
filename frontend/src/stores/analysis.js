@@ -3,6 +3,7 @@
  */
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { apiUrl } from '@/config/api'
 
 export const useAnalysisStore = defineStore('analysis', () => {
     // State
@@ -29,7 +30,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
             const formData = new FormData()
             formData.append('file', file)
 
-            const response = await fetch('/api/analysis/upload', {
+            const response = await fetch(apiUrl('/analysis/upload'), {
                 method: 'POST',
                 body: formData
             })
@@ -73,7 +74,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
         error.value = null
 
         try {
-            const response = await fetch('/api/analysis/sample')
+            const response = await fetch(apiUrl('/analysis/sample'))
 
             if (!response.ok) {
                 throw new Error(`HTTP error ${response.status}`)
