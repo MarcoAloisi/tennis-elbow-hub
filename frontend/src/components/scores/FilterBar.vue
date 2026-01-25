@@ -12,14 +12,6 @@ const emit = defineEmits(['update:filters', 'refresh'])
 
 const localSearch = ref(props.filters.searchQuery || '')
 
-const surfaces = [
-  { value: '', label: 'All Surfaces' },
-  { value: 'hard', label: 'Hard Court' },
-  { value: 'clay', label: 'Clay' },
-  { value: 'grass', label: 'Grass' },
-  { value: 'indoor', label: 'Indoor' }
-]
-
 function updateFilter(key, value) {
   emit('update:filters', { ...props.filters, [key]: value })
 }
@@ -31,7 +23,6 @@ function handleSearch() {
 function clearFilters() {
   localSearch.value = ''
   emit('update:filters', {
-    surface: null,
     startedOnly: false,
     minElo: null,
     maxElo: null,
@@ -56,17 +47,6 @@ function clearFilters() {
       </button>
     </div>
 
-    <!-- Surface filter -->
-    <select 
-      :value="filters.surface || ''" 
-      @change="updateFilter('surface', $event.target.value || null)"
-      class="filter-select"
-    >
-      <option v-for="s in surfaces" :key="s.value" :value="s.value">
-        {{ s.label }}
-      </option>
-    </select>
-
     <!-- Started only toggle -->
     <label class="filter-toggle">
       <input 
@@ -86,7 +66,7 @@ function clearFilters() {
     <button 
       class="btn btn-ghost" 
       @click="clearFilters"
-      v-if="filters.searchQuery || filters.surface || filters.startedOnly"
+      v-if="filters.searchQuery || filters.startedOnly"
     >
       Clear
     </button>

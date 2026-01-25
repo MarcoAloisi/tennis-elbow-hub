@@ -105,10 +105,16 @@ def tokenize_server_line(line: str) -> list[str]:
     """
     tokens = []
     for match in SERVER_PATTERN.finditer(line):
-        # Get the first non-None group
-        token = match.group(1) or match.group(2) or match.group(3) or match.group(4)
-        if token is not None:
-            tokens.append(token)
+        # Check each group explicitly - empty strings "" are valid tokens!
+        # Using 'or' chain would skip empty strings since "" is falsy in Python
+        if match.group(1) is not None:  # Quoted string (can be empty "")
+            tokens.append(match.group(1))
+        elif match.group(2) is not None:  # Hex value
+            tokens.append(match.group(2))
+        elif match.group(3) is not None:  # Asterisk marker
+            tokens.append(match.group(3))
+        elif match.group(4) is not None:  # IP-like value
+            tokens.append(match.group(4))
     return tokens
 
 
