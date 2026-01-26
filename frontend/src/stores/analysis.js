@@ -260,7 +260,9 @@ export const useAnalysisStore = defineStore('analysis', () => {
             'total_points_won', 'total_points_played', 'total_points_won_pct',
             'break_points_won', 'break_points_total', 'break_points_won_pct',
             'break_games_won', 'break_games_total', 'break_games_won_pct',
-            'set_points_saved', 'match_points_saved'
+            'set_points_saved', 'match_points_saved',
+            // New match-level distributions
+            'match_set_win_pct', 'match_game_win_pct'
         ];
 
 
@@ -382,7 +384,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
                 push('total_points_played', totalPlayed)
                 pushPct('total_points_won_pct', p.points.total_points_won, totalPlayed)
 
-                // Breaks - logic note: break_games_total for User is break opportunities against opp serve
+                // Breaks
                 push('break_points_won', p.break_points.break_points_won)
                 push('break_points_total', p.break_points.break_points_total)
                 pushPct('break_points_won_pct', p.break_points.break_points_won, p.break_points.break_points_total)
@@ -398,7 +400,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
             pushMetric(collections.p1, userP, oppP)
             pushMetric(collections.p2, oppP, userP)
 
-            // Calculate Winner / H2H
+            // Calculate Winner / H2H & Match Distributions
             if (m.info && m.info.score) {
                 const winner = determineWinner(m.info.score)
                 const userWon = (winner === 'player1' && isUserP1) || (winner === 'player2' && !isUserP1)
@@ -408,22 +410,47 @@ export const useAnalysisStore = defineStore('analysis', () => {
 
                 const cleanScore = m.info.score.replace(/\s*\(RET\)|\s*\(W\/O\)/i, '').trim()
                 const sets = cleanScore.split(' ')
+
+                let mUserGames = 0
+                let mOppGames = 0
+                let mUserSets = 0
+                let mOppSets = 0
+
                 sets.forEach(set => {
                     const separator = set.includes('/') ? '/' : '-'
                     if (set.includes(separator)) {
                         const [g1, g2] = set.split(separator).map(v => parseInt(v))
                         if (!isNaN(g1) && !isNaN(g2)) {
-                            const userGames = isUserP1 ? g1 : g2
-                            const oppGames = isUserP1 ? g2 : g1
+                            const userG = isUserP1 ? g1 : g2
+                            const oppG = isUserP1 ? g2 : g1
 
-                            gamesWon += userGames
-                            gamesTotal += (userGames + oppGames)
+                            mUserGames += userG
+                            mOppGames += oppG
 
-                            if (userGames > oppGames) setsWon++
+                            gamesWon += userG
+                            gamesTotal += (userG + oppG)
+
+                            if (userG > oppG) {
+                                setsWon++
+                                mUserSets++
+                            } else if (oppG > userG) {
+                                mOppSets++
+                            }
                             setsTotal++
                         }
                     }
                 })
+
+                // Push percentages for this match
+                const safePct = (n, d) => d > 0 ? (n / d) * 100 : 0
+                const mTotalGames = mUserGames + mOppGames
+                const mTotalSets = mUserSets + mOppSets
+
+                collections.p1['match_game_win_pct'].push(safePct(mUserGames, mTotalGames))
+                collections.p1['match_set_win_pct'].push(safePct(mUserSets, mTotalSets))
+
+                collections.p2['match_game_win_pct'].push(safePct(mOppGames, mTotalGames))
+                collections.p2['match_set_win_pct'].push(safePct(mOppSets, mTotalSets))
             }
         })
 
@@ -441,66 +468,70 @@ export const useAnalysisStore = defineStore('analysis', () => {
                 return sum / arr.length
             }
 
-            // For SUM fields (totals), we usually just want the SUM, not Avg/Median?
-            // Actually, normally a dashboard shows "Avg Winners per Match".
-            // But for "Total Points Won", it might show Sum?
-            // "Global Statistics" usually implies "Career Totals" for counts, but "Career Avg" for rates.
-            // The screenshot shows "4579/6581 (70%)". This is clearly a SUM.
-            // But "Avg Winners" (21.2) is an Average.
-            // We need to support both.
-            // The user says "normalized for the stats of avg and median".
-            // This usually applies to per-match stats like Winners, Errors, Aces.
-            // Percentage stats like "1st Serve %" are usually Global Averages (Total In / Total Att).
-            // BUT if Mode is Median, maybe Median Match Percentage?
-
-            // Implementation Strategy:
-            // 1. Calculate Sums (for display like "4579/6581")
-            // 2. Calculate Avg/Median (for display like "Avg Winners")
-
             const sum = (key) => {
                 const arr = metrics[key] || []
                 return arr.reduce((a, b) => a + b, 0)
             }
 
+            // Helper for Percentage Fields: Weighted Average vs Median of Matches
+            const getPct = (key, numKey, denomKey) => {
+                if (isMedian) {
+                    // In Median mode, return the median of the percent array
+                    // Special keys for games/sets
+                    if (key === 'game_win_pct') return getVal('match_game_win_pct')
+                    if (key === 'set_win_pct') return getVal('match_set_win_pct')
+
+                    // For other stats (like 1st Serve %), we need to have collected the per-match percentages
+                    // Our pushMetric function already collected 'first_serve_pct' array!
+                    // So we can just use getVal(key) for Median.
+                    return getVal(key)
+                }
+
+                // In Average mode, use Weighted Average (Sum(Num) / Sum(Denom))
+                if (key === 'game_win_pct') return gamesTotal > 0 ? (gamesWon / gamesTotal * 100) : 0
+                if (key === 'set_win_pct') return setsTotal > 0 ? (setsWon / setsTotal * 100) : 0
+
+                // Standard stats
+                const num = sum(numKey)
+                const denom = sum(denomKey)
+                return denom > 0 ? (num / denom * 100) : 0
+            }
+
             // Mappings
-            // We return an object compatible with the View's expectation
 
             // Serve
             result.first_serve_in = sum('first_serve_in')
             result.first_serve_total = sum('first_serve_total')
-            // For displayed percentage, we usually want Global Average (Sum/Sum) or Median Match %?
-            // Dashboard currently shows Num/Denom (Pct).
-            // Use Global Sums for the fraction.
-            result.first_serve_pct = result.first_serve_total > 0 ? (result.first_serve_in / result.first_serve_total * 100) : 0
+            result.first_serve_pct = getPct('first_serve_pct', 'first_serve_in', 'first_serve_total')
 
             result.aces = getVal('aces').toFixed(1)
             result.double_faults = getVal('double_faults').toFixed(1)
 
             result.fastest_serve_kmh = Math.max(...(metrics['fastest_serve_kmh'] || [0]))
-            result.avg_first_serve_kmh = getVal('avg_first_serve_kmh') // Avg of Avgs (or Median of Avgs)
+            result.avg_first_serve_kmh = getVal('avg_first_serve_kmh')
             result.avg_second_serve_kmh = getVal('avg_second_serve_kmh')
 
             // Points on Serve
             result.points_on_first_serve_won = sum('points_on_first_serve_won')
             result.points_on_first_serve_total = sum('points_on_first_serve_total')
-            result.first_serve_won_pct = result.points_on_first_serve_total > 0 ? (result.points_on_first_serve_won / result.points_on_first_serve_total * 100) : 0
+            result.first_serve_won_pct = getPct('first_serve_won_pct', 'points_on_first_serve_won', 'points_on_first_serve_total')
 
             result.points_on_second_serve_won = sum('points_on_second_serve_won')
             result.points_on_second_serve_total = sum('points_on_second_serve_total')
-            result.second_serve_won_pct = result.points_on_second_serve_total > 0 ? (result.points_on_second_serve_won / result.points_on_second_serve_total * 100) : 0
+            result.second_serve_won_pct = getPct('second_serve_won_pct', 'points_on_second_serve_won', 'points_on_second_serve_total')
 
             // Rally
             result.short_rallies_won = sum('short_rallies_won')
             result.short_rallies_total = sum('short_rallies_total')
-            result.short_rally_won_pct = result.short_rallies_total > 0 ? (result.short_rallies_won / result.short_rallies_total * 100) : 0
+            result.short_rally_won_pct = getPct('short_rallies_pct', 'short_rallies_won', 'short_rallies_total')
 
             result.normal_rallies_won = sum('normal_rallies_won')
             result.normal_rallies_total = sum('normal_rallies_total')
-            result.medium_rally_won_pct = result.normal_rallies_total > 0 ? (result.normal_rallies_won / result.normal_rallies_total * 100) : 0
+            result.medium_rally_won_pct = getPct('normal_rallies_pct', 'normal_rallies_won', 'normal_rallies_total')
 
             result.long_rallies_won = sum('long_rallies_won')
             result.long_rallies_total = sum('long_rallies_total')
-            result.long_rally_won_pct = result.long_rallies_total > 0 ? (result.long_rallies_won / result.long_rallies_total * 100) : 0
+            result.long_rally_won_pct = getPct('long_rallies_pct', 'long_rallies_won', 'long_rallies_total')
 
             result.avg_rally_length = getVal('avg_rally_length').toFixed(1)
 
@@ -511,30 +542,35 @@ export const useAnalysisStore = defineStore('analysis', () => {
 
             result.net_points_won = sum('net_points_won')
             result.net_points_total = sum('net_points_total')
-            result.net_points_won_pct = result.net_points_total > 0 ? (result.net_points_won / result.net_points_total * 100) : 0
+            result.net_points_won_pct = getPct('net_points_won_pct', 'net_points_won', 'net_points_total')
 
             result.return_points_won = sum('return_points_won')
             result.return_points_total = sum('return_points_total')
-            result.return_points_won_pct = result.return_points_total > 0 ? (result.return_points_won / result.return_points_total * 100) : 0
+            result.return_points_won_pct = getPct('return_points_won_pct', 'return_points_won', 'return_points_total')
 
             result.return_winners = getVal('return_winners').toFixed(1)
 
             result.total_points_won = sum('total_points_won')
             const totalPlayed = sum('total_points_played')
             result.total_points_played = totalPlayed // for reference
-            result.total_points_won_pct = totalPlayed > 0 ? (result.total_points_won / totalPlayed * 100) : 0
+            result.total_points_won_pct = getPct('total_points_won_pct', 'total_points_won', 'total_points_played')
 
             // Breaks
             result.break_points_won = sum('break_points_won')
             result.break_points_total = sum('break_points_total')
-            result.break_points_won_pct = result.break_points_total > 0 ? (result.break_points_won / result.break_points_total * 100) : 0
+            result.break_points_won_pct = getPct('break_points_won_pct', 'break_points_won', 'break_points_total')
 
             result.break_games_won = sum('break_games_won')
             result.break_games_total = sum('break_games_total')
-            result.break_games_won_pct = result.break_games_total > 0 ? (result.break_games_won / result.break_games_total * 100) : 0
+            result.break_games_won_pct = getPct('break_games_won_pct', 'break_games_won', 'break_games_total')
 
             result.set_points_saved = getVal('set_points_saved').toFixed(1)
             result.match_points_saved = getVal('match_points_saved').toFixed(1)
+
+            // Win Rates (Special handling for Median)
+            result.win_pct = (list.length > 0 ? (wins / list.length * 100) : 0).toFixed(1) // Always global average
+            result.game_win_pct = getPct('game_win_pct', null, null).toFixed(1)
+            result.set_win_pct = getPct('set_win_pct', null, null).toFixed(1)
 
             return result
         }
@@ -545,9 +581,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
         p1Results.totalMatches = list.length
         p1Results.wins = wins
         p1Results.losses = losses
-        p1Results.win_pct = list.length > 0 ? (wins / list.length * 100).toFixed(1) : 0
-        p1Results.set_win_pct = setsTotal > 0 ? (setsWon / setsTotal * 100).toFixed(1) : 0
-        p1Results.game_win_pct = gamesTotal > 0 ? (gamesWon / gamesTotal * 100).toFixed(1) : 0
+        // win_pct, set_win_pct, game_win_pct are now calculated inside computeFinals and assigned to p1Results
 
         p1Results.opponent = p2Results
         return p1Results

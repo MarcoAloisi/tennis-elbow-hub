@@ -118,15 +118,28 @@ function hasData(player, stat) {
     return true
 }
 
+function getComparisonValue(player, stat) {
+  const v = getValue(player, stat)
+  
+  if (stat.format === 'rate_pct') {
+    const t = getTotal(player, stat)
+    if (t > 0) return (v / t) * 100
+    return 0
+  }
+  
+  return v
+}
+
 function isWinner(stat) {
   // If not comparing, no winner/loser colors
   if (!isComparison.value) return { p1: false, p2: false }
 
-  const v1 = getValue(props.player1, stat)
-  const v2 = getValue(props.player2, stat)
+  const v1 = getComparisonValue(props.player1, stat)
+  const v2 = getComparisonValue(props.player2, stat)
   
   // Checking equality to avoid highlighting draws
-  if (v1 === v2) return { p1: false, p2: false }
+  // Use epsilon for floats
+  if (Math.abs(v1 - v2) < 0.1) return { p1: false, p2: false }
 
   // For stats where lower is better (errors), reverse comparison
   if (stat.lower) {

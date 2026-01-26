@@ -69,21 +69,57 @@ const radarData = computed(() => {
   const p1Values = [
     normalize(p1.serve?.avg_first_serve_kmh || 0, 250),
     p1.serve?.first_serve_pct || 0,
-    normalize(p1.points?.net_points_won || 0, 10),
-    normalize(p1.rally?.long_rallies_won || 0, 15),
-    normalize(p1.break_points?.break_points_won || 0, 5),
+    p1.points?.net_points_won || 0, // Using pct from analysis
+    p1.rally?.short_rallies_won || 0, // Actually rally won pct is pre-calculated in analysis mapping?
+    // Wait, in StatsTable I see 'net_points_won' mapped to 'net_points_won_pct' in matchAnalysis?
+    // Let's check 'mapStatsToStructure' in MatchAnalysisView:
+    // net_points_won: s.net_points_won_pct.
+    // So here p1.points.net_points_won IS the percentage!
+    // So normalize(..., 10) was wrong if it's already %.
+    // If it's percentage (0-100), we don't need normalize.
+    
+    // Break Points:
+    p1.break_points?.break_points_won || 0, // This is mapped to break_points_won_pct (0-100)
+    
+    // Consistency: Errors.
+    // Errors are raw counts.
     100 - normalize(p1.points?.unforced_errors || 0, 30)
+  ]
+  
+  // Rally: short_rallies_won in View mapping is 'short_rally_won_pct'.
+  // But radar label is 'Rally'. Usually implies winning long rallies?
+  // Previous code: p1.rally?.long_rallies_won (PCT).
+  // Let's use long rally win %.
+  
+  // Updated P1 Values
+  // 1. Power (kmh/250)
+  // 2. Accuracy (1st pct)
+  // 3. Net Game (Net Won Pct)
+  // 4. Rally (Long Rally Won Pct)
+  // 5. Break Points (BP Won Pct)
+  // 6. Consistency (100 - normalized Errors)
+
+  const p1Vals = [
+      normalize(p1.serve?.avg_first_serve_kmh || 0, 250),
+      p1.serve?.first_serve_pct || 0,
+      p1.points?.net_points_won || 0, // Already %
+      p1.rally?.long_rallies_won || 0, // Already % (mapped from long_rally_won_pct)
+      p1.break_points?.break_points_won || 0, // Already %
+      100 - normalize(p1.points?.unforced_errors || 0, 30) // Errors are Count
   ]
 
   // Player 2 values
-  const p2Values = [
-    normalize(p2.serve?.avg_first_serve_kmh || 0, 250),
-    p2.serve?.first_serve_pct || 0,
-    normalize(p2.points?.net_points_won || 0, 10),
-    normalize(p2.rally?.long_rallies_won || 0, 15),
-    normalize(p2.break_points?.break_points_won || 0, 5),
-    100 - normalize(p2.points?.unforced_errors || 0, 30)
+  const p2Vals = [
+      normalize(p2.serve?.avg_first_serve_kmh || 0, 250),
+      p2.serve?.first_serve_pct || 0,
+      p2.points?.net_points_won || 0,
+      p2.rally?.long_rallies_won || 0,
+      p2.break_points?.break_points_won || 0,
+      100 - normalize(p2.points?.unforced_errors || 0, 30)
   ]
+  
+  const p1Values = p1Vals
+  const p2Values = p2Vals
 
   const primaryColor = getThemeColor('--color-brand-primary') || '#3BB143'
   const secondaryColor = getThemeColor('--color-text-secondary') || '#64748b'
