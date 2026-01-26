@@ -13,6 +13,10 @@ const props = defineProps({
   category: {
     type: String,
     default: 'all'
+  },
+  displayMode: {
+    type: String,
+    default: 'list' // 'list' or 'grid'
   }
 })
 
@@ -133,28 +137,48 @@ function isWinner(stat) {
 </script>
 
 <template>
-  <div class="stats-table" :class="{ 'single-col': !isComparison }">
+  <div class="stats-table" :class="[{ 'single-col': !isComparison }, displayMode]">
     <div 
       v-for="stat in displayStats" 
       :key="stat.key"
       class="stats-row"
+      :class="{ 'card-item': displayMode === 'grid' }"
     >
-      <div 
-        class="stats-value left"
-        :class="{ winner: isComparison && isWinner(stat).p1 }"
-      >
-        {{ formatValue(player1, stat) }}
-      </div>
-      <div class="stats-label">
-        {{ stat.label }}
-      </div>
-      <div 
-        v-if="isComparison"
-        class="stats-value right"
-        :class="{ winner: isComparison && isWinner(stat).p2 }"
-      >
-        {{ formatValue(player2, stat) }}
-      </div>
+      <!-- Comparison View (Normal) -->
+      <template v-if="displayMode === 'list'">
+          <div 
+            class="stats-value left"
+            :class="{ winner: isComparison && isWinner(stat).p1 }"
+          >
+            {{ formatValue(player1, stat) }}
+          </div>
+          <div class="stats-label">
+            {{ stat.label }}
+          </div>
+          <div 
+            v-if="isComparison"
+            class="stats-value right"
+            :class="{ winner: isComparison && isWinner(stat).p2 }"
+          >
+            {{ formatValue(player2, stat) }}
+          </div>
+       </template>
+
+       <!-- Grid View (Cards) -->
+       <template v-else>
+           <div class="card-label">{{ stat.label }}</div>
+           <div class="card-values">
+               <div class="p1-value" :class="{ winner: isComparison && isWinner(stat).p1 }">
+                   <small v-if="isComparison">You</small>
+                   <span>{{ formatValue(player1, stat) }}</span>
+               </div>
+               <div v-if="isComparison" class="vs-divider">vs</div>
+               <div v-if="isComparison" class="p2-value" :class="{ winner: isComparison && isWinner(stat).p2 }">
+                   <small>{{ player2.name || 'Opponent' }}</small>
+                   <span>{{ formatValue(player2, stat) }}</span>
+               </div>
+           </div>
+       </template>
     </div>
   </div>
 </template>
@@ -165,7 +189,8 @@ function isWinner(stat) {
   flex-direction: column;
 }
 
-.stats-row {
+/* List Mode */
+.stats-table.list .stats-row {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   gap: var(--space-4);
@@ -174,22 +199,21 @@ function isWinner(stat) {
   transition: background-color var(--transition-fast);
 }
 
-/* Single Column Mode - Improved UI */
-.stats-table.single-col .stats-row {
+.stats-table.list.single-col .stats-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: var(--space-3) var(--space-6);
 }
 
-.stats-table.single-col .stats-label {
+.stats-table.list.single-col .stats-label {
     text-align: left;
-    min-width: 0; /* Allow flex shrink */
+    min-width: 0;
     color: var(--color-text-primary);
     font-weight: var(--font-weight-medium);
 }
 
-.stats-table.single-col .stats-value.left {
+.stats-table.list.single-col .stats-value.left {
     text-align: right;
     width: auto;
     margin: 0;
@@ -197,14 +221,72 @@ function isWinner(stat) {
     color: var(--color-accent);
 }
 
-.stats-row:hover {
+.stats-table.list .stats-row:hover {
   background: var(--color-bg-hover);
 }
 
-.stats-row:last-child {
+.stats-table.list .stats-row:last-child {
   border-bottom: none;
 }
 
+/* Grid Mode */
+.stats-table.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: var(--space-4);
+}
+
+.stats-table.grid .stats-row.card-item {
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-4);
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    gap: var(--space-2);
+    align-items: center;
+    text-align: center;
+}
+
+.card-label {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    font-weight: var(--font-weight-medium);
+}
+
+.card-values {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    width: 100%;
+    justify-content: center;
+}
+
+.p1-value, .p2-value {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-family: var(--font-mono);
+    font-weight: bold;
+    font-size: var(--font-size-lg);
+}
+
+.p1-value small, .p2-value small {
+    font-size: 0.7rem;
+    color: var(--color-text-muted);
+    font-weight: normal;
+    font-family: var(--font-sans);
+    margin-bottom: 2px;
+}
+
+.vs-divider {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    margin-top: auto;
+    margin-bottom: 4px; /* Align with value */
+}
+
+/* Common Value Styles */
 .stats-value {
   font-weight: var(--font-weight-medium);
   font-family: var(--font-mono);
@@ -219,7 +301,7 @@ function isWinner(stat) {
   text-align: left;
 }
 
-.stats-value.winner {
+.stats-value.winner, .p1-value.winner, .p2-value.winner span {
   color: var(--color-success);
   font-weight: var(--font-weight-bold);
 }

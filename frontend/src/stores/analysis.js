@@ -183,36 +183,55 @@ export const useAnalysisStore = defineStore('analysis', () => {
         const list = filteredMatches.value
         if (!list.length) return null
 
-        // metrics to collect for Player 1 (User)
+        // metrics to collect for Player 1 (User) - Now storing SUMS for accurate weighted averages
         const metrics = {
-            matches: [],
+            matches: 0,
+
             // Serve
-            first_serve_pct: [],
-            aces: [],
-            double_faults: [],
-            fastest_serve: [],
-            avg_first_serve: [],
-            avg_second_serve: [],
-            first_serve_won_pct: [],
-            second_serve_won_pct: [],
+            first_serve_in: 0,
+            first_serve_total: 0,
+            aces: 0,
+            double_faults: 0,
+            fastest_serve_max: 0,
+            avg_first_serve_sum: 0,
+            avg_first_serve_count: 0,
+            avg_second_serve_sum: 0,
+            avg_second_serve_count: 0,
+
+            points_on_first_serve_won: 0,
+            points_on_first_serve_total: 0,
+            points_on_second_serve_won: 0,
+            points_on_second_serve_total: 0,
+
             // Rally
-            short_rally_won_pct: [],
-            medium_rally_won_pct: [],
-            long_rally_won_pct: [],
-            avg_rally_length: [],
+            short_rallies_won: 0,
+            short_rallies_total: 0,
+            normal_rallies_won: 0,
+            normal_rallies_total: 0,
+            long_rallies_won: 0,
+            long_rallies_total: 0,
+            avg_rally_length_sum: 0,
+            avg_rally_length_count: 0,
+
             // Points
-            winners: [],
-            forced_errors: [],
-            unforced_errors: [],
-            net_points_won_pct: [],
-            return_points_won_pct: [],
-            return_winners: [],
-            total_points_won_pct: [],
+            winners: 0,
+            forced_errors: 0,
+            unforced_errors: 0,
+            net_points_won: 0,
+            net_points_total: 0,
+            return_points_won: 0,
+            return_points_total: 0,
+            return_winners: 0,
+            total_points_won: 0,
+            total_points_played: 0,
+
             // Breaks
-            break_points_won_pct: [],
-            break_games_won_pct: [],
-            set_points_saved: [],
-            match_points_saved: []
+            break_points_won: 0,
+            break_points_total: 0,
+            break_games_won: 0,
+            break_games_total: 0,
+            set_points_saved: 0,
+            match_points_saved: 0
         }
 
         // Metrics for Player 2 (Opponent) - for Comparison
@@ -226,90 +245,141 @@ export const useAnalysisStore = defineStore('analysis', () => {
         let gamesWon = 0
         let gamesTotal = 0
 
-        // Determine the "Main Player" (The User) to ensure alignment
-        // If an opponent filter is active, the Main Player is the one NOT matching the opponent filter
-        // Otherwise, use the auto-detected mainPlayerName
-        const currentUser = mainPlayerName.value
+        // Determine the "Main Player" (The User)
+        // If opponent filter is active, User is the player NOT matching the opponent name
+        let currentUser = mainPlayerName.value
 
         list.forEach(m => {
             if (!m.info) return
 
-            // Determine which player object is the User and which is the Opponent for this specific match
-            // This fixes the H2H and Stats alignment issues when the User is listed as Player 2
             let userP, oppP
             let isUserP1 = true
 
-            if (m.info.player1_name === currentUser) {
-                userP = m.player1
-                oppP = m.player2
-                isUserP1 = true
+            // Refined User Detection Logic
+            if (filters.value.opponent) {
+                // In H2H mode, if P1 is the opponent, then P2 is the User
+                if (m.info.player1_name.toLowerCase() === filters.value.opponent.toLowerCase()) {
+                    userP = m.player2
+                    oppP = m.player1
+                    isUserP1 = false
+                    // Update currentUser for consistency if not already set correctly
+                    currentUser = m.info.player2_name
+                } else if (m.info.player2_name.toLowerCase() === filters.value.opponent.toLowerCase()) {
+                    userP = m.player1
+                    oppP = m.player2
+                    isUserP1 = true
+                } else {
+                    // Neither matches filter (shouldn't happen due to filter logic), fallback to default
+                    if (m.info.player1_name === currentUser) {
+                        userP = m.player1
+                        oppP = m.player2
+                        isUserP1 = true
+                    } else {
+                        userP = m.player2
+                        oppP = m.player1
+                        isUserP1 = false
+                    }
+                }
             } else {
-                userP = m.player2
-                oppP = m.player1
-                isUserP1 = false
-            }
-
-            // Collection Stats for User
-            // Helper to push stats to metrics object
-            const pushStats = (targetMetrics, p, otherP) => {
-                if (p) {
-                    // Serve
-                    targetMetrics.first_serve_pct.push(p.serve.first_serve_pct)
-                    targetMetrics.aces.push(p.serve.aces)
-                    targetMetrics.double_faults.push(p.serve.double_faults)
-                    if (p.serve.fastest_serve_kmh) targetMetrics.fastest_serve.push(p.serve.fastest_serve_kmh)
-                    if (p.serve.avg_first_serve_kmh) targetMetrics.avg_first_serve.push(p.serve.avg_first_serve_kmh)
-                    if (p.serve.avg_second_serve_kmh) targetMetrics.avg_second_serve.push(p.serve.avg_second_serve_kmh)
-                    targetMetrics.first_serve_won_pct.push(p.points.points_on_first_serve_won / p.points.points_on_first_serve_total * 100 || 0)
-                    targetMetrics.second_serve_won_pct.push(p.points.points_on_second_serve_won / p.points.points_on_second_serve_total * 100 || 0)
-
-                    // Rally
-                    if (p.rally.short_rallies_total > 0) targetMetrics.short_rally_won_pct.push(p.rally.short_rallies_won / p.rally.short_rallies_total * 100)
-                    if (p.rally.normal_rallies_total > 0) targetMetrics.medium_rally_won_pct.push(p.rally.normal_rallies_won / p.rally.normal_rallies_total * 100)
-                    if (p.rally.long_rallies_total > 0) targetMetrics.long_rally_won_pct.push(p.rally.long_rallies_won / p.rally.long_rallies_total * 100)
-                    if (p.rally.avg_rally_length > 0) targetMetrics.avg_rally_length.push(p.rally.avg_rally_length)
-
-                    // Points
-                    targetMetrics.winners.push(p.points.winners)
-                    targetMetrics.forced_errors.push(p.points.forced_errors)
-                    targetMetrics.unforced_errors.push(p.points.unforced_errors)
-                    if (p.points.net_points_total > 0) targetMetrics.net_points_won_pct.push(p.points.net_points_won / p.points.net_points_total * 100)
-                    if (p.points.return_points_total > 0) targetMetrics.return_points_won_pct.push(p.points.return_points_won / p.points.return_points_total * 100)
-                    targetMetrics.return_winners.push(p.points.return_winners)
-                    targetMetrics.total_points_won_pct.push(p.points.total_points_won / (p.points.total_points_won + (otherP?.points?.total_points_won || 0)) * 100 || 0)
-
-                    // Breaks
-                    if (p.break_points.break_points_total > 0) targetMetrics.break_points_won_pct.push(p.break_points.break_points_won / p.break_points.break_points_total * 100)
-                    if (p.break_points.break_games_total > 0) targetMetrics.break_games_won_pct.push(p.break_points.break_games_won / p.break_points.break_games_total * 100)
-                    targetMetrics.set_points_saved.push(p.break_points.set_points_saved)
-                    targetMetrics.match_points_saved.push(p.break_points.match_points_saved)
+                // Global mode
+                if (m.info.player1_name === currentUser) {
+                    userP = m.player1
+                    oppP = m.player2
+                    isUserP1 = true
+                } else {
+                    userP = m.player2
+                    oppP = m.player1
+                    isUserP1 = false
                 }
             }
 
-            // Collect User Stats into 'metrics'
+            // Collection Stats for User
+            const pushStats = (targetMetrics, p, otherP) => {
+                if (p) {
+                    targetMetrics.matches++
+
+                    // Serve
+                    targetMetrics.first_serve_in += parseFloat(p.serve.first_serve_in || 0)
+                    targetMetrics.first_serve_total += parseFloat(p.serve.first_serve_total || 0)
+                    targetMetrics.aces += parseFloat(p.serve.aces || 0)
+                    targetMetrics.double_faults += parseFloat(p.serve.double_faults || 0)
+
+                    if (p.serve.fastest_serve_kmh > targetMetrics.fastest_serve_max) {
+                        targetMetrics.fastest_serve_max = p.serve.fastest_serve_kmh
+                    }
+                    if (p.serve.avg_first_serve_kmh > 0) {
+                        targetMetrics.avg_first_serve_sum += p.serve.avg_first_serve_kmh
+                        targetMetrics.avg_first_serve_count++
+                    }
+                    if (p.serve.avg_second_serve_kmh > 0) {
+                        targetMetrics.avg_second_serve_sum += p.serve.avg_second_serve_kmh
+                        targetMetrics.avg_second_serve_count++
+                    }
+
+                    targetMetrics.points_on_first_serve_won += parseFloat(p.points.points_on_first_serve_won || 0)
+                    targetMetrics.points_on_first_serve_total += parseFloat(p.points.points_on_first_serve_total || 0)
+                    targetMetrics.points_on_second_serve_won += parseFloat(p.points.points_on_second_serve_won || 0)
+                    targetMetrics.points_on_second_serve_total += parseFloat(p.points.points_on_second_serve_total || 0)
+
+                    // Rally
+                    targetMetrics.short_rallies_won += parseFloat(p.rally.short_rallies_won || 0)
+                    targetMetrics.short_rallies_total += parseFloat(p.rally.short_rallies_total || 0)
+                    targetMetrics.normal_rallies_won += parseFloat(p.rally.normal_rallies_won || 0)
+                    targetMetrics.normal_rallies_total += parseFloat(p.rally.normal_rallies_total || 0)
+                    targetMetrics.long_rallies_won += parseFloat(p.rally.long_rallies_won || 0)
+                    targetMetrics.long_rallies_total += parseFloat(p.rally.long_rallies_total || 0)
+
+                    if (p.rally.avg_rally_length > 0) {
+                        targetMetrics.avg_rally_length_sum += p.rally.avg_rally_length
+                        targetMetrics.avg_rally_length_count++
+                    }
+
+                    // Points
+                    targetMetrics.winners += parseFloat(p.points.winners || 0)
+                    targetMetrics.forced_errors += parseFloat(p.points.forced_errors || 0)
+                    targetMetrics.unforced_errors += parseFloat(p.points.unforced_errors || 0)
+
+                    targetMetrics.net_points_won += parseFloat(p.points.net_points_won || 0)
+                    targetMetrics.net_points_total += parseFloat(p.points.net_points_total || 0)
+
+                    targetMetrics.return_points_won += parseFloat(p.points.return_points_won || 0)
+                    targetMetrics.return_points_total += parseFloat(p.points.return_points_total || 0)
+                    targetMetrics.return_winners += parseFloat(p.points.return_winners || 0)
+
+                    targetMetrics.total_points_won += parseFloat(p.points.total_points_won || 0)
+                    targetMetrics.total_points_played += (parseFloat(p.points.total_points_won || 0) + parseFloat(otherP?.points?.total_points_won || 0))
+
+                    // Breaks
+                    targetMetrics.break_points_won += parseFloat(p.break_points.break_points_won || 0)
+                    targetMetrics.break_points_total += parseFloat(p.break_points.break_points_total || 0)
+                    targetMetrics.break_games_won += parseFloat(p.break_points.break_games_won || 0)
+                    targetMetrics.break_games_total += parseFloat(p.break_points.break_games_total || 0)
+
+                    targetMetrics.set_points_saved += parseFloat(p.break_points.set_points_saved || 0)
+                    targetMetrics.match_points_saved += parseFloat(p.break_points.match_points_saved || 0)
+                }
+            }
+
+            // Collect User Stats 
             pushStats(metrics, userP, oppP)
-            // Collect Opponent Stats into 'oppMetrics'
+            // Collect Opponent Stats
             pushStats(oppMetrics, oppP, userP)
 
             // Calculate Winner / H2H
             if (m.info && m.info.score) {
                 const winner = determineWinner(m.info.score)
-                // Determine if User won
                 const userWon = (winner === 'player1' && isUserP1) || (winner === 'player2' && !isUserP1)
 
                 if (userWon) wins++
-                else if (winner) losses++ // Only count losses if there was a winner (not incomplete)
+                else if (winner) losses++
 
-                // Parse sets and games for percentages
                 const cleanScore = m.info.score.replace(/\s*\(RET\)|\s*\(W\/O\)/i, '').trim()
                 const sets = cleanScore.split(' ')
                 sets.forEach(set => {
-                    // Normalize standard '6-4' and alternative '6/4' formats
                     const separator = set.includes('/') ? '/' : '-'
                     if (set.includes(separator)) {
                         const [g1, g2] = set.split(separator).map(v => parseInt(v))
                         if (!isNaN(g1) && !isNaN(g2)) {
-                            // Assign games to User vs Opponent
                             const userGames = isUserP1 ? g1 : g2
                             const oppGames = isUserP1 ? g2 : g1
 
@@ -324,41 +394,81 @@ export const useAnalysisStore = defineStore('analysis', () => {
             }
         })
 
-        const calculateResults = (sourceMetrics) => {
-            const result = {}
-            const mode = statsMode.value
+        // Helper to finalize weighted averages
+        const calculateFinals = (m) => {
+            const count = m.matches || 1
+            const safeDiv = (n, d) => d > 0 ? (n / d) * 100 : 0
 
-            Object.keys(sourceMetrics).forEach(key => {
-                if (key === 'matches') return
-                const values = sourceMetrics[key]
-                if (values.length === 0) {
-                    result[key] = 0
-                    return
-                }
+            return {
+                // Serve
+                first_serve_pct: safeDiv(m.first_serve_in, m.first_serve_total),
+                first_serve_in: m.first_serve_in,
+                first_serve_total: m.first_serve_total,
 
-                if (mode === 'avg') {
-                    const sum = values.reduce((a, b) => a + b, 0)
-                    result[key] = parseFloat((sum / values.length).toFixed(1))
-                } else {
-                    result[key] = parseFloat(calculateMedian(values).toFixed(1))
-                }
-            })
-            return result
+                aces: parseFloat((m.aces / count).toFixed(1)), // Avg per match
+                double_faults: parseFloat((m.double_faults / count).toFixed(1)), // Avg per match
+
+                fastest_serve_kmh: m.fastest_serve_max,
+                avg_first_serve_kmh: m.avg_first_serve_count > 0 ? m.avg_first_serve_sum / m.avg_first_serve_count : 0,
+                avg_second_serve_kmh: m.avg_second_serve_count > 0 ? m.avg_second_serve_sum / m.avg_second_serve_count : 0,
+
+                first_serve_won_pct: safeDiv(m.points_on_first_serve_won, m.points_on_first_serve_total),
+                points_on_first_serve_won: m.points_on_first_serve_won,
+                points_on_first_serve_total: m.points_on_first_serve_total,
+
+                second_serve_won_pct: safeDiv(m.points_on_second_serve_won, m.points_on_second_serve_total),
+                points_on_second_serve_won: m.points_on_second_serve_won,
+                points_on_second_serve_total: m.points_on_second_serve_total,
+
+                // Rally
+                short_rally_won_pct: safeDiv(m.short_rallies_won, m.short_rallies_total),
+                medium_rally_won_pct: safeDiv(m.normal_rallies_won, m.normal_rallies_total),
+                long_rally_won_pct: safeDiv(m.long_rallies_won, m.long_rallies_total),
+                avg_rally_length: m.avg_rally_length_count > 0 ? parseFloat((m.avg_rally_length_sum / m.avg_rally_length_count).toFixed(1)) : 0,
+
+                // Points
+                winners: parseFloat((m.winners / count).toFixed(1)),
+                forced_errors: parseFloat((m.forced_errors / count).toFixed(1)),
+                unforced_errors: parseFloat((m.unforced_errors / count).toFixed(1)),
+
+                net_points_won_pct: safeDiv(m.net_points_won, m.net_points_total),
+                net_points_won: m.net_points_won,
+                net_points_total: m.net_points_total,
+
+                return_points_won_pct: safeDiv(m.return_points_won, m.return_points_total),
+                return_points_won: m.return_points_won,
+                return_points_total: m.return_points_total,
+
+                return_winners: parseFloat((m.return_winners / count).toFixed(1)),
+
+                total_points_won_pct: safeDiv(m.total_points_won, m.total_points_played),
+                total_points_won: m.total_points_won,
+
+                // Breaks - Store raw for "3/8 (37%)" format
+                break_points_won_pct: safeDiv(m.break_points_won, m.break_points_total),
+                break_points_won: m.break_points_won,
+                break_points_total: m.break_points_total,
+
+                break_games_won_pct: safeDiv(m.break_games_won, m.break_games_total),
+                break_games_won: m.break_games_won,
+                break_games_total: m.break_games_total,
+
+                set_points_saved: parseFloat((m.set_points_saved / count).toFixed(1)),
+                match_points_saved: parseFloat((m.match_points_saved / count).toFixed(1))
+            }
         }
 
-        const p1Results = calculateResults(metrics)
-        const p2Results = calculateResults(oppMetrics)
+        const p1Results = calculateFinals(metrics)
+        const p2Results = calculateFinals(oppMetrics)
 
         p1Results.totalMatches = list.length
-
-        // Add H2H and Win Rates to the result
         p1Results.wins = wins
         p1Results.losses = losses
         p1Results.win_pct = list.length > 0 ? (wins / list.length * 100).toFixed(1) : 0
         p1Results.set_win_pct = setsTotal > 0 ? (setsWon / setsTotal * 100).toFixed(1) : 0
         p1Results.game_win_pct = gamesTotal > 0 ? (gamesWon / gamesTotal * 100).toFixed(1) : 0
 
-        // Attach opponent stats for comparison
+        // Attach opponent stats
         p1Results.opponent = p2Results
 
         return p1Results

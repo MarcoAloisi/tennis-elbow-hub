@@ -25,6 +25,7 @@ function backToDashboard() {
 
 // Stats mapping for the aggregate table
 // Helper to map flat stats to nested structure
+// Helper to map flat stats to nested structure
 function mapStatsToStructure(s) {
     if (!s) return null
     return {
@@ -32,19 +33,22 @@ function mapStatsToStructure(s) {
             first_serve_pct: s.first_serve_pct,
             aces: s.aces,
             double_faults: s.double_faults,
-            fastest_serve_kmh: s.fastest_serve,
-            avg_first_serve_kmh: s.avg_first_serve,
-            avg_second_serve_kmh: s.avg_second_serve,
-            first_serve_in: 0,
-            first_serve_total: 0
+            fastest_serve_kmh: s.fastest_serve_kmh || s.fastest_serve,
+            avg_first_serve_kmh: s.avg_first_serve_kmh || s.avg_first_serve,
+            avg_second_serve_kmh: s.avg_second_serve_kmh || s.avg_second_serve,
+            first_serve_in: s.first_serve_in,
+            first_serve_total: s.first_serve_total
         },
         rally: {
             short_rallies_won: s.short_rally_won_pct,
-            short_rallies_total: 0,
+            short_rallies_total: s.short_rallies_total, // Now available? No, wait. CalculateFinals returns cleaned object.
+            // Wait, calculateFinals in store DOES return raw sums if I added them to result object.
+            // In the previous step, calculateFinals returns an object with ALL fields.
+            // So s.short_rallies_total SHOULD be there.
             normal_rallies_won: s.medium_rally_won_pct,
-            normal_rallies_total: 0,
+            normal_rallies_total: s.normal_rallies_total, 
             long_rallies_won: s.long_rally_won_pct,
-            long_rallies_total: 0,
+            long_rallies_total: s.long_rallies_total,
             avg_rally_length: s.avg_rally_length
         },
         points: {
@@ -52,21 +56,21 @@ function mapStatsToStructure(s) {
             forced_errors: s.forced_errors,
             unforced_errors: s.unforced_errors,
             points_on_first_serve_won: s.first_serve_won_pct,
-            points_on_first_serve_total: 0,
+            points_on_first_serve_total: s.points_on_first_serve_total,
             points_on_second_serve_won: s.second_serve_won_pct,
-            points_on_second_serve_total: 0,
+            points_on_second_serve_total: s.points_on_second_serve_total,
             return_points_won: s.return_points_won_pct,
-            return_points_total: 0,
+            return_points_total: s.return_points_total,
             return_winners: s.return_winners,
             net_points_won: s.net_points_won_pct,
-            net_points_total: 0,
-            total_points_won: s.total_points_won_pct
+            net_points_total: s.net_points_total,
+            total_points_won: s.total_points_won
         },
         break_points: {
             break_points_won: s.break_points_won_pct,
-            break_points_total: 0,
+            break_points_total: s.break_points_total,
             break_games_won: s.break_games_won_pct,
-            break_games_total: 0,
+            break_games_total: s.break_games_total,
             set_points_saved: s.set_points_saved,
             match_points_saved: s.match_points_saved
         }
@@ -297,6 +301,7 @@ function formatDate(dateStr) {
                     :player1="aggregatedPlayerStats"
                     :player2="store.filters.opponent ? aggregatedOpponentStats : {}"
                     category="all"
+                    displayMode="grid"
                 />
             </div>
         </div>
