@@ -51,18 +51,21 @@ function formatTime(isoString) {
         <p>Real-time Tennis Elbow 4 match scores</p>
       </div>
       
-      <div class="header-stats">
-        <div class="stat-item">
-          <span class="stat-value">{{ store.serverCount }}</span>
-          <span class="stat-label">Matches</span>
+      <div class="header-right">
+        <div class="stats-group">
+          <div class="single-stat-card">
+              <span class="stat-value">{{ store.serverCount }}</span>
+              <span class="stat-label">Matches</span>
+          </div>
+          <div class="single-stat-card">
+              <span class="stat-value">{{ store.activeMatchCount }}</span>
+              <span class="stat-label">Live</span>
+          </div>
         </div>
-        <div class="stat-item">
-          <span class="stat-value">{{ store.activeMatchCount }}</span>
-          <span class="stat-label">Live</span>
-        </div>
-        <div class="connection-status" :class="{ connected: isConnected }">
+        
+        <div class="connection-pill" :class="{ connected: isConnected }">
           <span class="status-dot"></span>
-          {{ isConnected ? 'Live' : 'Connecting...' }}
+          {{ isConnected ? 'Online' : 'Connecting...' }}
         </div>
       </div>
     </div>
@@ -127,57 +130,71 @@ function formatTime(isoString) {
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: var(--space-6);
+  justify-content: space-between;
+  align-items: center; 
+  margin-bottom: var(--space-10); /* Drastically increased spacing */
+  padding-top: var(--space-8); /* Increased top padding */
 }
 
 .header-content h1 {
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-3); /* Increased spacing below title */
 }
 
-.header-content p {
-  color: var(--color-text-muted);
-}
-
-.header-stats {
+.header-right {
   display: flex;
   align-items: center;
   gap: var(--space-6);
 }
 
-.stat-item {
+.stats-group {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.single-stat-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-1);
+  justify-content: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-2) var(--space-4);
+  min-width: 80px;
+  box-shadow: var(--shadow-sm);
 }
 
 .stat-value {
-  font-size: var(--font-size-2xl);
+  font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
-  color: var(--color-accent);
+  color: var(--color-brand-live); /* Use Live color for numbers */
+  line-height: 1.2;
 }
 
 .stat-label {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  font-weight: 600;
 }
 
-.connection-status {
+.connection-pill {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-4);
   background: var(--color-bg-secondary);
   border-radius: var(--radius-full);
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
+  border: 1px solid transparent;
 }
 
-.connection-status.connected {
+.connection-pill.connected {
+  background: rgba(34, 197, 94, 0.1);
   color: var(--color-success);
+  border-color: rgba(34, 197, 94, 0.2);
 }
 
 .status-dot {
@@ -187,7 +204,7 @@ function formatTime(isoString) {
   background: var(--color-text-muted);
 }
 
-.connection-status.connected .status-dot {
+.connection-pill.connected .status-dot {
   background: var(--color-success);
   animation: pulse 2s infinite;
 }

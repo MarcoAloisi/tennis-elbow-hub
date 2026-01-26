@@ -80,9 +80,10 @@ function clearFilters() {
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-4);
-  background: var(--color-bg-secondary);
-  border-radius: var(--radius-lg);
-  margin-bottom: var(--space-6);
+  background: var(--color-surface); /* Use Surface instead of secondary for better contrast against primary bg */
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: var(--space-8);
 }
 
 .filter-search {

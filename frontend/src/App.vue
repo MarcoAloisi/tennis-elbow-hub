@@ -53,8 +53,9 @@ import ThemeToggle from './components/common/ThemeToggle.vue'
   position: sticky;
   top: 0;
   z-index: var(--z-sticky);
-  background: var(--color-bg-primary);
+  background: var(--color-surface); /* Clear separation from body bg */
   border-bottom: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm); /* Added shadow for lift */
   backdrop-filter: blur(10px);
 }
 
@@ -62,7 +63,7 @@ import ThemeToggle from './components/common/ThemeToggle.vue'
   display: flex;
   align-items: center;
   justify-content: space-between;
-  max-width: 1400px;
+  max-width: 1200px; /* Reduced from 1400px for better focus */
   margin: 0 auto;
   padding: var(--space-4) var(--space-6);
 }
@@ -80,10 +81,8 @@ import ThemeToggle from './components/common/ThemeToggle.vue'
 .logo-text {
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
-  background: var(--color-accent-gradient);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--color-brand-primary);
+  /* background: var(--color-accent-gradient); Removed broken gradient */
 }
 
 .nav-links {
@@ -124,7 +123,7 @@ import ThemeToggle from './components/common/ThemeToggle.vue'
 
 .app-main {
   flex: 1;
-  max-width: 1400px;
+  max-width: 1200px;
   width: 100%;
   margin: 0 auto;
   padding: var(--space-8) var(--space-6);
