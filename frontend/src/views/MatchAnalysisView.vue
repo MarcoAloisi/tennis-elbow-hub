@@ -1,17 +1,31 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useAnalysisStore } from '@/stores/analysis'
 import FileUploader from '@/components/analysis/FileUploader.vue'
 import StatsTable from '@/components/analysis/StatsTable.vue'
 import StatsChart from '@/components/analysis/StatsChart.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import ErrorAlert from '@/components/common/ErrorAlert.vue'
+import PlayerSelectionModal from '@/components/common/PlayerSelectionModal.vue'
 
 const store = useAnalysisStore()
 const viewMode = ref('dashboard') // 'dashboard' or 'detail'
 const activeTab = ref('table')
 const selectedCategory = ref('all')
 const showAllStats = ref(false)
+const showIdentityModal = ref(false)
+
+// Watch for match loading to trigger identity check
+watch(() => store.hasMatches, (hasMatches) => {
+    if (hasMatches && !store.isIdentityConfirmed) {
+        showIdentityModal.value = true
+    }
+})
+
+function handleIdentityConfirm(aliases) {
+    store.setIdentifiedPlayers(aliases)
+    showIdentityModal.value = false
+}
 
 // Watch for match selection to switch view
 function openMatch(index) {
@@ -24,7 +38,6 @@ function backToDashboard() {
 }
 
 // Stats mapping for the aggregate table
-// Helper to map flat stats to nested structure
 // Helper to map flat stats to nested structure
 function mapStatsToStructure(s) {
     if (!s) return null
@@ -41,10 +54,7 @@ function mapStatsToStructure(s) {
         },
         rally: {
             short_rallies_won: s.short_rally_won_pct,
-            short_rallies_total: s.short_rallies_total, // Now available? No, wait. CalculateFinals returns cleaned object.
-            // Wait, calculateFinals in store DOES return raw sums if I added them to result object.
-            // In the previous step, calculateFinals returns an object with ALL fields.
-            // So s.short_rallies_total SHOULD be there.
+            short_rallies_total: s.short_rallies_total, 
             normal_rallies_won: s.medium_rally_won_pct,
             normal_rallies_total: s.normal_rallies_total, 
             long_rallies_won: s.long_rally_won_pct,
@@ -101,9 +111,7 @@ async function handleUpload(file) {
   }
 }
 
-async function loadSample() {
-  await store.loadSampleAnalysis()
-}
+// Deleted loadSample function
 
 function formatDate(dateStr) {
   if (!dateStr) return ''
@@ -128,6 +136,12 @@ function formatDate(dateStr) {
       </div>
     </div>
 
+    <PlayerSelectionModal 
+        :isOpen="showIdentityModal"
+        :players="store.allPlayerNames"
+        @confirm="handleIdentityConfirm"
+    />
+
     <!-- Error Alert -->
     <ErrorAlert 
       v-if="store.error"
@@ -140,15 +154,11 @@ function formatDate(dateStr) {
     <div v-if="!store.hasMatches" class="upload-section">
       <FileUploader 
         :is-loading="store.isLoading"
+        title="Load Match Log file"
         @upload="handleUpload"
       />
       
-      <div class="sample-action">
-        <span class="divider-text">or</span>
-        <button class="btn btn-secondary" @click="loadSample" :disabled="store.isLoading">
-          📊 Load Sample Match
-        </button>
-      </div>
+      <!-- Sample button removed -->
     </div>
 
     <!-- Analysis Results -->
@@ -159,7 +169,7 @@ function formatDate(dateStr) {
         <!-- Dashboard Header -->
         <div class="dashboard-header">
             <div class="header-left">
-                <button class="btn btn-ghost" @click="store.clearAnalysis">← Upload New File</button>
+                <button class="btn btn-ghost" @click="store.clearAnalysis">← Load Match Log file</button>
                 <h2>Career Dashboard</h2>
             </div>
             

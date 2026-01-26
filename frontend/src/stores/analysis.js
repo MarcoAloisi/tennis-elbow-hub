@@ -13,6 +13,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
     const isLoading = ref(false)
     const error = ref(null)
     const uploadProgress = ref(0)
+    const userAliases = ref([]) // List of names user identified as themselves
 
     // Filters & View Options
     const filters = ref({
@@ -30,9 +31,26 @@ export const useAnalysisStore = defineStore('analysis', () => {
 
     // Getters
     const hasMatches = computed(() => matches.value.length > 0)
+    const isIdentityConfirmed = computed(() => userAliases.value.length > 0 && hasMatches.value)
 
-    // Automatic User Detection: Find the player name that appears most frequently
+    const allPlayerNames = computed(() => {
+        if (!matches.value.length) return []
+        const counts = {}
+        matches.value.forEach(m => {
+            if (m.info) {
+                counts[m.info.player1_name] = (counts[m.info.player1_name] || 0) + 1
+                counts[m.info.player2_name] = (counts[m.info.player2_name] || 0) + 1
+            }
+        })
+        return Object.entries(counts).map(([name, count]) => ({ name, count }))
+    })
+
+    // Determining User Identity (Auto or Manual)
+    // We prefer manual userAliases if set, otherwise fallback to most frequent
     const mainPlayerName = computed(() => {
+        if (userAliases.value.length > 0) return userAliases.value[0] // Primary alias
+
+        // Fallback Auto-Detect (same as before)
         if (!matches.value.length) return 'Player'
         const names = {}
         matches.value.forEach(m => {
@@ -44,13 +62,21 @@ export const useAnalysisStore = defineStore('analysis', () => {
         return Object.keys(names).reduce((a, b) => names[a] > names[b] ? a : b, 'Player')
     })
 
+    // Available opponents should exclude any of the user's aliases
     const availableOpponents = computed(() => {
         const opponents = new Set()
-        const main = mainPlayerName.value
         matches.value.forEach(m => {
             if (m.info) {
-                if (m.info.player1_name !== main) opponents.add(m.info.player1_name)
-                if (m.info.player2_name !== main) opponents.add(m.info.player2_name)
+                // Should exclude any name in userAliases
+                if (userAliases.value.length > 0) {
+                    if (!userAliases.value.includes(m.info.player1_name)) opponents.add(m.info.player1_name)
+                    if (!userAliases.value.includes(m.info.player2_name)) opponents.add(m.info.player2_name)
+                } else {
+                    // Fallback if no aliases set
+                    const main = mainPlayerName.value
+                    if (m.info.player1_name !== main) opponents.add(m.info.player1_name)
+                    if (m.info.player2_name !== main) opponents.add(m.info.player2_name)
+                }
             }
         })
         return Array.from(opponents).sort()
@@ -83,14 +109,26 @@ export const useAnalysisStore = defineStore('analysis', () => {
             if (filters.value.cpu) {
                 const cpuPatterns = [/Incredible-/i, /Pro-/i, /Master-/i, /Junior-/i, /Club-/i, /-\d+$/]
 
-                // If main player is identified, exclude matches where the OTHER player is CPU
-                const main = mainPlayerName.value
-                const opponentName = info.player1_name === main ? info.player2_name : info.player1_name
+                // Identify if opponent is CPU
+                let opponentName = ''
+                if (userAliases.value.length > 0) {
+                    if (userAliases.value.includes(info.player1_name)) {
+                        opponentName = info.player2_name
+                    } else if (userAliases.value.includes(info.player2_name)) {
+                        opponentName = info.player1_name
+                    } else {
+                        // Fallback logic
+                        opponentName = info.player1_name // Assume P1 if neither match (weird case)
+                    }
+                } else {
+                    const main = mainPlayerName.value
+                    opponentName = info.player1_name === main ? info.player2_name : info.player1_name
+                }
 
                 if (cpuPatterns.some(p => p.test(opponentName))) return false
             }
 
-            // Filter by Surface
+            // Filter by Surface (Tournament name check)
             if (filters.value.surface && info.tournament) {
                 if (!info.tournament.toLowerCase().includes(filters.value.surface.toLowerCase())) {
                     return false
@@ -128,13 +166,8 @@ export const useAnalysisStore = defineStore('analysis', () => {
                 }
             }
 
-            // Filter Unfinished Matches (Must have at least one set completed)
-            // A completed set generally has at least 6 games for the winner or is a tiebreak (4-0 for Fast4? Assuming standard for now)
-            // Score format examples: "6/3 6/2", "2/1" (incomplete), "7/6(4)"
+            // Filter Unfinished Matches
             if (info.score) {
-                // Quick check: if score is very short or doesn't look like a completed set
-                // We'll trust the parser/regex to some extent, but let's look for at least one '6' or '7' or '4'(fast4)
-                // Better approach: Parse the first set.
                 const cleanScore = info.score.replace(/\s*\(RET\)|\s*\(W\/O\)/i, '').trim()
                 const sets = cleanScore.split(' ')
                 if (sets.length === 0) return false
@@ -143,14 +176,8 @@ export const useAnalysisStore = defineStore('analysis', () => {
                 const separator = firstSet.includes('/') ? '/' : '-'
                 if (firstSet.includes(separator)) {
                     const [g1, g2] = firstSet.split(separator).map(v => parseInt(v))
-
-                    // Filter matches where no set was completed
-                    // A "complete set" requires at least one player to reach 6 games (standard) or 4 (fast4)
-                    // Matches like "2/1" or "3/0" are clearly incomplete
+                    // STRICTER CHECK: At least one player must have reached 4 games
                     if (!isNaN(g1) && !isNaN(g2)) {
-                        // STRICTER CHECK: At least one player must have reached 4 games
-                        // This covers Standard (6-X) and Fast4 (4-X)
-                        // Filters out "2/1", "3/2", "1/0" etc.
                         if (g1 < 4 && g2 < 4) return false
                     }
                 }
@@ -181,8 +208,6 @@ export const useAnalysisStore = defineStore('analysis', () => {
     // Helper to determine winner from score string
     function determineWinner(score) {
         if (!score) return null
-
-        // Remove retirements/walkovers for parsing
         const cleanScore = score.replace(/\s*\(RET\)|\s*\(W\/O\)/i, '').trim()
         const sets = cleanScore.split(' ')
 
@@ -190,7 +215,6 @@ export const useAnalysisStore = defineStore('analysis', () => {
         let p2Sets = 0
 
         sets.forEach(set => {
-            // Handle super tiebreaks or normal sets
             const separator = set.includes('/') ? '/' : '-'
             if (set.includes(separator)) {
                 const [g1, g2] = set.split(separator).map(v => parseInt(v))
@@ -203,7 +227,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
 
         if (p1Sets > p2Sets) return 'player1'
         if (p2Sets > p1Sets) return 'player2'
-        return null // Draw or incomplete
+        return null
     }
 
     // Comprehensive Aggregates
@@ -211,11 +235,9 @@ export const useAnalysisStore = defineStore('analysis', () => {
         const list = filteredMatches.value
         if (!list.length) return null
 
-        // metrics to collect for Player 1 (User) - Now storing SUMS for accurate weighted averages
+        // metrics to collect for Player 1 (User)
         const metrics = {
             matches: 0,
-
-            // Serve
             first_serve_in: 0,
             first_serve_total: 0,
             aces: 0,
@@ -225,13 +247,10 @@ export const useAnalysisStore = defineStore('analysis', () => {
             avg_first_serve_count: 0,
             avg_second_serve_sum: 0,
             avg_second_serve_count: 0,
-
             points_on_first_serve_won: 0,
             points_on_first_serve_total: 0,
             points_on_second_serve_won: 0,
             points_on_second_serve_total: 0,
-
-            // Rally
             short_rallies_won: 0,
             short_rallies_total: 0,
             normal_rallies_won: 0,
@@ -240,8 +259,6 @@ export const useAnalysisStore = defineStore('analysis', () => {
             long_rallies_total: 0,
             avg_rally_length_sum: 0,
             avg_rally_length_count: 0,
-
-            // Points
             winners: 0,
             forced_errors: 0,
             unforced_errors: 0,
@@ -252,8 +269,6 @@ export const useAnalysisStore = defineStore('analysis', () => {
             return_winners: 0,
             total_points_won: 0,
             total_points_played: 0,
-
-            // Breaks
             break_points_won: 0,
             break_points_total: 0,
             break_games_won: 0,
@@ -273,9 +288,9 @@ export const useAnalysisStore = defineStore('analysis', () => {
         let gamesWon = 0
         let gamesTotal = 0
 
-        // Determine the "Main Player" (The User)
-        // If opponent filter is active, User is the player NOT matching the opponent name
-        let currentUser = mainPlayerName.value
+        // Determine user identity for this specific aggregation
+        // If no aliases set, fallback to MainPlayerName (auto)
+        const currentIdentity = userAliases.value.length > 0 ? userAliases.value : [mainPlayerName.value]
 
         list.forEach(m => {
             if (!m.info) return
@@ -283,41 +298,36 @@ export const useAnalysisStore = defineStore('analysis', () => {
             let userP, oppP
             let isUserP1 = true
 
-            // Refined User Detection Logic
-            if (filters.value.opponent) {
-                // In H2H mode, if P1 is the opponent, then P2 is the User
-                if (m.info.player1_name.toLowerCase() === filters.value.opponent.toLowerCase()) {
-                    userP = m.player2
-                    oppP = m.player1
-                    isUserP1 = false
-                    // Update currentUser for consistency if not already set correctly
-                    currentUser = m.info.player2_name
-                } else if (m.info.player2_name.toLowerCase() === filters.value.opponent.toLowerCase()) {
-                    userP = m.player1
-                    oppP = m.player2
-                    isUserP1 = true
-                } else {
-                    // Neither matches filter (shouldn't happen due to filter logic), fallback to default
-                    if (m.info.player1_name === currentUser) {
-                        userP = m.player1
-                        oppP = m.player2
-                        isUserP1 = true
-                    } else {
+            // Logic: Is P1 in our aliases?
+            if (currentIdentity.includes(m.info.player1_name)) {
+                isUserP1 = true
+                userP = m.player1
+                oppP = m.player2
+            }
+            // Is P2 in our aliases?
+            else if (currentIdentity.includes(m.info.player2_name)) {
+                isUserP1 = false
+                userP = m.player2
+                oppP = m.player1
+            }
+            // Neither?
+            else {
+                // If filters.opponent is set, assume the OTHER player is the user
+                if (filters.value.opponent) {
+                    if (m.info.player1_name.toLowerCase() === filters.value.opponent.toLowerCase()) {
                         userP = m.player2
                         oppP = m.player1
                         isUserP1 = false
+                    } else {
+                        userP = m.player1
+                        oppP = m.player2
+                        isUserP1 = true
                     }
-                }
-            } else {
-                // Global mode
-                if (m.info.player1_name === currentUser) {
+                } else {
+                    // Default to P1 if unknown
+                    isUserP1 = true
                     userP = m.player1
                     oppP = m.player2
-                    isUserP1 = true
-                } else {
-                    userP = m.player2
-                    oppP = m.player1
-                    isUserP1 = false
                 }
             }
 
@@ -326,7 +336,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
                 if (p) {
                     targetMetrics.matches++
 
-                    // Serve
+                    // Serve sums
                     targetMetrics.first_serve_in += parseFloat(p.serve.first_serve_in || 0)
                     targetMetrics.first_serve_total += parseFloat(p.serve.first_serve_total || 0)
                     targetMetrics.aces += parseFloat(p.serve.aces || 0)
@@ -450,8 +460,12 @@ export const useAnalysisStore = defineStore('analysis', () => {
 
                 // Rally
                 short_rally_won_pct: safeDiv(m.short_rallies_won, m.short_rallies_total),
+                short_rallies_total: m.short_rallies_total, // RAW TOTAL
                 medium_rally_won_pct: safeDiv(m.normal_rallies_won, m.normal_rallies_total),
+                normal_rallies_total: m.normal_rallies_total, // RAW TOTAL
                 long_rally_won_pct: safeDiv(m.long_rallies_won, m.long_rallies_total),
+                long_rallies_total: m.long_rallies_total, // RAW TOTAL
+
                 avg_rally_length: m.avg_rally_length_count > 0 ? parseFloat((m.avg_rally_length_sum / m.avg_rally_length_count).toFixed(1)) : 0,
 
                 // Points
@@ -507,6 +521,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
         isLoading.value = true
         error.value = null
         uploadProgress.value = 0
+        userAliases.value = [] // Reset aliases on new upload
 
         try {
             const formData = new FormData()
@@ -554,6 +569,10 @@ export const useAnalysisStore = defineStore('analysis', () => {
         }
     }
 
+    function setIdentifiedPlayers(aliases) {
+        userAliases.value = aliases
+    }
+
     async function loadSampleAnalysis() {
         isLoading.value = true
         error.value = null
@@ -581,6 +600,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
     function clearAnalysis() {
         matches.value = []
         currentMatchIndex.value = 0
+        userAliases.value = []
         error.value = null
     }
 
@@ -588,11 +608,6 @@ export const useAnalysisStore = defineStore('analysis', () => {
         if (index >= 0 && index < matches.value.length) {
             currentMatchIndex.value = index
         }
-    }
-
-    function loadFromHistory(index) {
-        // Implementation for reloading previous files would require storing full data or re-fetching
-        // For now this is valid for the session
     }
 
     function setFilter(key, value) {
@@ -621,8 +636,11 @@ export const useAnalysisStore = defineStore('analysis', () => {
         uploadProgress,
         sortDesc,
         statsMode,
+        userAliases,
         // Getters
         hasMatches,
+        isIdentityConfirmed,
+        allPlayerNames,
         currentMatch,
         player1Stats,
         player2Stats,
@@ -634,6 +652,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
         filters,
         // Actions
         uploadAndAnalyze,
+        setIdentifiedPlayers,
         loadSampleAnalysis,
         clearAnalysis,
         selectMatch,
