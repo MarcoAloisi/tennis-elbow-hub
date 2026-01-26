@@ -99,7 +99,8 @@ const subtitle = computed(() => props.initialSelected.length > 0 ? 'Update the p
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  justify-content: center;
+  z-index: 9999;
   backdrop-filter: blur(4px);
 }
 

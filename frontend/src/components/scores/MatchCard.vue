@@ -131,6 +131,11 @@ const setsDisplay = computed(() => {
   return props.server.game_info?.sets_display || ''
 })
 
+const isOnlineMode = computed(() => {
+  const mode = props.server.game_info?.mode_display || ''
+  return mode.trim().toLowerCase() === 'online'
+})
+
 </script>
 
 <template>
@@ -217,8 +222,9 @@ const setsDisplay = computed(() => {
 
     <!-- Footer -->
     <div class="match-footer">
-      <span class="footer-tag" :class="{ 'online-tag': server.game_info?.mode_display === 'Online' }">
-        <span v-if="server.game_info?.mode_display === 'Online'" class="online-dot-pulse"></span>
+    <div class="match-footer">
+      <span class="footer-tag" :class="{ 'online-tag': isOnlineMode }">
+        <span v-if="isOnlineMode" class="online-dot-pulse"></span>
         {{ server.game_info?.mode_display || 'Singles' }}
       </span>
       

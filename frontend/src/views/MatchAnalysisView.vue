@@ -20,7 +20,7 @@ watch(() => store.hasMatches, (hasMatches) => {
     if (hasMatches && !store.isIdentityConfirmed) {
         showIdentityModal.value = true
     }
-})
+}, { immediate: true })
 
 function handleIdentityConfirm(aliases) {
     store.setIdentifiedPlayers(aliases)
