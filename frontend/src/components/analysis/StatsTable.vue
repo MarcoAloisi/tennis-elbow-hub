@@ -80,28 +80,28 @@ function formatValue(player, stat) {
   const val = getValue(player, stat)
   const total = getTotal(player, stat)
   
+  // Helper to round visual numbers
+  const r = (n) => Math.round(n)
+  
   switch (stat.format) {
     case 'pct':
       return `${val.toFixed(1)}%`
     case 'speed':
       return `${val.toFixed(0)} km/h`
     case 'ratio':
-      return total ? `${val}/${total}` : val.toString()
+      return total ? `${r(val)}/${r(total)}` : r(val).toString()
     case 'rate_pct':
       if (!total) {
-          // If we have just the pct (from aggregate), display as pct
-          // But check if it's looking for a total
           if (stat.total && !player[stat.path]?.[stat.total]) {
               return `${val.toFixed(1)}%`
           }
-          return val.toString()
+          return r(val).toString()
       }
       const totalVal = player[stat.path]?.[stat.total] || 0
-      if (!totalVal) return `${val.toFixed(1)}%` // Fallback if total missing but val exists (aggregate case)
+      if (!totalVal) return `${val.toFixed(1)}%`
       
       const pct = totalVal > 0 ? Math.round((val / totalVal) * 100) : 0
-      // Smart format: "3/10 (30%)"
-      return `${val}/${totalVal} (${pct}%)`
+      return `${r(val)}/${r(totalVal)} (${pct}%)`
     case 'dec':
       return val.toFixed(1)
     default:
@@ -232,7 +232,7 @@ function isWinner(stat) {
 /* Grid Mode */
 .stats-table.grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: var(--space-4);
 }
 
@@ -243,23 +243,32 @@ function isWinner(stat) {
     background: var(--color-bg-card);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
-    gap: var(--space-2);
+    gap: var(--space-3);
     align-items: center;
     text-align: center;
+    box-shadow: var(--shadow-sm);
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.stats-table.grid .stats-row.card-item:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
 }
 
 .card-label {
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
     color: var(--color-text-muted);
-    font-weight: var(--font-weight-medium);
+    font-weight: var(--font-weight-bold);
 }
 
 .card-values {
     display: flex;
-    align-items: center;
+    align-items: baseline; /* Align by baseline for better text flow */
+    justify-content: center;
     gap: var(--space-4);
     width: 100%;
-    justify-content: center;
 }
 
 .p1-value, .p2-value {
@@ -268,7 +277,7 @@ function isWinner(stat) {
     align-items: center;
     font-family: var(--font-mono);
     font-weight: bold;
-    font-size: var(--font-size-lg);
+    font-size: var(--font-size-md); /* Reduced from lg to prevent overflow */
 }
 
 .p1-value small, .p2-value small {
@@ -277,13 +286,16 @@ function isWinner(stat) {
     font-weight: normal;
     font-family: var(--font-sans);
     margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 80px; /* Constrain name width */
 }
 
 .vs-divider {
     font-size: var(--font-size-xs);
     color: var(--color-text-muted);
-    margin-top: auto;
-    margin-bottom: 4px; /* Align with value */
+    align-self: center;
 }
 
 /* Common Value Styles */

@@ -128,6 +128,34 @@ export const useAnalysisStore = defineStore('analysis', () => {
                 }
             }
 
+            // Filter Unfinished Matches (Must have at least one set completed)
+            // A completed set generally has at least 6 games for the winner or is a tiebreak (4-0 for Fast4? Assuming standard for now)
+            // Score format examples: "6/3 6/2", "2/1" (incomplete), "7/6(4)"
+            if (info.score) {
+                // Quick check: if score is very short or doesn't look like a completed set
+                // We'll trust the parser/regex to some extent, but let's look for at least one '6' or '7' or '4'(fast4)
+                // Better approach: Parse the first set.
+                const cleanScore = info.score.replace(/\s*\(RET\)|\s*\(W\/O\)/i, '').trim()
+                const sets = cleanScore.split(' ')
+                if (sets.length === 0) return false
+
+                const firstSet = sets[0]
+                const separator = firstSet.includes('/') ? '/' : '-'
+                if (firstSet.includes(separator)) {
+                    const [g1, g2] = firstSet.split(separator).map(v => parseInt(v))
+
+                    // Filter matches where no set was completed
+                    // A "complete set" requires at least one player to reach 6 games (standard) or 4 (fast4)
+                    // Matches like "2/1" or "3/0" are clearly incomplete
+                    if (!isNaN(g1) && !isNaN(g2)) {
+                        // STRICTER CHECK: At least one player must have reached 4 games
+                        // This covers Standard (6-X) and Fast4 (4-X)
+                        // Filters out "2/1", "3/2", "1/0" etc.
+                        if (g1 < 4 && g2 < 4) return false
+                    }
+                }
+            }
+
             return true
         })
 
