@@ -23,7 +23,7 @@ const props = defineProps({
 // Define stat categories
 const statCategories = {
   serve: [
-    { key: 'first_serve_pct', label: '1st Serve %', format: 'rate_pct', path: 'serve', total: 'first_serve_total', value: 'first_serve_in' },
+    { key: 'first_serve_in', label: '1st Serve %', format: 'rate_pct', path: 'serve', total: 'first_serve_total' },
     { key: 'aces', label: 'Aces', format: 'num', path: 'serve' },
     { key: 'double_faults', label: 'Double Faults', format: 'num', path: 'serve', lower: true },
     { key: 'avg_first_serve_kmh', label: 'Avg 1st Serve (km/h)', format: 'speed', path: 'serve' },

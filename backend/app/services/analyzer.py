@@ -27,6 +27,8 @@ logger = get_logger("analyzer")
 def parse_ratio(text: str) -> tuple[int, int, float]:
     """Parse a ratio string like '41 / 66 = 62%' into components.
 
+    Also handles '62% (41/66)' and simple '41/66'.
+
     Args:
         text: Ratio string from the stats table.
 
@@ -37,23 +39,32 @@ def parse_ratio(text: str) -> tuple[int, int, float]:
     if not text:
         return (0, 0, 0.0)
 
-    # Try full format: "X / Y = Z%"
-    match = re.match(r"(\d+)\s*/\s*(\d+)\s*=\s*(\d+(?:\.\d+)?)\s*%?", text)
-    if match:
-        num = int(match.group(1))
-        denom = int(match.group(2))
-        pct = float(match.group(3))
+    # Strategy 1: Look for the Ratio "X / Y" explicitly
+    # This covers "X / Y = Z%", "Z% (X / Y)", and just "X / Y"
+    # We prioritize finding the ratio because that gives us the raw counts
+    ratio_match = re.search(r"(\d+)\s*/\s*(\d+)", text)
+    if ratio_match:
+        num = int(ratio_match.group(1))
+        denom = int(ratio_match.group(2))
+        
+        # Try to find percentage in the same string to be precise, otherwise calculate it
+        pct_match = re.search(r"(\d+(?:\.\d+)?)\s*%", text)
+        if pct_match:
+            pct = float(pct_match.group(1))
+        else:
+            pct = (num / denom * 100) if denom > 0 else 0.0
+            
         return (num, denom, pct)
 
-    # Try simple ratio: "X / Y"
-    match = re.match(r"(\d+)\s*/\s*(\d+)", text)
-    if match:
-        num = int(match.group(1))
-        denom = int(match.group(2))
-        pct = (num / denom * 100) if denom > 0 else 0.0
-        return (num, denom, pct)
+    # Strategy 2: If no ratio found, look for just a percentage "62%"
+    # We treat this as "62/0" which is not ideal but preserves the data
+    pct_match = re.search(r"(\d+(?:\.\d+)?)\s*%", text)
+    if pct_match:
+        pct = float(pct_match.group(1))
+        return (int(pct), 0, pct)
 
-    # Try just a number
+    # Strategy 3: Try just a number "62"
+    # match() is fine here as we want to ensure it's the main content if nothing else matched
     match = re.match(r"(\d+)", text)
     if match:
         return (int(match.group(1)), 0, 0.0)
