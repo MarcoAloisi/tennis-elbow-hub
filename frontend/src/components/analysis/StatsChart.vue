@@ -45,6 +45,13 @@ const props = defineProps({
 
 const selectedChart = ref(props.chartType)
 
+// Helper to get CSS variable value
+function getThemeColor(variable) {
+  const styles = getComputedStyle(document.documentElement)
+  return styles.getPropertyValue(variable).trim()
+}
+
+
 // Normalize values to 0-100 scale for radar chart
 function normalize(value, max) {
   return Math.min(100, (value / max) * 100)
@@ -78,24 +85,43 @@ const radarData = computed(() => {
     100 - normalize(p2.points?.unforced_errors || 0, 30)
   ]
 
+  const primaryColor = getThemeColor('--color-brand-primary') || '#3BB143'
+  const secondaryColor = getThemeColor('--color-text-secondary') || '#64748b'
+
+  // Convert hex to rgba for background (simple implementation)
+  const hexToRgba = (hex, alpha) => {
+    let r = 0, g = 0, b = 0
+    if (hex.length === 4) {
+      r = parseInt(hex[1] + hex[1], 16)
+      g = parseInt(hex[2] + hex[2], 16)
+      b = parseInt(hex[3] + hex[3], 16)
+    } else if (hex.length === 7) {
+      r = parseInt(hex[1] + hex[2], 16)
+      g = parseInt(hex[3] + hex[4], 16)
+      b = parseInt(hex[5] + hex[6], 16)
+    }
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`
+  }
+
   return {
     labels,
     datasets: [
       {
         label: p1.name || 'Player 1',
         data: p1Values,
-        backgroundColor: 'rgba(79, 70, 229, 0.2)',
-        borderColor: 'rgb(79, 70, 229)',
+        backgroundColor: hexToRgba(primaryColor, 0.2),
+        borderColor: primaryColor,
         borderWidth: 2,
-        pointBackgroundColor: 'rgb(79, 70, 229)'
+        pointBackgroundColor: primaryColor
       },
       {
         label: p2.name || 'Player 2',
         data: p2Values,
-        backgroundColor: 'rgba(239, 68, 68, 0.2)',
-        borderColor: 'rgb(239, 68, 68)',
+        backgroundColor: hexToRgba(secondaryColor, 0.2),
+        borderColor: secondaryColor,
+        borderDash: [5, 5], // Dotted line for comparison
         borderWidth: 2,
-        pointBackgroundColor: 'rgb(239, 68, 68)'
+        pointBackgroundColor: secondaryColor
       }
     ]
   }
@@ -105,6 +131,9 @@ const radarData = computed(() => {
 const barData = computed(() => {
   const p1 = props.player1
   const p2 = props.player2
+
+  const primaryColor = getThemeColor('--color-brand-primary') || '#3BB143'
+  const secondaryColor = getThemeColor('--color-text-secondary') || '#64748b'
 
   return {
     labels: ['Winners', 'Aces', 'Break Pts', 'Net Pts'],
@@ -117,7 +146,7 @@ const barData = computed(() => {
           p1.break_points?.break_points_won || 0,
           p1.points?.net_points_won || 0
         ],
-        backgroundColor: 'rgba(79, 70, 229, 0.8)',
+        backgroundColor: primaryColor,
         borderRadius: 4
       },
       {
@@ -128,7 +157,7 @@ const barData = computed(() => {
           p2.break_points?.break_points_won || 0,
           p2.points?.net_points_won || 0
         ],
-        backgroundColor: 'rgba(239, 68, 68, 0.8)',
+        backgroundColor: secondaryColor,
         borderRadius: 4
       }
     ]

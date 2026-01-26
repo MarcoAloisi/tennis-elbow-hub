@@ -1,147 +1,100 @@
 /**
  * CSS Custom Properties (Design Tokens)
  * 
- * This file defines the design system variables for theming.
- * Light theme is the default, dark theme is activated via [data-theme="dark"].
+ * DESIGN SYSTEM:
+ * - Typography: Inter (Headings/Body), JetBrains Mono (Data)
+ * - Colors: High contrast, neon accents
  */
 
 :root {
-  /* === Colors - Light Theme (ManaGames Style) === */
-  --color-bg-primary: #f0f0ff; /* Lavender Mist */
-  --color-bg-secondary: #e0e0f0; /* Darker Lavender */
-  --color-bg-tertiary: #d8d8e8; /* Even Darker for borders/accents */
-  --color-bg-card: #ffffff;
-  --color-bg-hover: #e8e8f8;
-  
-  --color-text-primary: #0f172a;
-  --color-text-secondary: #475569;
-  --color-text-muted: #64748b;
-  --color-text-inverse: #ffffff;
-  
-  --color-accent: #3366cc; /* Tennis Deep Blue */
-  --color-accent-hover: #254e99;
-  --color-accent-light: #e0e0f0; /* Matching secondary bg */
-  --color-accent-gradient: linear-gradient(135deg, #3366cc 0%, #4a90e2 100%);
-  
-  --color-success: #10b981;
-  --color-success-light: #d1fae5;
-  --color-tennis-green: #66cc33; /* Tennis Ball Green */
-  --color-warning: #f59e0b;
-  --color-warning-light: #fef3c7;
+  /* === Light Theme === */
+  --color-background: #F8FAF9;
+  --color-surface: #FFFFFF;
+  --color-border: #E2E8F0;
+
+  /* Text */
+  --color-text-primary: #0A3D2E;
+  --color-text-secondary: #4A5D58;
+  --color-text-inverse: #FFFFFF;
+
+  /* Brand / Accents */
+  --color-brand-primary: #3BB143;
+  /* Success Green */
+  --color-brand-accent: #BDE742;
+  /* Neon Yellow-Green */
+  --color-brand-live: #22C55E;
+  /* Live Indicator Green */
+
+  /* Mappings for component compatibility */
+  --color-bg-primary: var(--color-background);
+  --color-bg-secondary: #f0f2f5;
+  /* Slight offset for light mode */
+  --color-bg-tertiary: #e2e8f0;
+  --color-bg-card: var(--color-surface);
+
+  --color-accent: var(--color-brand-primary);
+  --color-tennis-green: var(--color-brand-primary);
+  /* Mapping old var */
   --color-error: #ef4444;
-  --color-error-light: #fee2e2;
-  --color-info: #3b82f6;
-  --color-info-light: #dbeafe;
-  
-  --color-border: #e2e8f0;
-  --color-border-hover: #cbd5e1;
-  
-  /* Surface indicators */
-  --color-surface-hard: #3366cc;
-  --color-surface-clay: #e65100;
-  --color-surface-grass: #2e7d32;
-  --color-surface-indoor: #7b1fa2;
-  
-  /* Table Row Colors (ManaGames specific) */
-  --color-table-d1: #f0f0ff;
-  --color-table-d2: #e0e0f0;
-  --color-table-c1: #e8e8f8;
-  --color-table-c2: #d8d8e8;
-  
-  /* === Shadows === */
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  --shadow-glow: 0 0 20px rgba(79, 70, 229, 0.3);
-  
-  /* === Border Radius === */
-  --radius-sm: 0.375rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-xl: 1rem;
-  --radius-2xl: 1.5rem;
-  --radius-full: 9999px;
-  
-  /* === Spacing === */
+  /* Keep for errors */
+
+  /* Typography */
+  --font-heading: 'Inter', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-data: 'JetBrains Mono', monospace;
+
+  --letter-spacing-tight: -0.02em;
+
+  /* Spacing & Radius (Keeping existing) */
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
   --space-4: 1rem;
-  --space-5: 1.25rem;
-  --space-6: 1.5rem;
-  --space-8: 2rem;
-  --space-10: 2.5rem;
-  --space-12: 3rem;
-  --space-16: 4rem;
-  
-  /* === Typography === */
-  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
-  
-  --font-size-xs: 0.75rem;
-  --font-size-sm: 0.875rem;
-  --font-size-base: 1rem;
-  --font-size-lg: 1.125rem;
-  --font-size-xl: 1.25rem;
-  --font-size-2xl: 1.5rem;
-  --font-size-3xl: 1.875rem;
-  --font-size-4xl: 2.25rem;
-  
-  --font-weight-normal: 400;
-  --font-weight-medium: 500;
-  --font-weight-semibold: 600;
-  --font-weight-bold: 700;
-  
-  --line-height-tight: 1.25;
-  --line-height-normal: 1.5;
-  --line-height-relaxed: 1.75;
-  
-  /* === Transitions === */
-  --transition-fast: 150ms ease;
+  --radius-lg: 0.75rem;
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   --transition-base: 200ms ease;
-  --transition-slow: 300ms ease;
-  --transition-bounce: 300ms cubic-bezier(0.68, -0.55, 0.265, 1.55);
-  
-  /* === Z-Index === */
-  --z-dropdown: 100;
-  --z-sticky: 200;
-  --z-modal: 300;
-  --z-toast: 400;
 }
 
 /* === Dark Theme === */
 [data-theme="dark"] {
-  --color-bg-primary: #0f172a;
-  --color-bg-secondary: #1e293b;
-  --color-bg-tertiary: #334155;
-  --color-bg-card: #1e293b;
-  --color-bg-hover: #334155;
-  
-  --color-text-primary: #f1f5f9;
-  --color-text-secondary: #cbd5e1;
-  --color-text-muted: #64748b;
-  --color-text-inverse: #0f172a;
-  
-  --color-accent: #818cf8;
-  --color-accent-hover: #a5b4fc;
-  --color-accent-light: #312e81;
-  --color-accent-gradient: linear-gradient(135deg, #818cf8 0%, #a78bfa 100%);
-  
-  --color-success-light: #064e3b;
-  --color-tennis-green: #5cb82e; /* Slightly darker for dark mode contrast */
-  --color-warning-light: #78350f;
-  --color-error-light: #7f1d1d;
-  --color-info-light: #1e3a8a;
-  
-  --color-border: #334155;
-  --color-border-hover: #475569;
-  
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
-  --shadow-glow: 0 0 20px rgba(129, 140, 248, 0.3);
+  --color-background: #0B1210;
+  --color-surface: #1A2421;
+  --color-border: #2D3734;
+
+  /* Text */
+  --color-text-primary: #E2E8F0;
+  --color-text-secondary: #94A3B8;
+  --color-text-inverse: #0B1210;
+
+  /* Brand */
+  --color-brand-primary: #D4FF5F;
+  /* Neon for dark mode */
+  --color-brand-accent: #2E7D32;
+  --color-brand-live: #22C55E;
+
+  /* Mappings */
+  --color-bg-primary: var(--color-background);
+  --color-bg-secondary: #161e1b;
+  --color-bg-card: var(--color-surface);
+
+  --color-accent: var(--color-brand-primary);
+  --color-tennis-green: var(--color-brand-primary);
+}
+
+/* Base Global Styles */
+body {
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  text-transform: uppercase;
 }

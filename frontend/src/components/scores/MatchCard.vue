@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 
 const props = defineProps({
   server: {
@@ -240,13 +240,13 @@ const setsDisplay = computed(() => {
 }
 
 .match-card:hover {
-  border-color: var(--color-accent);
+  border-color: var(--color-brand-primary);
   box-shadow: var(--shadow-md);
   transform: translateY(-2px);
 }
 
 .match-card.is-live {
-  border-left: 4px solid var(--color-error);
+  border-left: 4px solid var(--color-brand-live);
 }
 
 /* Header */
@@ -263,13 +263,17 @@ const setsDisplay = computed(() => {
 }
 
 .badge-live {
-  background-color: var(--color-tennis-green);
-  color: white;
+  background-color: var(--color-brand-live);
+  color: var(--color-text-inverse); /* Usually white on green */
   display: flex;
   align-items: center;
   gap: 6px;
-  padding-left: 8px;
-  padding-right: 8px;
+  padding: 4px 8px; /* Slightly more padding */
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-style: italic; /* Speed/Forward motion */
+  text-transform: uppercase;
+  letter-spacing: 0.05em; /* Slight spacing for uppercase */
 }
 
 .live-dot-pulse {
@@ -277,17 +281,21 @@ const setsDisplay = computed(() => {
   height: 8px;
   background-color: white;
   border-radius: 50%;
-  animation: pulse 1.5s infinite;
+  animation: pulse 1.5s infinite ease-in-out; /* Improved pulse */
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.6; transform: scale(0.9); }
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(255, 255, 255, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
 }
 
 .badge-waiting {
   background-color: var(--color-bg-tertiary);
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
+  font-family: var(--font-heading);
+  font-weight: 600;
+  text-transform: uppercase;
 }
 
 /* Match Grid */
@@ -326,7 +334,8 @@ const setsDisplay = computed(() => {
 }
 
 .player-name {
-  font-weight: var(--font-weight-semibold);
+  font-family: var(--font-heading); /* Inter */
+  font-weight: 700; /* Bold for names */
   font-size: var(--font-size-base);
   color: var(--color-text-primary);
   white-space: nowrap;
@@ -336,8 +345,9 @@ const setsDisplay = computed(() => {
 }
 
 .player-elo {
+  font-family: var(--font-body);
   font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
 }
 
 .host-badge {
@@ -377,10 +387,11 @@ const setsDisplay = computed(() => {
 .set-score {
   width: 20px;
   text-align: center;
-  font-family: var(--font-mono);
+  font-family: var(--font-data); /* JetBrains Mono */
   font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-medium);
+  font-weight: 500;
   color: var(--color-text-primary);
+  letter-spacing: var(--letter-spacing-tight);
 }
 
 /* 4. Points Column */
@@ -418,9 +429,10 @@ const setsDisplay = computed(() => {
 }
 
 .point-score {
-  font-family: var(--font-mono);
-  font-size: var(--font-size-lg); /* Slightly larger */
-  font-weight: var(--font-weight-bold);
+  font-family: var(--font-data); /* JetBrains Mono */
+  font-size: var(--font-size-lg); 
+  font-weight: 700;
+  letter-spacing: var(--letter-spacing-tight);
 }
 
 
@@ -456,9 +468,16 @@ const setsDisplay = computed(() => {
 .badge-tournament {
   background: var(--color-bg-tertiary);
   color: var(--color-text-secondary);
-  max-width: 150px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  max-width: unset; /* Allow it to stretch */
+  overflow: visible; /* Show full name if possible, or handle with flex */
   white-space: nowrap;
+  flex-shrink: 1; /* Allow shrinking if absolutely necessary, but prefer full width */
+  min-width: 0;
+  text-overflow: ellipsis; 
+  overflow: hidden;
 }
 </style>

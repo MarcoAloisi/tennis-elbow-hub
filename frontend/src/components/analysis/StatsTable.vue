@@ -284,7 +284,7 @@ function isWinner(stat) {
     font-size: 0.7rem;
     color: var(--color-text-muted);
     font-weight: normal;
-    font-family: var(--font-sans);
+    font-family: var(--font-body);
     margin-bottom: 2px;
     white-space: nowrap;
     overflow: hidden;
@@ -301,7 +301,7 @@ function isWinner(stat) {
 /* Common Value Styles */
 .stats-value {
   font-weight: var(--font-weight-medium);
-  font-family: var(--font-mono);
+  font-family: var(--font-data);
   color: var(--color-text-primary);
 }
 
@@ -314,7 +314,7 @@ function isWinner(stat) {
 }
 
 .stats-value.winner, .p1-value.winner, .p2-value.winner span {
-  color: var(--color-success);
+  color: var(--color-brand-primary);
   font-weight: var(--font-weight-bold);
 }
 
