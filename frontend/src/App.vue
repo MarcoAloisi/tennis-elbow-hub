@@ -18,6 +18,7 @@ import ThemeToggle from './components/common/ThemeToggle.vue'
             <span class="nav-icon">📊</span>
             Live Scores
           </RouterLink>
+          <div class="nav-divider"></div>
           <RouterLink to="/analysis" class="nav-link" active-class="active">
             <span class="nav-icon">📈</span>
             Match Analysis
@@ -79,15 +80,23 @@ import ThemeToggle from './components/common/ThemeToggle.vue'
 }
 
 .logo-text {
-  font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-bold);
+  font-size: 1.5rem; /* Increased from XL to roughly 2XL */
+  font-weight: 800; /* Extra bolc */
   color: var(--color-brand-primary);
   /* background: var(--color-accent-gradient); Removed broken gradient */
 }
 
 .nav-links {
   display: flex;
+  align-items: center; /* Ensure divider is centered */
   gap: var(--space-2);
+}
+
+.nav-divider {
+  width: 1px;
+  height: 24px;
+  background-color: var(--color-border);
+  margin: 0 var(--space-2);
 }
 
 .nav-link {

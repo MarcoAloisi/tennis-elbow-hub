@@ -138,6 +138,8 @@ function formatTime(isoString) {
 
 .header-content h1 {
   margin-bottom: var(--space-3); /* Increased spacing below title */
+  font-size: 3rem; /* Increased for impact */
+  letter-spacing: -0.03em;
 }
 
 .header-right {
