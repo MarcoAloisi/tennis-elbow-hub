@@ -25,6 +25,7 @@
   
   --color-success: #10b981;
   --color-success-light: #d1fae5;
+  --color-tennis-green: #66cc33; /* Tennis Ball Green */
   --color-warning: #f59e0b;
   --color-warning-light: #fef3c7;
   --color-error: #ef4444;
@@ -129,6 +130,7 @@
   --color-accent-gradient: linear-gradient(135deg, #818cf8 0%, #a78bfa 100%);
   
   --color-success-light: #064e3b;
+  --color-tennis-green: #5cb82e; /* Slightly darker for dark mode contrast */
   --color-warning-light: #78350f;
   --color-error-light: #7f1d1d;
   --color-info-light: #1e3a8a;

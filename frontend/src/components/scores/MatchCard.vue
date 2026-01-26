@@ -15,17 +15,32 @@ const players = computed(() => {
   // Try " vs " separator
   if (name.includes(' vs ')) {
     const parts = name.split(' vs ')
-    return { player1: parts[0].trim(), player2: parts[1].trim() }
+    const p1Raw = parts[0].trim()
+    const p2Raw = parts[1].trim()
+    
+    // Split doubles names if present (e.g. "Name1/Name2")
+    const player1 = p1Raw.includes('/') ? p1Raw.split('/') : [p1Raw]
+    const player2 = p2Raw.includes('/') ? p2Raw.split('/') : [p2Raw]
+    
+    return { player1, player2 }
   }
   
   // Try " - " separator
   if (name.includes(' - ')) {
     const parts = name.split(' - ')
-    return { player1: parts[0].trim(), player2: parts[1].trim() }
+    const p1Raw = parts[0].trim()
+    const p2Raw = parts[1].trim()
+    
+    const player1 = p1Raw.includes('/') ? p1Raw.split('/') : [p1Raw]
+    const player2 = p2Raw.includes('/') ? p2Raw.split('/') : [p2Raw]
+    
+    return { player1, player2 }
   }
   
   // Single player or unknown format
-  return { player1: name, player2: null }
+  const p1Raw = name
+  const player1 = p1Raw.includes('/') ? p1Raw.split('/') : [p1Raw]
+  return { player1, player2: null }
 })
 
 // Enhanced score parsing for grid display
@@ -140,7 +155,11 @@ const setsDisplay = computed(() => {
       <div class="player-row">
         <div class="player-info">
           <div class="name-container">
-            <span class="player-name">{{ players.player1 || 'Player 1' }}</span>
+            <div class="names-wrapper">
+              <span v-for="(name, idx) in players.player1" :key="idx" class="player-name">
+                {{ name }}
+              </span>
+            </div>
             <span class="host-badge" title="Match Host">HOST</span>
           </div>
           <span class="player-elo">elo: {{ server.elo }}</span>
@@ -168,7 +187,11 @@ const setsDisplay = computed(() => {
       <div class="player-row">
         <div class="player-info">
           <div class="name-container">
-            <span class="player-name">{{ players.player2 || 'Player 2' }}</span>
+            <div class="names-wrapper">
+              <span v-for="(name, idx) in players.player2" :key="idx" class="player-name">
+                {{ name }}
+              </span>
+            </div>
           </div>
           <span class="player-elo">elo: {{ server.other_elo }}</span>
         </div>
@@ -240,7 +263,7 @@ const setsDisplay = computed(() => {
 }
 
 .badge-live {
-  background-color: var(--color-error);
+  background-color: var(--color-tennis-green);
   color: white;
   display: flex;
   align-items: center;
@@ -277,7 +300,7 @@ const setsDisplay = computed(() => {
 .player-row {
   display: flex;
   align-items: center;
-  height: 36px; /* Fixed height for consistency */
+  min-height: 36px; /* Changed from fixed height to min-height for stacked names */
 }
 
 /* 1. Player Info Column */
@@ -296,6 +319,12 @@ const setsDisplay = computed(() => {
   gap: 6px;
 }
 
+.names-wrapper {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
 .player-name {
   font-weight: var(--font-weight-semibold);
   font-size: var(--font-size-base);
@@ -303,6 +332,7 @@ const setsDisplay = computed(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.2;
 }
 
 .player-elo {
