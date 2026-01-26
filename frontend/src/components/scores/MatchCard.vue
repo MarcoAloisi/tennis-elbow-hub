@@ -471,13 +471,12 @@ const setsDisplay = computed(() => {
   font-family: var(--font-heading);
   font-weight: 600;
   font-size: 0.75rem;
+  font-size: 0.75rem;
   letter-spacing: 0.02em;
-  max-width: unset; /* Allow it to stretch */
-  overflow: visible; /* Show full name if possible, or handle with flex */
+  max-width: 180px; /* Restored constraint to prevent grid blowout */
+  overflow: hidden; 
   white-space: nowrap;
-  flex-shrink: 1; /* Allow shrinking if absolutely necessary, but prefer full width */
-  min-width: 0;
+  flex-shrink: 1; 
   text-overflow: ellipsis; 
-  overflow: hidden;
 }
 </style>

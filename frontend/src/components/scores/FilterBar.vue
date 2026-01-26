@@ -98,12 +98,22 @@ function clearFilters() {
   border-bottom-right-radius: 0;
 }
 
+.filter-search input:focus {
+  z-index: 1; /* Ensure focus ring sits on top */
+}
+
 .filter-search .btn-icon {
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
   border: 1px solid var(--color-border);
   border-left: none;
-  background: var(--color-bg-primary);
+  background: var(--color-bg-card); /* Match input background */
+  color: var(--color-text-secondary);
+}
+
+.filter-search .btn-icon:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-brand-primary);
 }
 
 .filter-select {
@@ -115,7 +125,7 @@ function clearFilters() {
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
-  background: var(--color-bg-primary);
+  background: var(--color-bg-card);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   cursor: pointer;

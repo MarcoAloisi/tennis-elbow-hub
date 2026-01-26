@@ -21,7 +21,7 @@ html {
 }
 
 body {
-    font-family: var(--font-family);
+    font-family: var(--font-body);
     font-size: var(--font-size-base);
     line-height: var(--line-height-normal);
     color: var(--color-text-primary);
@@ -37,7 +37,9 @@ h3,
 h4,
 h5,
 h6 {
-    font-weight: var(--font-weight-semibold);
+    font-family: var(--font-heading);
+    font-weight: 700;
+    text-transform: uppercase;
     line-height: var(--line-height-tight);
     color: var(--color-text-primary);
 }
