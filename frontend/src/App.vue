@@ -20,8 +20,8 @@ import ThemeToggle from './components/common/ThemeToggle.vue'
           </RouterLink>
           <div class="nav-divider"></div>
           <RouterLink to="/analysis" class="nav-link" active-class="active">
-            <span class="nav-icon">📈</span>
-            Match Analysis
+            <span class="nav-icon">📊</span>
+            Match Log Analysis
           </RouterLink>
         </nav>
         
@@ -93,9 +93,10 @@ import ThemeToggle from './components/common/ThemeToggle.vue'
 }
 
 .nav-divider {
-  width: 1px;
+  width: 2px; /* Thicker */
   height: 24px;
-  background-color: var(--color-border);
+  background-color: var(--color-text-secondary); /* Darker/More visible */
+  opacity: 0.3; /* Slight transparency to blend but stay visible */
   margin: 0 var(--space-2);
 }
 
@@ -141,8 +142,9 @@ import ThemeToggle from './components/common/ThemeToggle.vue'
 .app-footer {
   text-align: center;
   padding: var(--space-6);
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary); /* Slightly sharper text */
   font-size: var(--font-size-sm);
+  background: var(--color-surface); /* Match Header */
   border-top: 1px solid var(--color-border);
 }
 

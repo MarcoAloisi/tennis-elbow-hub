@@ -131,7 +131,7 @@ function formatDate(dateStr) {
     <!-- Header -->
     <div class="page-header">
       <div class="header-content">
-        <h1>Match Analysis</h1>
+        <h1>Match Log Analysis</h1>
         <p>Upload your Tennis Elbow 4 match logs for detailed statistics</p>
       </div>
     </div>
@@ -169,8 +169,10 @@ function formatDate(dateStr) {
         <!-- Dashboard Header -->
         <div class="dashboard-header">
             <div class="header-left">
-                <button class="btn btn-ghost" @click="store.clearAnalysis">← Load Match Log file</button>
-                <h2>Career Dashboard</h2>
+                <button class="btn btn-ghost back-btn" @click="store.clearAnalysis">
+                    <span>←</span> Load Match Log file
+                </button>
+                <h2 class="dashboard-title">Career Dashboard</h2>
             </div>
             
             <!-- Filters -->
@@ -223,7 +225,7 @@ function formatDate(dateStr) {
                         <input type="checkbox" v-model="store.filters.cpu" />
                         <span>Hide CPU</span>
                     </label>
-                    <button class="btn btn-sm" @click="store.sortDesc = !store.sortDesc">
+                    <button class="btn btn-sm btn-outline" @click="store.sortDesc = !store.sortDesc">
                         {{ store.sortDesc ? '⬇️ Newest' : '⬆️ Oldest' }}
                     </button>
                 </div>
@@ -720,11 +722,39 @@ function formatDate(dateStr) {
     gap: var(--space-4);
 }
 
+.header-left {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+}
+
+.back-btn {
+    padding-left: 0;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.dashboard-title {
+    font-size: 2rem; /* Increased size */
+    margin: 0;
+}
+
 .filters-bar {
     display: flex;
-    gap: var(--space-4);
+    gap: var(--space-6); /* Increased gap */
     flex-wrap: wrap;
     align-items: flex-end;
+    
+    /* Container Styling */
+    background: var(--color-surface);
+    padding: var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
 }
 
 .filter-input, .filter-select {
