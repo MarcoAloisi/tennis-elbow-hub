@@ -8,8 +8,6 @@ const props = defineProps({
   },
   isOpen: {
     type: Boolean,
-  isOpen: {
-    type: Boolean,
     required: true
   },
   initialSelected: {
