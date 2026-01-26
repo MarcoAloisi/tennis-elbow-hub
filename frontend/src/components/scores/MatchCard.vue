@@ -222,7 +222,7 @@ const isOnlineMode = computed(() => {
 
     <!-- Footer -->
     <div class="match-footer">
-    <div class="match-footer">
+
       <span class="footer-tag" :class="{ 'online-tag': isOnlineMode }">
         <span v-if="isOnlineMode" class="online-dot-pulse"></span>
         {{ server.game_info?.mode_display || 'Singles' }}
