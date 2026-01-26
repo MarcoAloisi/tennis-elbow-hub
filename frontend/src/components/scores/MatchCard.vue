@@ -217,7 +217,10 @@ const setsDisplay = computed(() => {
 
     <!-- Footer -->
     <div class="match-footer">
-      <span class="footer-tag">{{ server.game_info?.mode_display || 'Singles' }}</span>
+      <span class="footer-tag" :class="{ 'online-tag': server.game_info?.mode_display === 'Online' }">
+        <span v-if="server.game_info?.mode_display === 'Online'" class="online-dot-pulse"></span>
+        {{ server.game_info?.mode_display || 'Singles' }}
+      </span>
       
       <!-- Mod Version -->
       <span v-if="modDisplay" class="footer-tag mod-tag">{{ modDisplay }}</span>
@@ -274,6 +277,16 @@ const setsDisplay = computed(() => {
   font-style: italic; /* Speed/Forward motion */
   text-transform: uppercase;
   letter-spacing: 0.05em; /* Slight spacing for uppercase */
+}
+
+.online-dot-pulse {
+  width: 6px;
+  height: 6px;
+  background-color: var(--color-brand-live);
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 6px;
+  animation: pulse 2s infinite ease-in-out;
 }
 
 .live-dot-pulse {
@@ -373,7 +386,7 @@ const setsDisplay = computed(() => {
 .serving-dot {
   width: 10px;
   height: 10px;
-  background-color: #007bff; /* Bright Blue */
+  background-color: var(--color-brand-primary); /* Changed to brand green */
   border-radius: 50%;
 }
 
@@ -413,8 +426,8 @@ const setsDisplay = computed(() => {
 /* To create the blue box effect for points, we apply background to the column 
    but we want it to look connected.  */
 .points-column.has-points {
-  background-color: #007bff;
-  color: white;
+  background-color: var(--color-brand-primary); /* Changed to brand green */
+  color: var(--color-text-inverse); /* Ensure best contrast, usually white or dark depending on brand color */
 }
 
 .player-row:first-child .points-column.has-points {
@@ -451,7 +464,15 @@ const setsDisplay = computed(() => {
   background: var(--color-bg-secondary);
   padding: 2px 8px;
   border-radius: 4px;
-  font-weight: 500;
+  font-weight: 600; /* Increased weight */
+  display: flex; /* Allow dot alignment */
+  align-items: center;
+}
+
+.online-tag {
+    color: var(--color-brand-live);
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.2);
 }
 
 .mod-tag {

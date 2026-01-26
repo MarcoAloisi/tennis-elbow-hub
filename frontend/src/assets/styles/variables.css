@@ -82,6 +82,8 @@
   /* Mappings */
   --color-bg-primary: var(--color-background);
   --color-bg-secondary: #161e1b;
+  --color-bg-tertiary: #2D3734;
+  /* Darker grey for tournament badges */
   --color-bg-card: var(--color-surface);
 
   --color-accent: var(--color-brand-primary);
