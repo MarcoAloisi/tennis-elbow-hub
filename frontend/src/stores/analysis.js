@@ -504,12 +504,12 @@ export const useAnalysisStore = defineStore('analysis', () => {
             result.first_serve_total = sum('first_serve_total')
             result.first_serve_pct = getPct('first_serve_pct', 'first_serve_in', 'first_serve_total')
 
-            result.aces = getVal('aces').toFixed(1)
-            result.double_faults = getVal('double_faults').toFixed(1)
+            result.aces = getVal('aces')
+            result.double_faults = getVal('double_faults')
 
             result.fastest_serve_kmh = Math.max(...(metrics['fastest_serve_kmh'] || [0]))
-            result.avg_first_serve_kmh = getVal('avg_first_serve_kmh').toFixed(1)
-            result.avg_second_serve_kmh = getVal('avg_second_serve_kmh').toFixed(1)
+            result.avg_first_serve_kmh = getVal('avg_first_serve_kmh')
+            result.avg_second_serve_kmh = getVal('avg_second_serve_kmh')
 
             // Points on Serve
             result.points_on_first_serve_won = sum('points_on_first_serve_won')
@@ -533,12 +533,12 @@ export const useAnalysisStore = defineStore('analysis', () => {
             result.long_rallies_total = sum('long_rallies_total')
             result.long_rally_won_pct = getPct('long_rallies_pct', 'long_rallies_won', 'long_rallies_total')
 
-            result.avg_rally_length = getVal('avg_rally_length').toFixed(1)
+            result.avg_rally_length = getVal('avg_rally_length')
 
             // Points
-            result.winners = getVal('winners').toFixed(1)
-            result.forced_errors = getVal('forced_errors').toFixed(1)
-            result.unforced_errors = getVal('unforced_errors').toFixed(1)
+            result.winners = getVal('winners')
+            result.forced_errors = getVal('forced_errors')
+            result.unforced_errors = getVal('unforced_errors')
 
             result.net_points_won = sum('net_points_won')
             result.net_points_total = sum('net_points_total')
@@ -548,7 +548,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
             result.return_points_total = sum('return_points_total')
             result.return_points_won_pct = getPct('return_points_won_pct', 'return_points_won', 'return_points_total')
 
-            result.return_winners = getVal('return_winners').toFixed(1)
+            result.return_winners = getVal('return_winners')
 
             result.total_points_won = sum('total_points_won')
             const totalPlayed = sum('total_points_played')
@@ -564,8 +564,8 @@ export const useAnalysisStore = defineStore('analysis', () => {
             result.break_games_total = sum('break_games_total')
             result.break_games_won_pct = getPct('break_games_won_pct', 'break_games_won', 'break_games_total')
 
-            result.set_points_saved = getVal('set_points_saved').toFixed(1)
-            result.match_points_saved = getVal('match_points_saved').toFixed(1)
+            result.set_points_saved = getVal('set_points_saved')
+            result.match_points_saved = getVal('match_points_saved')
 
             // Win Rates (Special handling for Median)
             result.win_pct = (list.length > 0 ? (wins / list.length * 100) : 0).toFixed(1) // Always global average

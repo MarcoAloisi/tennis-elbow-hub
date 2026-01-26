@@ -139,6 +139,7 @@ function formatDate(dateStr) {
     <PlayerSelectionModal 
         :isOpen="showIdentityModal"
         :players="store.allPlayerNames"
+        :initialSelected="store.userAliases"
         @confirm="handleIdentityConfirm"
     />
 
@@ -172,7 +173,12 @@ function formatDate(dateStr) {
                 <button class="btn btn-ghost back-btn" @click="store.clearAnalysis">
                     <span>←</span> Load Match Log file
                 </button>
-                <h2 class="dashboard-title">Career Dashboard</h2>
+                <div class="title-action-row">
+                    <h2 class="dashboard-title">Career Dashboard</h2>
+                    <button class="btn btn-sm btn-outline identity-btn" @click="showIdentityModal = true">
+                        Manage Identity
+                    </button>
+                </div>
             </div>
             
             <!-- Filters -->
@@ -285,19 +291,19 @@ function formatDate(dateStr) {
              <!-- Summary Cards -->
              <div class="stats-overview">
                 <div class="stat-card">
-                    <div class="stat-value">{{ store.aggregateStats.winners }}</div>
+                    <div class="stat-value">{{ Number(store.aggregateStats.winners).toFixed(1) }}</div>
                     <div class="stat-label">{{ store.statsMode === 'avg' ? 'Avg' : 'Median' }} Winners</div>
                 </div>
                  <div class="stat-card">
-                    <div class="stat-value">{{ store.aggregateStats.unforced_errors }}</div>
+                    <div class="stat-value">{{ Number(store.aggregateStats.unforced_errors).toFixed(1) }}</div>
                     <div class="stat-label">{{ store.statsMode === 'avg' ? 'Avg' : 'Median' }} Errors</div>
                 </div>
                  <div class="stat-card">
-                    <div class="stat-value">{{ store.aggregateStats.aces }}</div>
+                    <div class="stat-value">{{ Number(store.aggregateStats.aces).toFixed(1) }}</div>
                     <div class="stat-label">{{ store.statsMode === 'avg' ? 'Avg' : 'Median' }} Aces</div>
                 </div>
                  <div class="stat-card">
-                    <div class="stat-value">{{ store.aggregateStats.double_faults }}</div>
+                    <div class="stat-value">{{ Number(store.aggregateStats.double_faults).toFixed(1) }}</div>
                     <div class="stat-label">{{ store.statsMode === 'avg' ? 'Avg' : 'Median' }} D.Faults</div>
                 </div>
             </div>
@@ -741,6 +747,17 @@ function formatDate(dateStr) {
 .dashboard-title {
     font-size: 2rem; /* Increased size */
     margin: 0;
+}
+
+.title-action-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+}
+
+.identity-btn {
+    font-size: var(--font-size-xs);
+    border-radius: var(--radius-full);
 }
 
 .filters-bar {

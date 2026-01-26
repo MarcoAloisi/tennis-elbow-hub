@@ -8,13 +8,26 @@ const props = defineProps({
   },
   isOpen: {
     type: Boolean,
+  isOpen: {
+    type: Boolean,
     required: true
+  },
+  initialSelected: {
+    type: Array,
+    default: () => []
   }
 })
 
 const emit = defineEmits(['confirm', 'cancel'])
 
 const selectedPlayers = ref([])
+
+// Initialize selection when modal opens
+watch(() => props.isOpen, (newVal) => {
+  if (newVal) {
+    selectedPlayers.value = [...props.initialSelected]
+  }
+})
 
 function togglePlayer(name) {
   if (selectedPlayers.value.includes(name)) {
@@ -33,13 +46,16 @@ function confirm() {
 const sortedPlayers = computed(() => {
     return [...props.players].sort((a, b) => b.count - a.count)
 })
+
+const title = computed(() => props.initialSelected.length > 0 ? 'Manage Identity' : 'Who are you?')
+const subtitle = computed(() => props.initialSelected.length > 0 ? 'Update the player name(s) that represent YOU.' : 'Select the player name(s) that represent YOU in the logs.')
 </script>
 
 <template>
   <div v-if="isOpen" class="modal-overlay">
     <div class="modal-content">
-      <h2>Who are you?</h2>
-      <p class="subtitle">Select the player name(s) that represent YOU in the logs.</p>
+      <h2>{{ title }}</h2>
+      <p class="subtitle">{{ subtitle }}</p>
       
       <div class="players-list">
         <div 
