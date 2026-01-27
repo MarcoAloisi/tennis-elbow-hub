@@ -60,97 +60,78 @@ function normalize(value, max) {
   return Math.min(100, Math.max(0, (value / max) * 100))
 }
 
-const setsPlayed = computed(() => {
-  if (!props.matchInfo?.score) return 3 // Default to 3 if unknown
-  // Estimate sets from score (e.g. "6/3 7/6")
-  // Count chunks separated by space that look like scores
-  const scoreParts = props.matchInfo.score.trim().split(' ')
-  const validSets = scoreParts.filter(p => /\d+[\/\-]\d+/.test(p)).length
-  return Math.max(1, validSets)
-})
-
 // Radar chart data
 const radarData = computed(() => {
   const p1 = props.player1
   const p2 = props.player2
-  const sets = setsPlayed.value
 
   // --- VERTEX 1: SERVE POWER ---
-  // Formula: ((Avg 1st / 200) * 70) + ((Fastest / 230) * 30)
+  // Formula: ((Avg 1st / 210) * 70) + ((Peak / 230) * 30)
   const calcPower = (p) => {
     const avg = p.serve?.avg_first_serve_kmh || 0
     const fast = p.serve?.fastest_serve_kmh || 0
-    const score = ((avg / 200) * 70) + ((fast / 230) * 30)
+    // Updated avg baseline to 210 as per v1.0 spec
+    const score = ((avg / 210) * 70) + ((fast / 230) * 30)
     return Math.min(100, Math.max(0, score))
   }
 
-  // --- VERTEX 2: SERVE ACCURACY (Renamed from Accuracy) ---
-  // Formula: ((1st% * 0.6) + (2nd% * 0.4)) - (Double Faults per set)
+  // --- VERTEX 2: SERVE ACCURACY ---
+  // Formula: ((1st% * 0.6) + (2nd% * 0.4)) - ((DF / TotalServicePoints) * 100)
   const calcServeAccuracy = (p) => {
     const firstPct = p.serve?.first_serve_pct || 0
-    // We need 2nd serve %, derived from points or serve stats?
-    // Parser has points_on_second_serve_total / second_serve_total?
-    // Actually analyzer `build_player_stats` doesn't explicitly give 2nd serve IN %, 
-    // it gives `points_on_second_serve_won` (win %).
-    // Wait, "2nd Serve %" usually means "2nd Serves In %".
-    // TE4 logs don't clearly state 2nd Serve In %. 
-    // Usually it's high (80-90%). 
-    // Let's assume user meant "2nd Serve Won %"? 
-    // "A high 1st serve % is hollow if the 2nd serve is a liability." -> "2nd serve is a liability" usually means you lose points on it.
-    // So likely "2nd Serve Won %".
-    
-    // BUT checking user request: "2nd Serve %". In strict terms this is In %.
-    // If unavailable, I will use "2nd Serve Won %" as a proxy for "Reliability" or default to 90.
-    // Let's look at `p` object in `analyzer.py`.
-    // We have `p.points.points_on_second_serve_won` and `total`.
-    // We assume "2nd Serve %" meant "2nd Serve Won %" for "Reliability/Liability".
-    
-    // Let's check `p.serve`. We have `first_serve_in`, `first_serve_pct`.
-    // We DO NOT have `second_serve_in`.
-    // So I will use `p.points.points_on_second_serve_won / p.points.points_on_second_serve_total`.
     
     const secWon = p.points?.points_on_second_serve_won || 0
     const secTotal = p.points?.points_on_second_serve_total || 0
     const secPct = secTotal > 0 ? (secWon / secTotal) * 100 : 0
     
+    // Calculate total service points for normalization
+    const pointsFirst = p.points?.points_on_first_serve_total || 0
+    const pointsSecond = p.points?.points_on_second_serve_total || 0
+    const totalServicePoints = pointsFirst + pointsSecond
+    
     const df = p.serve?.double_faults || 0
-    const dfPerSet = df / sets
     
-    // If user REALLY meant "2nd Serve IN %", I can't calculate it. 
-    // But "reliability" context often implies "effectiveness".
+    let penalty = 0
+    if (totalServicePoints > 0) {
+      penalty = (df / totalServicePoints) * 100
+    }
     
-    const score = ((firstPct * 0.6) + (secPct * 0.4)) - (dfPerSet * 5) // Added multiplier *5 to make DF meaningful (1 DF/set = -5 score)
-    // User formula didn't specify multiplier for DF, just "- DF per set".
-    // If score is 0-100, and I subtract 1 or 2, it's negligible.
-    // "Double Faults per set" might be 0.5 to 2. Subtracting 2 from 60 is nothing.
-    // I will assume a scaling factor of 5 for DF to make it visible.
-    
-    // WAIT, strictly following user formula: "- (Double Faults per set)".
-    // Maybe they want: 100 - (DF per set)? No, it's ((...) + (...)) - DF.
-    // I will add a multiplier of 3 to make it visible but stick close to text.
-    
+    const score = ((firstPct * 0.6) + (secPct * 0.4)) - penalty
     return Math.min(100, Math.max(0, score))
   }
 
   // --- VERTEX 3: CONSISTENCY ---
-  // Formula: (Winners / (Winners + UE)) * 100
+  // Formula: (Winners / (Winners + UE + (0.25 * FE))) * 100
   const calcConsistency = (p) => {
     const w = p.points?.winners || 0
     const ue = p.points?.unforced_errors || 0
-    if (w + ue === 0) return 0
-    return (w / (w + ue)) * 100
+    const fe = p.points?.forced_errors || 0
+    
+    const denominator = w + ue + (0.25 * fe)
+    if (denominator === 0) return 0
+    return (w / denominator) * 100
   }
 
   // --- VERTEX 4: NET GAME ---
-  // Formula: NetWon% * (1 - e^(-0.1 * Approaches))
+  // Formula: NetWon% * Volume_Coefficient
   const calcNetGame = (p) => {
     const won = p.points?.net_points_won || 0
     const total = p.points?.net_points_total || 0 
     if (total === 0) return 0
     
     const winPct = (won / total) * 100
-    const volumeFactor = 1 - Math.exp(-0.1 * total)
-    return winPct * volumeFactor
+    
+    // Discrete Volume Coefficients
+    let multiplier = 1.0
+    if (total < 5) {
+      multiplier = 0.5
+    } else if (total > 20) {
+      multiplier = 1.1
+    } else {
+      multiplier = 1.0 // 5-20
+    }
+    
+    return winPct * multiplier
   }
 
   // --- VERTEX 5: RALLY ---
@@ -165,8 +146,8 @@ const radarData = computed(() => {
     return (shortPct * 0.2) + (medPct * 0.4) + (longPct * 0.4)
   }
 
-  // --- VERTEX 6: PRESSURE POINTS (Renamed from Break Points) ---
-  // Formula: (BP% * 0.5) + (Ret% * 0.3) + (Saved * Bonus)
+  // --- VERTEX 6: PRESSURE POINTS ---
+  // Formula: (BP% * 0.5) + (Ret% * 0.3) + Bonus
   const calcPressurePoints = (p) => {
     const bpWon = p.break_points?.break_points_won || 0
     const bpTotal = p.break_points?.break_points_total || 0
@@ -176,17 +157,17 @@ const radarData = computed(() => {
     const retTotal = p.points?.return_points_total || 0
     const retPct = retTotal > 0 ? (retWon / retTotal) * 100 : 0
     
-    const saved = p.break_points?.set_points_saved + p.break_points?.match_points_saved || 0
-    // Bonus: 5 points per saved set/match point, capped at 20 (user said "Bonus points")
-    const bonus = Math.min(20, saved * 5)
+    // Bonus Logic: +5 if ANY set or match points saved
+    const setSaved = p.break_points?.set_points_saved || 0
+    const matchSaved = p.break_points?.match_points_saved || 0
+    const bonus = (setSaved > 0 || matchSaved > 0) ? 5 : 0
     
     const score = (bpPct * 0.5) + (retPct * 0.3) + bonus
-    // Score sum: 50 + 30 + 20 = 100 max potential
     
     return Math.min(100, Math.max(0, score))
   }
 
-  const labels = ['Serve Power', 'Serve Accuracy', 'Consistency', 'Net Game', 'Rally', 'Pressure Points']
+  const labels = ['Serve Power', 'Serve Accuracy', 'Consistency', 'Net Game', 'Rally Resilience', 'Pressure Points']
   
   const p1Values = [
     calcPower(p1),
@@ -348,27 +329,33 @@ const barOptions = {
         <ul class="legend-list">
           <li>
             <span class="label">Serve Power</span>
-            <span class="desc">Avg Speed (70%) + Peak Speed (30%)</span>
+            <span class="desc">Weighted Speed Index</span>
+            <span class="formula">((Avg/210)*70) + ((Pk/230)*30)</span>
           </li>
           <li>
             <span class="label">Serve Accuracy</span>
-            <span class="desc">Blended 1st/2nd Serve reliability - DF/Set</span>
+            <span class="desc">Reliability & Discipline</span>
+            <span class="formula">((1st*0.6)+(2nd*0.4)) - (DF/Pts*100)</span>
           </li>
           <li>
             <span class="label">Consistency</span>
-            <span class="desc">Winners vs. Unforced Errors Ratio</span>
+            <span class="desc">Point Ending Efficiency</span>
+            <span class="formula">Win / (Win + UE + 0.25*FE)</span>
           </li>
           <li>
             <span class="label">Net Game</span>
-            <span class="desc">Efficiency weighted by Volume (Approaches)</span>
+            <span class="desc">Success Rate with Volume Penalty</span>
+            <span class="formula">Net% * Vol_Coef (0.5, 1.0, 1.1)</span>
           </li>
           <li>
-            <span class="label">Rally</span>
-            <span class="desc">Performance across Short, Med, Long rallies</span>
+            <span class="label">Rally Resilience</span>
+            <span class="desc">All-Range Domination</span>
+            <span class="formula">(Sht*0.2) + (Med*0.4) + (Lng*0.4)</span>
           </li>
           <li>
             <span class="label">Pressure Points</span>
-            <span class="desc">Clutch factor: BP, Return & Saved Points</span>
+            <span class="desc">Clutch & Mental Toughness</span>
+            <span class="formula">(BP*0.5) + (Ret*0.3) + Bonus(+5)</span>
           </li>
         </ul>
       </div>
