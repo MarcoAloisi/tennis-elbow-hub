@@ -9,7 +9,7 @@ import ThemeToggle from './components/common/ThemeToggle.vue'
     <header class="app-header">
       <div class="header-content">
         <div class="logo">
-          <span class="logo-icon">🎾</span>
+          <img src="/logo_fav.svg" alt="Tennis Elbow Hub" class="logo-image" />
           <span class="logo-text">Tennis Elbow Hub</span>
         </div>
         
@@ -75,8 +75,9 @@ import ThemeToggle from './components/common/ThemeToggle.vue'
   gap: var(--space-3);
 }
 
-.logo-icon {
-  font-size: 1.75rem;
+.logo-image {
+  height: 40px;
+  width: auto;
 }
 
 .logo-text {
