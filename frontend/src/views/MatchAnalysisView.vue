@@ -528,6 +528,7 @@ function getPercentClass(value) {
         <StatsChart 
           :player1="store.player1Stats"
           :player2="store.player2Stats"
+          :matchInfo="store.matchInfo"
         />
       </div>
 
