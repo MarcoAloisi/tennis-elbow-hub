@@ -507,7 +507,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
             result.aces = getVal('aces')
             result.double_faults = getVal('double_faults')
 
-            result.fastest_serve_kmh = Math.max(...(metrics['fastest_serve_kmh'] || [0]))
+            result.fastest_serve_kmh = getVal('fastest_serve_kmh')
             result.avg_first_serve_kmh = getVal('avg_first_serve_kmh')
             result.avg_second_serve_kmh = getVal('avg_second_serve_kmh')
 

@@ -26,39 +26,38 @@ A modern web application for tracking live Tennis Elbow 4 scores and analyzing m
 - Node.js 18+
 - npm or yarn
 
-### Backend Setup
+### Quick Start (Windows)
 
+We have provided a helper script to set up and run everything in one go.
+
+```powershell
+./start-dev.ps1
+```
+
+This will:
+1. Create a Python virtual environment (`.venv`) if missing.
+2. Install backend dependencies.
+3. Launch the Backend Server in a new window.
+4. Install frontend dependencies (if missing).
+5. Launch the Frontend Server in the current window.
+
+### Manual Setup (Optional)
+
+If you prefer running things manually:
+
+#### Backend
 ```bash
 cd backend
-
-# Create virtual environment
 python -m venv .venv
-
-# Activate (Windows)
 .venv\Scripts\activate
-
-# Activate (Unix)
-source .venv/bin/activate
-
-# Install dependencies
 pip install -r requirements.txt
-
-# Copy environment file
-cp ../.env.example ../.env
-
-# Run development server
 uvicorn app.main:app --reload
 ```
 
-### Frontend Setup
-
+#### Frontend
 ```bash
 cd frontend
-
-# Install dependencies
 npm install
-
-# Run development server
 npm run dev
 ```
 

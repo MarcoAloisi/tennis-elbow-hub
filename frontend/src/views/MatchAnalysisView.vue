@@ -15,6 +15,14 @@ const selectedCategory = ref('all')
 const showAllStats = ref(false)
 const showIdentityModal = ref(false)
 
+// Dashboard stats tabs
+const activeStatsTab = ref('global')
+const dashboardTabs = [
+  { id: 'global', label: 'Global Statistics', icon: '📊' },
+  { id: 'archetype', label: 'Your Archetype', icon: '🎯' },
+  { id: 'performance', label: 'Performance Overview', icon: '📈' }
+]
+
 // Watch for match loading to trigger identity check
 watch(() => store.hasMatches, (hasMatches) => {
     if (hasMatches && !store.isIdentityConfirmed) {
@@ -53,11 +61,11 @@ function mapStatsToStructure(s) {
             first_serve_total: s.first_serve_total
         },
         rally: {
-            short_rallies_won: s.short_rally_won_pct,
+            short_rallies_won: s.short_rallies_won,
             short_rallies_total: s.short_rallies_total, 
-            normal_rallies_won: s.medium_rally_won_pct,
+            normal_rallies_won: s.normal_rallies_won,
             normal_rallies_total: s.normal_rallies_total, 
-            long_rallies_won: s.long_rally_won_pct,
+            long_rallies_won: s.long_rallies_won,
             long_rallies_total: s.long_rallies_total,
             avg_rally_length: s.avg_rally_length
         },
@@ -77,9 +85,9 @@ function mapStatsToStructure(s) {
             total_points_won: s.total_points_won
         },
         break_points: {
-            break_points_won: s.break_points_won_pct,
+            break_points_won: s.break_points_won,
             break_points_total: s.break_points_total,
-            break_games_won: s.break_games_won_pct,
+            break_games_won: s.break_games_won,
             break_games_total: s.break_games_total,
             set_points_saved: s.set_points_saved,
             match_points_saved: s.match_points_saved
@@ -238,89 +246,139 @@ function formatDate(dateStr) {
             </div>
         </div>
 
-        <!-- Global Stats Section -->
-        <div class="global-stats-section" v-if="store.aggregateStats">
-             <div class="section-header">
-                <h3>
-                    <span v-if="store.filters.opponent">
-                        Vs {{ store.filters.opponent }}: 
-                        <span :class="{'text-success': store.aggregateStats.wins > store.aggregateStats.losses, 'text-danger': store.aggregateStats.wins < store.aggregateStats.losses}">
-                            {{ store.aggregateStats.wins }} - {{ store.aggregateStats.losses }}
-                        </span>
-                        <span class="text-muted text-sm"> ({{ store.aggregateStats.win_pct }}%)</span>
-                    </span>
-                    <span v-else>
-                        Global Statistics ({{ store.aggregateStats.totalMatches }} Matches)
-                    </span>
-                </h3>
-                <div class="stats-controls">
-                     <div class="mode-toggle">
-                        <button 
-                            class="mode-btn" 
-                            :class="{ active: store.statsMode === 'avg' }"
-                            @click="store.statsMode = 'avg'"
-                        >Average</button>
-                        <button 
-                            class="mode-btn" 
-                            :class="{ active: store.statsMode === 'median' }"
-                            @click="store.statsMode = 'median'"
-                        >Median</button>
+        <!-- Stats Section with Tabs -->
+        <div class="stats-section" v-if="store.aggregateStats">
+            <!-- Tab Navigation -->
+            <div class="stats-tabs-nav">
+                <button 
+                    v-for="tab in dashboardTabs" 
+                    :key="tab.id"
+                    class="stats-tab-btn"
+                    :class="{ active: activeStatsTab === tab.id }"
+                    @click="activeStatsTab = tab.id"
+                >
+                    <span class="tab-icon">{{ tab.icon }}</span>
+                    <span class="tab-label">{{ tab.label }}</span>
+                </button>
+            </div>
+
+            <!-- Tab Content -->
+            <div class="stats-tab-content">
+                <!-- Global Statistics Tab -->
+                <div v-if="activeStatsTab === 'global'" class="tab-panel">
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <span v-if="store.filters.opponent">
+                                Vs {{ store.filters.opponent }}: 
+                                <span :class="{'text-success': store.aggregateStats.wins > store.aggregateStats.losses, 'text-danger': store.aggregateStats.wins < store.aggregateStats.losses}">
+                                    {{ store.aggregateStats.wins }} - {{ store.aggregateStats.losses }}
+                                </span>
+                                <span class="text-muted text-sm"> ({{ store.aggregateStats.win_pct }}%)</span>
+                            </span>
+                            <span v-else class="match-count">
+                                {{ store.aggregateStats.totalMatches }} Matches Analyzed
+                            </span>
+                        </div>
+                        <div class="panel-controls">
+                            <div class="mode-toggle">
+                                <button 
+                                    class="mode-btn" 
+                                    :class="{ active: store.statsMode === 'avg' }"
+                                    @click="store.statsMode = 'avg'"
+                                >Average</button>
+                                <button 
+                                    class="mode-btn" 
+                                    :class="{ active: store.statsMode === 'median' }"
+                                    @click="store.statsMode = 'median'"
+                                >Median</button>
+                            </div>
+                            <button class="btn btn-ghost btn-sm" @click="showAllStats = !showAllStats">
+                                {{ showAllStats ? 'Collapse' : 'Expand All' }}
+                            </button>
+                        </div>
                     </div>
-                    <button class="btn btn-secondary" @click="showAllStats = !showAllStats">
-                        {{ showAllStats ? 'Hide All Stats' : 'Show All Stats' }}
-                    </button>
-                </div>
-             </div>
 
-             <!-- Win Rates Row -->
-             <div class="stats-overview secondary">
-                 <div class="stat-card mini">
-                    <div class="stat-value">{{ store.aggregateStats.win_pct }}%</div>
-                    <div class="stat-label">Match Win %</div>
-                </div>
-                 <div class="stat-card mini">
-                    <div class="stat-value">{{ store.aggregateStats.set_win_pct }}%</div>
-                    <div class="stat-label">Set Win %</div>
-                </div>
-                 <div class="stat-card mini">
-                    <div class="stat-value">{{ store.aggregateStats.game_win_pct }}%</div>
-                    <div class="stat-label">Game Win %</div>
-                </div>
-            </div>
+                    <!-- Win Rates -->
+                    <div class="stats-grid stats-grid-3">
+                        <div class="stat-item">
+                            <div class="stat-value accent">{{ store.aggregateStats.win_pct }}%</div>
+                            <div class="stat-label">Match Win Rate</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">{{ store.aggregateStats.set_win_pct }}%</div>
+                            <div class="stat-label">Set Win Rate</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">{{ store.aggregateStats.game_win_pct }}%</div>
+                            <div class="stat-label">Game Win Rate</div>
+                        </div>
+                    </div>
 
-             <!-- Summary Cards -->
-             <div class="stats-overview">
-                <div class="stat-card">
-                    <div class="stat-value">{{ Number(store.aggregateStats.winners).toFixed(1) }}</div>
-                    <div class="stat-label">{{ store.statsMode === 'avg' ? 'Avg' : 'Median' }} Winners</div>
+                    <!-- Key Stats -->
+                    <div class="stats-grid stats-grid-4">
+                        <div class="stat-item">
+                            <div class="stat-value">{{ Number(store.aggregateStats.winners).toFixed(1) }}</div>
+                            <div class="stat-label">{{ store.statsMode === 'avg' ? 'Avg' : 'Med' }} Winners</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">{{ Number(store.aggregateStats.unforced_errors).toFixed(1) }}</div>
+                            <div class="stat-label">{{ store.statsMode === 'avg' ? 'Avg' : 'Med' }} Errors</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">{{ Number(store.aggregateStats.aces).toFixed(1) }}</div>
+                            <div class="stat-label">{{ store.statsMode === 'avg' ? 'Avg' : 'Med' }} Aces</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">{{ Number(store.aggregateStats.double_faults).toFixed(1) }}</div>
+                            <div class="stat-label">{{ store.statsMode === 'avg' ? 'Avg' : 'Med' }} D.Faults</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Expanded Stats Table -->
+                    <div v-if="showAllStats" class="expanded-stats">
+                        <div class="comparison-header" v-if="store.filters.opponent">
+                            <div class="col-left">You</div>
+                            <div class="col-center">Stat</div>
+                            <div class="col-right">{{ store.filters.opponent }}</div>
+                        </div>
+                        <StatsTable 
+                            :player1="aggregatedPlayerStats"
+                            :player2="store.filters.opponent ? aggregatedOpponentStats : {}"
+                            category="all"
+                            displayMode="grid"
+                        />
+                    </div>
                 </div>
-                 <div class="stat-card">
-                    <div class="stat-value">{{ Number(store.aggregateStats.unforced_errors).toFixed(1) }}</div>
-                    <div class="stat-label">{{ store.statsMode === 'avg' ? 'Avg' : 'Median' }} Errors</div>
+
+                <!-- Your Archetype Tab -->
+                <div v-else-if="activeStatsTab === 'archetype'" class="tab-panel">
+                    <div class="coming-soon-panel">
+                        <div class="coming-soon-icon">🎯</div>
+                        <h3>Your Playing Archetype</h3>
+                        <p>Discover your unique playing style based on your match history. We'll analyze your patterns to identify whether you're an aggressive baseliner, a serve-and-volleyer, or something else entirely.</p>
+                        <div class="feature-tags">
+                            <span class="tag">Style Analysis</span>
+                            <span class="tag">Strength Mapping</span>
+                            <span class="tag">Comparison</span>
+                        </div>
+                        <span class="badge badge-coming-soon">Coming Soon</span>
+                    </div>
                 </div>
-                 <div class="stat-card">
-                    <div class="stat-value">{{ Number(store.aggregateStats.aces).toFixed(1) }}</div>
-                    <div class="stat-label">{{ store.statsMode === 'avg' ? 'Avg' : 'Median' }} Aces</div>
+
+                <!-- Performance Overview Tab -->
+                <div v-else-if="activeStatsTab === 'performance'" class="tab-panel">
+                    <div class="coming-soon-panel">
+                        <div class="coming-soon-icon">📈</div>
+                        <h3>Performance Overview</h3>
+                        <p>Track your progress over time with detailed performance trends. See how your game has evolved across different surfaces, opponents, and time periods.</p>
+                        <div class="feature-tags">
+                            <span class="tag">Win/Loss Trends</span>
+                            <span class="tag">Surface Analysis</span>
+                            <span class="tag">Monthly Stats</span>
+                        </div>
+                        <span class="badge badge-coming-soon">Coming Soon</span>
+                    </div>
                 </div>
-                 <div class="stat-card">
-                    <div class="stat-value">{{ Number(store.aggregateStats.double_faults).toFixed(1) }}</div>
-                    <div class="stat-label">{{ store.statsMode === 'avg' ? 'Avg' : 'Median' }} D.Faults</div>
-                </div>
-            </div>
-            
-            <!-- Full Extended Stats Table -->
-            <div v-if="showAllStats" class="extended-stats-container">
-                <div class="comparison-header" v-if="store.filters.opponent">
-                    <div class="col-left">You</div>
-                    <div class="col-center">Stat</div>
-                    <div class="col-right">{{ store.filters.opponent }}</div>
-                </div>
-                <StatsTable 
-                    :player1="aggregatedPlayerStats"
-                    :player2="store.filters.opponent ? aggregatedOpponentStats : {}"
-                    category="all"
-                    displayMode="grid"
-                />
             </div>
         </div>
 
@@ -1007,6 +1065,262 @@ function formatDate(dateStr) {
     background: var(--color-bg-secondary);
     padding: 2px 6px;
     border-radius: var(--radius-sm);
+}
+
+/* ============================================
+   MODERN STATS SECTION WITH TABS
+   ============================================ */
+
+.stats-section {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+/* Tab Navigation */
+.stats-tabs-nav {
+    display: flex;
+    gap: var(--space-1);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-bg-secondary);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.stats-tab-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4);
+    border-radius: 999px;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-muted);
+    background: transparent;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.stats-tab-btn:hover {
+    color: var(--color-text-primary);
+    background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="dark"] .stats-tab-btn:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.stats-tab-btn.active {
+    color: var(--color-text-inverse);
+    background: var(--color-accent);
+}
+
+.tab-icon {
+    font-size: 1rem;
+}
+
+.tab-label {
+    display: inline;
+}
+
+@media (max-width: 600px) {
+    .tab-label {
+        display: none;
+    }
+    .stats-tab-btn {
+        padding: var(--space-2) var(--space-3);
+    }
+}
+
+/* Tab Content */
+.stats-tab-content {
+    padding: var(--space-5);
+}
+
+.tab-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+}
+
+/* Panel Header */
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+}
+
+.panel-title {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-secondary);
+}
+
+.match-count {
+    color: var(--color-text-muted);
+}
+
+.panel-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+/* Stats Grids */
+.stats-grid {
+    display: grid;
+    gap: var(--space-4);
+}
+
+.stats-grid-3 {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+.stats-grid-4 {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+@media (max-width: 768px) {
+    .stats-grid-3 {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    .stats-grid-4 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    .stats-grid-3,
+    .stats-grid-4 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Stat Items */
+.stat-item {
+    text-align: center;
+    padding: var(--space-4);
+    background: var(--color-bg-secondary);
+    border-radius: var(--radius-md);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="dark"] .stat-item:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.stat-item .stat-value {
+    font-size: var(--font-size-2xl);
+    font-weight: 700;
+    font-family: var(--font-data);
+    color: var(--color-text-primary);
+    line-height: 1.2;
+}
+
+.stat-item .stat-value.accent {
+    color: var(--color-accent);
+}
+
+.stat-item .stat-label {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    margin-top: var(--space-1);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+/* Expanded Stats */
+.expanded-stats {
+    border-top: 1px solid var(--color-border);
+    padding-top: var(--space-4);
+    margin-top: var(--space-2);
+}
+
+/* Coming Soon Panels */
+.coming-soon-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: var(--space-10) var(--space-6);
+    background: linear-gradient(
+        135deg,
+        var(--color-bg-secondary) 0%,
+        rgba(59, 177, 67, 0.05) 100%
+    );
+    border-radius: var(--radius-lg);
+}
+
+.coming-soon-icon {
+    font-size: 3rem;
+    margin-bottom: var(--space-4);
+    opacity: 0.8;
+}
+
+.coming-soon-panel h3 {
+    font-size: var(--font-size-xl);
+    margin-bottom: var(--space-2);
+    text-transform: none;
+}
+
+.coming-soon-panel p {
+    max-width: 400px;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    line-height: 1.6;
+    margin-bottom: var(--space-4);
+}
+
+.feature-tags {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: var(--space-4);
+}
+
+.tag {
+    padding: var(--space-1) var(--space-3);
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.badge-coming-soon {
+    padding: var(--space-1) var(--space-3);
+    background: var(--color-accent);
+    color: var(--color-text-inverse);
+    border-radius: 999px;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Btn Ghost Style */
+.btn-ghost {
+    background: transparent;
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border);
+}
+
+.btn-ghost:hover {
+    background: var(--color-bg-secondary);
+    color: var(--color-text-primary);
+}
+
+.btn-sm {
+    padding: var(--space-1) var(--space-3);
+    font-size: var(--font-size-sm);
 }
 
 </style>

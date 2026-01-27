@@ -87,11 +87,29 @@ def parse_speed(text: str) -> float:
     return 0.0
 
 
+def parse_duration(duration_str: str) -> str:
+    """Normalize duration string and validate format.
+    
+    Expected format: H:MM'SS or MM'SS
+    Returns normalized string or original if parsing fails.
+    """
+    try:
+        # Try to parse with standard format
+        if "'" in duration_str:
+            # Replace ' with : for standard time parsing if needed, 
+            # but for now we just want to ensure it is valid
+            pass
+        return duration_str
+    except Exception:
+        return duration_str
+
+
 def extract_header_info(soup: BeautifulSoup) -> MatchInfo | None:
     """Extract match information from the HTML header.
 
-    Expected format in a <p> tag:
-    "Player1 (ELO: X +/-Y) def. Player2 (ELO: X +/-Y) : Score - Tournament - Duration (RealDuration) - Date [Online]"
+    Expected formats:
+    1. STRICT: "Player1 (ELO: ...) def. Player2 (ELO: ...) : Score - Tournament - Duration (Real) - Date [Online]"
+    2. CPU/Other: "Player1 def. Player2 : Score - Tournament - Duration (Real) - Date"
 
     Args:
         soup: BeautifulSoup object of the HTML.
@@ -104,70 +122,118 @@ def extract_header_info(soup: BeautifulSoup) -> MatchInfo | None:
         for p in soup.find_all("p"):
             text = p.get_text().strip()
 
-            # Look for the "def." pattern which indicates match result
-            if " def. " not in text and " vs " not in text:
+            # Trigger: Look for <p> tags that contain the string " def. "
+            if " def. " not in text:
                 continue
 
-            logger.debug(f"Found header: {text[:100]}")
+            logger.debug(f"Found header candidate: {text[:100]}")
 
-            # Parse format: "Player1 (ELO: X) def. Player2 (ELO: X) : Score - Tournament..."
-            # Or checkbox variant with player info
+            # Define Regex Patterns
+            
+            # Strict Pattern (User Hint): (.*?) \(ELO: (.*?)\) def\. (.*?) \(ELO: (.*?)\) : (.*?) - (.*?) - (.*?) - (.*)
+            # Use (.*) at the end to capture Date + Optional [Online] greedily, then clean it.
+            strict_pattern = re.compile(
+                r"(.*?) \(ELO: (.*?)\) def\. (.*?) \(ELO: (.*?)\) : (.*?) - (.*?) - (.*?) - (.*)"
+            )
+            
+            # Fallback Pattern
+            fallback_pattern = re.compile(
+                r"(.*?) def\. (.*?) : (.*?) - (.*?) - (.*?) - (.*)"
+            )
 
-            # Extract players - before and after "def." or "vs"
-            if " def. " in text:
-                parts = text.split(" def. ", 1)
+            # Try Strict Match First
+            match = strict_pattern.match(text)
+            if match:
+                groups = match.groups()
+                # Groups: 
+                # 1: P1 Name, 2: P1 ELO, 3: P2 Name, 4: P2 ELO
+                # 5: Score, 6: Tournament, 7: Duration, 8: Date + [Online]
+                
+                player1_name = groups[0].strip()
+                # player1_elo = groups[1].strip()
+                player2_name = groups[2].strip()
+                # player2_elo = groups[3].strip()
+                score = groups[4].strip()
+                tournament = groups[5].strip()
+                duration_part = groups[6].strip()
+                date_str = groups[7].strip()
+                
             else:
-                parts = text.split(" vs ", 1)
+                # Try Fallback
+                match = fallback_pattern.match(text)
+                if match:
+                    groups = match.groups()
+                    # Groups: 1: P1, 2: P2, 3: Score, 4: Tourn, 5: Duration, 6: Date+Online
+                    player1_name = groups[0].strip()
+                    # Clean ELO from names
+                    player1_name = re.sub(r"\s*\(ELO:.*?\)", "", player1_name).strip()
+                    
+                    player2_name = groups[1].strip()
+                    player2_name = re.sub(r"\s*\(ELO:.*?\)", "", player2_name).strip()
+                    
+                    score = groups[2].strip()
+                    tournament = groups[3].strip()
+                    duration_part = groups[4].strip()
+                    date_str = groups[5].strip()
+                else:
+                    # Legacy Split Logic (Safety Net)
+                    parts = text.split(" def. ", 1)
+                    player1_name = parts[0].strip()
+                    # Handle checkbox garbage matching
+                    player1_name = re.sub(r"^.*?([A-Za-z])", r"\1", player1_name) 
+                    player1_name = re.sub(r"\s*\(ELO:.*?\)", "", player1_name).strip()
 
-            if len(parts) < 2:
-                continue
+                    rest = parts[1].strip()
+                    if " : " in rest:
+                        p2_part, details = rest.split(" : ", 1)
+                        player2_name = p2_part.strip()
+                        player2_name = re.sub(r"\s*\(ELO:.*?\)", "", player2_name).strip()
+                        
+                        detail_parts = [x.strip() for x in details.split(" - ")]
+                        score = detail_parts[0] if len(detail_parts) > 0 else ""
+                        tournament = detail_parts[1] if len(detail_parts) > 1 else ""
+                        duration_part = detail_parts[2] if len(detail_parts) > 2 else ""
+                        date_str = detail_parts[3] if len(detail_parts) > 3 else ""
+                        # Strip [Online] from date if present in split
+                        date_str = date_str.replace("[Online]", "").strip()
+                    else:
+                        continue
 
-            player1_part = parts[0].strip()
-            rest = parts[1].strip()
+            # Clean Player Checkboxes if regex captured them
+            # e.g. "<input ...>Madferit"
+            # Since get_text() removes tags, only text remains. 
+            # But sometimes "checkbox" text might linger? 
+            # Usually get_text() is clean. The inputs are <input value="..."/>
+            
+            # Additional cleaning
+            player1_name = player1_name.strip()
+            player2_name = player2_name.strip()
 
-            # Clean player1 name (may have checkbox prefix)
-            player1_name = re.sub(r"^.*?([A-Za-z])", r"\1", player1_part)
-            # Remove ELO info
-            player1_name = re.sub(r"\s*\(ELO:.*?\)", "", player1_name).strip()
-
-            # Split rest by " : " to get player2 and match details
-            if " : " in rest:
-                player2_and_details = rest.split(" : ", 1)
-                player2_part = player2_and_details[0]
-                details = player2_and_details[1] if len(player2_and_details) > 1 else ""
-            else:
-                player2_part = rest
-                details = ""
-
-            # Clean player2 name
-            player2_name = re.sub(r"\s*\(ELO:.*?\)", "", player2_part).strip()
-
-            # Parse details: "Score - Tournament - Duration (RealDuration) - Date [Online]"
-            detail_parts = [x.strip() for x in details.split(" - ")]
-            score = detail_parts[0] if len(detail_parts) > 0 else ""
-            tournament = detail_parts[1] if len(detail_parts) > 1 else ""
+            # Parse Duration
+            # Format: "0:35'55 (1:41'43)" -> extract "0:35'55"
             duration = ""
             real_duration = ""
+            dur_match = re.match(r"([\d:\']+)\s*\(([\d:\']+)\)", duration_part)
+            if dur_match:
+                duration = dur_match.group(1)
+                real_duration = dur_match.group(2)
+            else:
+                duration = duration_part
+
+            # Parse Date
             match_date = None
-
-            if len(detail_parts) > 2:
-                duration_part = detail_parts[2]
-                dur_match = re.match(r"([\d:\']+)\s*\(([\d:\']+)\)", duration_part)
-                if dur_match:
-                    duration = dur_match.group(1)
-                    real_duration = dur_match.group(2)
-                else:
-                    duration = duration_part
-
-            if len(detail_parts) > 3:
-                date_str = detail_parts[3].replace("[Online]", "").strip()
+            if date_str:
+                date_clean = date_str.replace("[Online]", "").strip()
                 try:
-                    match_date = datetime.strptime(date_str, "%Y-%m-%d %H:%M")
+                    match_date = datetime.strptime(date_clean, "%Y-%m-%d %H:%M")
                 except ValueError:
                     try:
-                        match_date = datetime.strptime(date_str, "%Y-%m-%d")
+                        match_date = datetime.strptime(date_clean, "%Y-%m-%d")
                     except ValueError:
                         pass
+            
+            # Check for Retirement
+            is_retirement = "ret." in score.lower()
 
             return MatchInfo(
                 player1_name=player1_name,
@@ -177,6 +243,7 @@ def extract_header_info(soup: BeautifulSoup) -> MatchInfo | None:
                 duration=duration,
                 real_duration=real_duration,
                 date=match_date,
+                is_retirement=is_retirement,
             )
 
         return None
@@ -223,6 +290,9 @@ def extract_stats_from_table(soup: BeautifulSoup) -> dict[str, tuple[str, str]]:
                     # Normalize label
                     label_normalized = label.upper().strip()
                     stats[label_normalized] = (p1_val, p2_val)
+                    if "SERVE WON" in label_normalized or "ACES" in label_normalized:
+                        logger.info(f"DEBUG STAT: {label_normalized} => P1='{p1_val}' P2='{p2_val}'")
+
 
                 # Second stat group (columns 4, 5, 6) if present
                 if len(cells) >= 7 and cells[3].get_text().strip() in ("", "\xa0"):
@@ -361,6 +431,9 @@ def build_player_stats(
         match_points_saved=parse_ratio(get_stat(["MATCH POINTS SAVED"]))[0],
     )
 
+    # Debug Logging for critical stats
+    logger.info(f"DEBUG BUILD: {player_name} P1stWon={points.points_on_first_serve_won}/{points.points_on_first_serve_total} (Src: {get_stat(['1ST SERVE WON %'])}) DF={serve.double_faults}")
+
     return PlayerMatchStats(
         name=player_name,
         serve=serve,
@@ -382,6 +455,10 @@ def analyze_match_log(html_content: str) -> MatchStats | None:
     try:
         soup = BeautifulSoup(html_content, "lxml")
 
+        # Extract raw_match_id from table element
+        table = soup.find("table")
+        raw_match_id = table.get("id") if table else None
+
         # Extract header info
         info = extract_header_info(soup)
         if not info:
@@ -393,7 +470,11 @@ def analyze_match_log(html_content: str) -> MatchStats | None:
                 tournament="",
                 duration="",
                 real_duration="",
+                raw_match_id=raw_match_id,
             )
+        else:
+            # Add raw_match_id to the extracted info
+            info.raw_match_id = raw_match_id
 
         # Extract stats from table
         stats = extract_stats_from_table(soup)
@@ -408,6 +489,7 @@ def analyze_match_log(html_content: str) -> MatchStats | None:
             player1=player1,
             player2=player2,
         )
+
 
     except Exception as e:
         logger.error(f"Failed to analyze match log: {e}")

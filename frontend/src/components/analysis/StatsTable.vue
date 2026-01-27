@@ -104,8 +104,14 @@ function formatValue(player, stat) {
       return `${r(val)}/${r(totalVal)} (${pct}%)`
     case 'dec':
       return val.toFixed(1)
+    case 'num':
+      // Round to 1 decimal for aggregate averages, whole number for integers
+      return Number.isInteger(val) ? val.toString() : Number(val).toFixed(1)
     default:
-      return val.toString()
+      // Round floating point numbers for display
+      const numVal = Number(val)
+      if (isNaN(numVal)) return val.toString()
+      return Number.isInteger(numVal) ? numVal.toString() : numVal.toFixed(1)
   }
 }
 
