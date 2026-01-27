@@ -132,6 +132,17 @@ function formatDate(dateStr) {
     minute: '2-digit'
   })
 }
+
+// Get color class for percentage values based on ranges
+function getPercentClass(value) {
+  const num = parseFloat(value)
+  if (isNaN(num)) return ''
+  if (num <= 30) return 'pct-danger'       // 0-30%: red
+  if (num < 50) return 'pct-warning'       // 31-49%: orange
+  if (num <= 60) return 'pct-neutral'      // 50-60%: default/black
+  if (num < 90) return 'pct-good'          // 61-89%: green
+  return 'pct-excellent'                   // 90%+: neon yellow
+}
 </script>
 
 <template>
@@ -177,15 +188,24 @@ function formatDate(dateStr) {
       <div v-if="viewMode === 'dashboard'" class="dashboard-container">
         <!-- Dashboard Header -->
         <div class="dashboard-header">
-            <div class="header-left">
-                <button class="btn btn-ghost back-btn" @click="store.clearAnalysis">
-                    <span>←</span> Load Match Log file
-                </button>
-                <div class="title-action-row">
-                    <h2 class="dashboard-title">Career Dashboard</h2>
-                    <button class="btn btn-sm btn-outline identity-btn" @click="showIdentityModal = true">
-                        Manage Identity
+            <!-- Back button -->
+            <button class="btn btn-ghost back-btn" @click="store.clearAnalysis">
+                <span>←</span> Load Match Log file
+            </button>
+            
+            <!-- Title with Manage Identity inline -->
+            <div class="title-row">
+                <h2 class="dashboard-title">Career Dashboard</h2>
+                <div class="subtitle-actions">
+                    <button class="btn btn-secondary identity-btn" @click="showIdentityModal = true">
+                        <span class="btn-icon-left">👤</span> Manage Identity
                     </button>
+                    
+                    <label class="toggle-switch" title="Hide CPU matches">
+                        <input type="checkbox" v-model="store.filters.cpu" />
+                        <span class="toggle-slider"></span>
+                        <span class="toggle-label">Hide CPU</span>
+                    </label>
                 </div>
             </div>
             
@@ -210,39 +230,33 @@ function formatDate(dateStr) {
                     <label class="filter-label">Date Range</label>
                     <div class="date-inputs">
                         <input type="date" v-model="store.filters.dateStart" class="filter-input date-input" />
-                        <span>to</span>
+                        <span class="date-separator">to</span>
                         <input type="date" v-model="store.filters.dateEnd" class="filter-input date-input" />
                     </div>
                 </div>
 
                 <div class="filter-group">
-                    <label class="filter-label">Filters</label>
-                    <div class="select-group">
-                        <select v-model="store.filters.surface" class="filter-select">
-                            <option :value="null">All Surfaces</option>
-                            <option value="Hard">Hard</option>
-                            <option value="Clay">Clay</option>
-                            <option value="Grass">Grass</option>
-                            <option value="Indoor">Indoor</option>
-                        </select>
-                        <select v-model="store.filters.sets" class="filter-select">
-                            <option :value="null">All Sets</option>
-                            <option value="1">1 Set</option>
-                            <option value="3">Best of 3</option>
-                            <option value="5">Best of 5</option>
-                        </select>
-                    </div>
+                    <label class="filter-label">Surface</label>
+                    <select v-model="store.filters.surface" class="filter-select">
+                        <option :value="null">All Surfaces</option>
+                        <option value="Hard">Hard</option>
+                        <option value="Clay">Clay</option>
+                        <option value="Grass">Grass</option>
+                        <option value="Indoor">Indoor</option>
+                    </select>
                 </div>
 
-                <div class="filter-group options-group">
-                    <label class="checkbox-label">
-                        <input type="checkbox" v-model="store.filters.cpu" />
-                        <span>Hide CPU</span>
-                    </label>
-                    <button class="btn btn-sm btn-outline" @click="store.sortDesc = !store.sortDesc">
-                        {{ store.sortDesc ? '⬇️ Newest' : '⬆️ Oldest' }}
-                    </button>
+                <div class="filter-group">
+                    <label class="filter-label">Match Format</label>
+                    <select v-model="store.filters.sets" class="filter-select">
+                        <option :value="null">All Sets</option>
+                        <option value="1">1 Set</option>
+                        <option value="3">Best of 3</option>
+                        <option value="5">Best of 5</option>
+                    </select>
                 </div>
+
+
             </div>
         </div>
 
@@ -301,15 +315,15 @@ function formatDate(dateStr) {
                     <!-- Win Rates -->
                     <div class="stats-grid stats-grid-3">
                         <div class="stat-item">
-                            <div class="stat-value accent">{{ store.aggregateStats.win_pct }}%</div>
+                            <div class="stat-value" :class="getPercentClass(store.aggregateStats.win_pct)">{{ store.aggregateStats.win_pct }}%</div>
                             <div class="stat-label">Match Win Rate</div>
                         </div>
                         <div class="stat-item">
-                            <div class="stat-value">{{ store.aggregateStats.set_win_pct }}%</div>
+                            <div class="stat-value" :class="getPercentClass(store.aggregateStats.set_win_pct)">{{ store.aggregateStats.set_win_pct }}%</div>
                             <div class="stat-label">Set Win Rate</div>
                         </div>
                         <div class="stat-item">
-                            <div class="stat-value">{{ store.aggregateStats.game_win_pct }}%</div>
+                            <div class="stat-value" :class="getPercentClass(store.aggregateStats.game_win_pct)">{{ store.aggregateStats.game_win_pct }}%</div>
                             <div class="stat-label">Game Win Rate</div>
                         </div>
                     </div>
@@ -387,7 +401,10 @@ function formatDate(dateStr) {
             <table class="match-table">
                 <thead>
                     <tr>
-                        <th style="width: 15%">Date</th>
+                        <th style="width: 15%" class="sortable-header" @click="store.sortDesc = !store.sortDesc">
+                            Date 
+                            <span class="sort-icon">{{ store.sortDesc ? '↓' : '↑' }}</span>
+                        </th>
                         <th style="width: 20%">Tournament</th>
                         <th style="width: 30%">Opponent</th>
                         <th style="width: 15%">Score</th>
@@ -1323,4 +1340,248 @@ function formatDate(dateStr) {
     font-size: var(--font-size-sm);
 }
 
+/* ============================================
+   PERCENTAGE COLOR CLASSES
+   ============================================ */
+
+.pct-danger {
+    color: #dc2626 !important;  /* Red for 0-30% */
+}
+
+.pct-warning {
+    color: #f97316 !important;  /* Orange for 31-49% */
+}
+
+.pct-neutral {
+    color: var(--color-text-primary) !important;  /* Default for 50-60% */
+}
+
+.pct-good {
+    color: #22c55e !important;  /* Green for 61-89% */
+}
+
+.pct-excellent {
+    color: var(--color-brand-primary) !important;  /* Neon yellow-green for 90%+ */
+}
+
+[data-theme="dark"] .pct-excellent {
+    color: #D4FF5F !important;  /* Neon in dark mode */
+}
+
+/* ============================================
+   HEADER LAYOUT
+   ============================================ */
+
+.dashboard-header {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+}
+
+.title-row {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-4);
+    margin-bottom: var(--space-5);
+}
+
+.subtitle-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+}
+
+.dashboard-title {
+    margin: 0;
+    font-size: 1.75rem;
+}
+
+/* Sortable Table Header */
+.sortable-header {
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.2s ease;
+}
+
+.sortable-header:hover {
+    background: var(--color-bg-secondary);
+}
+
+.sort-icon {
+    margin-left: var(--space-2);
+    color: var(--color-accent);
+    font-weight: bold;
+}
+
+@media (max-width: 768px) {
+    .header-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .header-title-actions {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-3);
+    }
+    
+    .header-actions {
+        flex-wrap: wrap;
+    }
+}
+
+/* Sort Button */
+.sort-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    transition: all 0.2s ease;
+}
+
+.sort-btn:hover {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+}
+
+.btn-text {
+    display: inline;
+}
+
+@media (max-width: 600px) {
+    .btn-text {
+        display: none;
+    }
+}
+
+/* Toggle Switch */
+.toggle-switch {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    cursor: pointer;
+    user-select: none;
+}
+
+.toggle-switch input {
+    display: none;
+}
+
+.toggle-slider {
+    width: 40px;
+    height: 22px;
+    background: var(--color-bg-tertiary);
+    border-radius: 999px;
+    position: relative;
+    transition: all 0.2s ease;
+    border: 1px solid var(--color-border);
+}
+
+.toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    background: var(--color-text-muted);
+    border-radius: 50%;
+    top: 2px;
+    left: 2px;
+    transition: all 0.2s ease;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+}
+
+.toggle-switch input:checked + .toggle-slider::before {
+    transform: translateX(18px);
+    background: white;
+}
+
+.toggle-label {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+}
+
+/* Identity Button */
+.identity-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4);
+    background: var(--color-accent);
+    color: var(--color-text-inverse);
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    transition: all 0.2s ease;
+}
+
+.identity-btn:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+.btn-icon-left {
+    font-size: 1rem;
+}
+
+/* Date Separator */
+.date-separator {
+    color: var(--color-text-muted);
+    padding: 0 var(--space-1);
+}
+
+/* Ensure filters-bar wraps nicely */
+.filters-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    background: var(--color-surface);
+    padding: var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    /* Remove gap to use borders/padding for separation */
+    gap: 0; 
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: 0 var(--space-4);
+    border-right: 1px solid var(--color-border);
+}
+
+.filter-group:first-child {
+    padding-left: 0;
+}
+
+.filter-group:last-child {
+    border-right: none;
+    padding-right: 0;
+}
+
+/* Dark mode text fixes */
+[data-theme="dark"] .sort-btn,
+[data-theme="dark"] .toggle-label,
+[data-theme="dark"] .filter-label {
+    color: var(--color-text-secondary);
+}
+
+[data-theme="dark"] .sort-btn:hover {
+    color: var(--color-text-primary);
+}
+
 </style>
+

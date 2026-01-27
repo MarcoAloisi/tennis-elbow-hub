@@ -33,11 +33,38 @@ export const useAnalysisStore = defineStore('analysis', () => {
     const hasMatches = computed(() => matches.value.length > 0)
     const isIdentityConfirmed = computed(() => userAliases.value.length > 0 && hasMatches.value)
 
+    // Helper function to check if a match is valid (not unfinished)
+    function isMatchValid(info) {
+        if (!info || !info.score) return false
+
+        const isRet = /\(RET\)/i.test(info.score) || /ret\.?$/i.test(info.score)
+        const cleanScore = info.score.replace(/\s*\(RET\)|\s*\(W\/O\)|\s*ret\.?$/i, '').trim()
+        const sets = cleanScore.split(' ').filter(s => s.includes('/') || s.includes('-'))
+
+        // RET matches with multiple sets are valid
+        if (isRet && sets.length > 1) return true
+
+        // Check if first set was completed
+        if (sets.length === 0) return false
+
+        const firstSet = sets[0]
+        const separator = firstSet.includes('/') ? '/' : '-'
+        if (firstSet.includes(separator)) {
+            const [g1, g2] = firstSet.split(separator).map(v => parseInt(v))
+            // At least one player must have reached 4 games
+            if (!isNaN(g1) && !isNaN(g2)) {
+                if (g1 < 4 && g2 < 4) return false
+            }
+        }
+        return true
+    }
+
     const allPlayerNames = computed(() => {
         if (!matches.value.length) return []
         const counts = {}
         matches.value.forEach(m => {
-            if (m.info) {
+            // Only count valid matches (not unfinished)
+            if (m.info && isMatchValid(m.info)) {
                 counts[m.info.player1_name] = (counts[m.info.player1_name] || 0) + 1
                 counts[m.info.player2_name] = (counts[m.info.player2_name] || 0) + 1
             }
@@ -94,6 +121,13 @@ export const useAnalysisStore = defineStore('analysis', () => {
             if (!match.info) return false
             const info = match.info
 
+            // Filter by Identity - if user has set aliases, only show matches where they participated
+            if (userAliases.value.length > 0) {
+                const isUserInMatch = userAliases.value.includes(info.player1_name) ||
+                    userAliases.value.includes(info.player2_name)
+                if (!isUserInMatch) return false
+            }
+
             // Filter by Opponent
             if (filters.value.opponent) {
                 const opp = filters.value.opponent.toLowerCase()
@@ -142,16 +176,60 @@ export const useAnalysisStore = defineStore('analysis', () => {
                 }
             }
 
-            // Filter by Sets
+            // Filter by Sets (Match Format)
             if (filters.value.sets && info.score) {
-                const score = info.score
-                const isBestOf5 = score.includes('3/') || score.includes('/3') || score.includes('3-') || score.includes('-3')
-                const setParts = score.split(' ').filter(s => s.includes('/') || s.includes('-'))
+                const cleanScore = info.score.replace(/\s*\(RET\)|\s*\(W\/O\)/i, '').trim()
+                const setParts = cleanScore.split(' ').filter(s => s.includes('/') || s.includes('-'))
                 const numSets = setParts.length
 
-                if (filters.value.sets === '5' && !isBestOf5) return false
-                if (filters.value.sets === '3' && (isBestOf5 || numSets === 1)) return false
-                if (filters.value.sets === '1' && numSets > 1) return false
+                // Determine match format based on sets played:
+                // - Best of 5: Can have 3, 4, or 5 sets
+                // - Best of 3: Can have 2 or 3 sets
+                // - 1 Set: Exactly 1 set
+
+                // Count sets won by each player to determine format
+                let p1Sets = 0, p2Sets = 0
+                setParts.forEach(set => {
+                    const separator = set.includes('/') ? '/' : '-'
+                    const [g1, g2] = set.split(separator).map(v => parseInt(v))
+                    if (!isNaN(g1) && !isNaN(g2)) {
+                        if (g1 > g2) p1Sets++
+                        else if (g2 > g1) p2Sets++
+                    }
+                })
+
+                const maxSetsWon = Math.max(p1Sets, p2Sets)
+
+                // Best of 5: Winner needs 3 sets
+                // Best of 3: Winner needs 2 sets
+                // 1 Set: Only 1 set played total
+
+                // Best of 5: Winner needs 3 sets OR more than 3 sets played
+                // Best of 3: Winner needs 2 sets AND max 3 sets played
+                // 1 Set: Only 1 set played total
+
+                if (filters.value.sets === '5') {
+                    // Match must be Best of 5 format
+                    // Either someone won 3 sets, OR the match went beyond 3 sets (e.g. 2-2 in sets)
+                    if (maxSetsWon === 3 || numSets > 3) {
+                        // It's a Bo5 match
+                    } else {
+                        return false
+                    }
+                }
+                if (filters.value.sets === '3') {
+                    // Match must be Best of 3 format
+                    // Someone won 2 sets AND total sets displayed is <= 3
+                    if (maxSetsWon === 2 && numSets <= 3) {
+                        // It's a Bo3 match
+                    } else {
+                        return false
+                    }
+                }
+                if (filters.value.sets === '1') {
+                    // Match must be single set format
+                    if (numSets !== 1) return false
+                }
             }
 
             // Filter by Date
@@ -166,19 +244,27 @@ export const useAnalysisStore = defineStore('analysis', () => {
                 }
             }
 
-            // Filter Unfinished Matches
+            // Filter Unfinished Matches (but keep RET matches if they played at least one complete set)
             if (info.score) {
-                const cleanScore = info.score.replace(/\s*\(RET\)|\s*\(W\/O\)/i, '').trim()
-                const sets = cleanScore.split(' ')
-                if (sets.length === 0) return false
+                const isRet = /\(RET\)/i.test(info.score) || /ret\.?$/i.test(info.score)
+                const cleanScore = info.score.replace(/\s*\(RET\)|\s*\(W\/O\)|\s*ret\.?$/i, '').trim()
+                const sets = cleanScore.split(' ').filter(s => s.includes('/') || s.includes('-'))
 
-                const firstSet = sets[0]
-                const separator = firstSet.includes('/') ? '/' : '-'
-                if (firstSet.includes(separator)) {
-                    const [g1, g2] = firstSet.split(separator).map(v => parseInt(v))
-                    // STRICTER CHECK: At least one player must have reached 4 games
-                    if (!isNaN(g1) && !isNaN(g2)) {
-                        if (g1 < 4 && g2 < 4) return false
+                // If it's a RET match with multiple sets, keep it
+                if (isRet && sets.length > 1) {
+                    // Keep the match - they played enough
+                } else {
+                    // For non-RET or single-set matches, check if first set was completed
+                    if (sets.length === 0) return false
+
+                    const firstSet = sets[0]
+                    const separator = firstSet.includes('/') ? '/' : '-'
+                    if (firstSet.includes(separator)) {
+                        const [g1, g2] = firstSet.split(separator).map(v => parseInt(v))
+                        // At least one player must have reached 4 games in first set
+                        if (!isNaN(g1) && !isNaN(g2)) {
+                            if (g1 < 4 && g2 < 4) return false
+                        }
                     }
                 }
             }
@@ -475,12 +561,13 @@ export const useAnalysisStore = defineStore('analysis', () => {
 
             // Helper for Percentage Fields: Weighted Average vs Median of Matches
             const getPct = (key, numKey, denomKey) => {
+                // FIXED: Win Rates should always be aggregate (Total Won / Total Played)
+                // This ensures they don't change when switching between Average/Median
+                if (key === 'game_win_pct') return gamesTotal > 0 ? (gamesWon / gamesTotal * 100) : 0
+                if (key === 'set_win_pct') return setsTotal > 0 ? (setsWon / setsTotal * 100) : 0
+
                 if (isMedian) {
                     // In Median mode, return the median of the percent array
-                    // Special keys for games/sets
-                    if (key === 'game_win_pct') return getVal('match_game_win_pct')
-                    if (key === 'set_win_pct') return getVal('match_set_win_pct')
-
                     // For other stats (like 1st Serve %), we need to have collected the per-match percentages
                     // Our pushMetric function already collected 'first_serve_pct' array!
                     // So we can just use getVal(key) for Median.
@@ -488,8 +575,6 @@ export const useAnalysisStore = defineStore('analysis', () => {
                 }
 
                 // In Average mode, use Weighted Average (Sum(Num) / Sum(Denom))
-                if (key === 'game_win_pct') return gamesTotal > 0 ? (gamesWon / gamesTotal * 100) : 0
-                if (key === 'set_win_pct') return setsTotal > 0 ? (setsWon / setsTotal * 100) : 0
 
                 // Standard stats
                 const num = sum(numKey)

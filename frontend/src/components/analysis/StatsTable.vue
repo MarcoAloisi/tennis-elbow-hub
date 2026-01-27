@@ -153,6 +153,32 @@ function isWinner(stat) {
   }
   return { p1: v1 > v2, p2: v2 > v1 }
 }
+
+// Get color class for percentage values based on ranges
+// Get color class for percentage values based on ranges
+function getPercentClass(player, stat) {
+  // Disable percentage coloring in comparison mode (Match Detail)
+  // User requested only "Winner" green highlight for match details
+  if (isComparison.value) return ''
+
+  // Only apply to percentage-type stats
+  if (stat.format !== 'rate_pct' && stat.format !== 'pct') return ''
+  
+  const v = getValue(player, stat)
+  const t = getTotal(player, stat)
+  
+  let pct = v
+  if (t && t > 0) {
+    pct = (v / t) * 100
+  }
+  
+  if (isNaN(pct)) return ''
+  if (pct <= 30) return 'pct-danger'
+  if (pct < 50) return 'pct-warning'
+  if (pct <= 60) return 'pct-neutral'
+  if (pct < 90) return 'pct-good'
+  return 'pct-excellent'
+}
 </script>
 
 <template>
@@ -165,34 +191,34 @@ function isWinner(stat) {
     >
       <!-- Comparison View (Normal) -->
       <template v-if="displayMode === 'list'">
-          <div 
-            class="stats-value left"
-            :class="{ winner: isComparison && isWinner(stat).p1 }"
-          >
-            {{ formatValue(player1, stat) }}
-          </div>
-          <div class="stats-label">
-            {{ stat.label }}
-          </div>
-          <div 
-            v-if="isComparison"
-            class="stats-value right"
-            :class="{ winner: isComparison && isWinner(stat).p2 }"
-          >
-            {{ formatValue(player2, stat) }}
-          </div>
-       </template>
+           <div 
+             class="stats-value left"
+             :class="[isComparison && isWinner(stat).p1 ? 'winner' : '', getPercentClass(player1, stat)]"
+           >
+             {{ formatValue(player1, stat) }}
+           </div>
+           <div class="stats-label">
+             {{ stat.label }}
+           </div>
+           <div 
+             v-if="isComparison"
+             class="stats-value right"
+             :class="[isComparison && isWinner(stat).p2 ? 'winner' : '', getPercentClass(player2, stat)]"
+           >
+             {{ formatValue(player2, stat) }}
+           </div>
+        </template>
 
        <!-- Grid View (Cards) -->
        <template v-else>
            <div class="card-label">{{ stat.label }}</div>
            <div class="card-values">
-               <div class="p1-value" :class="{ winner: isComparison && isWinner(stat).p1 }">
+               <div class="p1-value" :class="[isComparison && isWinner(stat).p1 ? 'winner' : '', getPercentClass(player1, stat)]">
                    <small v-if="isComparison">You</small>
                    <span>{{ formatValue(player1, stat) }}</span>
                </div>
                <div v-if="isComparison" class="vs-divider">vs</div>
-               <div v-if="isComparison" class="p2-value" :class="{ winner: isComparison && isWinner(stat).p2 }">
+               <div v-if="isComparison" class="p2-value" :class="[isComparison && isWinner(stat).p2 ? 'winner' : '', getPercentClass(player2, stat)]">
                    <small>{{ player2.name || 'Opponent' }}</small>
                    <span>{{ formatValue(player2, stat) }}</span>
                </div>
@@ -342,5 +368,30 @@ function isWinner(stat) {
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
   min-width: 160px;
+}
+
+/* Percentage Color Classes */
+.pct-danger {
+    color: #dc2626 !important;
+}
+
+.pct-warning {
+    color: #f97316 !important;
+}
+
+.pct-neutral {
+    color: var(--color-text-primary) !important;
+}
+
+.pct-good {
+    color: #22c55e !important;
+}
+
+.pct-excellent {
+    color: var(--color-brand-primary) !important;
+}
+
+[data-theme="dark"] .pct-excellent {
+    color: #D4FF5F !important;
 }
 </style>
