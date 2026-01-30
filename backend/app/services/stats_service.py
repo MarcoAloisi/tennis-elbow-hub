@@ -52,10 +52,11 @@ class StatsService:
     def _detect_mod(self, server: GameServer) -> str:
         """Detect mod type from server tag_line."""
         tag = (server.tag_line or "").lower()
-        if "xkt" in tag:
-            return "xkt"
-        elif "wtsl" in tag:
+        # Check WTSL first - handles "XKT(WTSL)" format
+        if "wtsl" in tag:
             return "wtsl"
+        elif "xkt" in tag:
+            return "xkt"
         return "vanilla"
 
     def _detect_format(self, server: GameServer) -> str:
@@ -93,11 +94,24 @@ class StatsService:
         # Build current matches dict using match_id
         current_matches = {s.match_id: s for s in current_servers}
 
+        logger.debug(
+            f"[STATS] Tracking: {len(current_matches)} current, "
+            f"{len(self._previous_matches)} previous, "
+            f"{len(self._counted_match_ids)} already counted today"
+        )
+
         # Find finished matches (in previous but not in current)
         finished_count = 0
         for match_id, server in self._previous_matches.items():
             if match_id not in current_matches:
-                # Match gone - only count if:
+                # Match gone - log why we're counting or not
+                logger.info(
+                    f"[STATS] Match disappeared: {server.match_name} | "
+                    f"is_started={server.is_started}, nb_game={server.nb_game}, "
+                    f"already_counted={match_id in self._counted_match_ids}"
+                )
+
+                # Only count if:
                 # 1. It actually started (not WAITING - is_started=True when IP=0)
                 # 2. Had enough games played
                 # 3. Wasn't already counted
@@ -107,13 +121,22 @@ class StatsService:
                     and match_id not in self._counted_match_ids
                 ):
                     self._record_match(server)
-                    self._counted_match_ids.add(match_id)  # Mark as counted
+                    self._counted_match_ids.add(match_id)
                     finished_count += 1
-                    await self.save_to_db()  # PERSIST IMMEDIATELY
+                    await self.save_to_db()
                     logger.info(
-                        f"Match finished: {server.match_name} "
-                        f"({server.nb_game} games, {self._detect_mod(server)})"
+                        f"[STATS] ✅ COUNTED: {server.match_name} "
+                        f"({server.nb_game} games, {self._detect_mod(server)}, {self._detect_format(server)})"
                     )
+                else:
+                    reason = []
+                    if not server.is_started:
+                        reason.append("was WAITING (not started)")
+                    if server.nb_game < self.MIN_GAMES_THRESHOLD:
+                        reason.append(f"only {server.nb_game} games (need {self.MIN_GAMES_THRESHOLD}+)")
+                    if match_id in self._counted_match_ids:
+                        reason.append("already counted")
+                    logger.info(f"[STATS] ❌ SKIPPED: {server.match_name} - {', '.join(reason)}")
 
         # Update previous for next comparison
         self._previous_matches = current_matches

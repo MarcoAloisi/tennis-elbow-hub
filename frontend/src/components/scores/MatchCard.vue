@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import tournaments from '@/data/tournaments.json'
 
 const props = defineProps({
   server: {
@@ -7,6 +8,86 @@ const props = defineProps({
     required: true
   }
 })
+
+// ============ MATCH DURATION ============
+const now = ref(Date.now())
+let durationInterval = null
+
+onMounted(() => {
+  // Update "now" every 30 seconds for duration display
+  durationInterval = setInterval(() => {
+    now.value = Date.now()
+  }, 30000)
+})
+
+onUnmounted(() => {
+  if (durationInterval) clearInterval(durationInterval)
+})
+
+const matchDuration = computed(() => {
+  if (!props.server.creation_time_ms || !props.server.is_started) return null
+  const elapsed = now.value - props.server.creation_time_ms
+  const minutes = Math.floor(elapsed / 60000)
+  if (minutes < 1) return 'Just started'
+  if (minutes < 60) return `${minutes}m`
+  const hours = Math.floor(minutes / 60)
+  const mins = minutes % 60
+  return `${hours}h ${mins}m`
+})
+
+// ============ ELO DIFFERENCE ============
+const eloDiff = computed(() => {
+  const elo1 = props.server.elo || 0
+  const elo2 = props.server.other_elo || 0
+  return elo1 - elo2
+})
+
+const player1IsFavorite = computed(() => eloDiff.value > 0)
+const player2IsFavorite = computed(() => eloDiff.value < 0)
+
+// ============ SURFACE DETECTION ============
+const surfaceInfo = computed(() => {
+  const surfaceName = props.server.surface_name || ''
+  const nameLower = surfaceName.toLowerCase()
+  
+  // Check all tournament categories
+  const allTournaments = {
+    ...tournaments.grandSlams,
+    ...tournaments.masters1000,
+    ...tournaments.atp500,
+    ...tournaments.atp250,
+    ...tournaments.atpFinals,
+    ...tournaments.challengers
+  }
+  
+  // Try to find a matching tournament
+  for (const [tourName, surface] of Object.entries(allTournaments)) {
+    if (nameLower.includes(tourName.toLowerCase())) {
+      return { surface, icon: getSurfaceIcon(surface) }
+    }
+  }
+  
+  // Fallback: check keywords
+  for (const [surface, keywords] of Object.entries(tournaments.keywords || {})) {
+    for (const kw of keywords) {
+      if (nameLower.includes(kw.toLowerCase())) {
+        return { surface, icon: getSurfaceIcon(surface) }
+      }
+    }
+  }
+  
+  return { surface: 'hard', icon: '🔵' } // Default
+})
+
+function getSurfaceIcon(surface) {
+  const icons = {
+    'clay': '🟠',
+    'grass': '🟢',
+    'hard': '🔵',
+    'indoor': '🏠'
+  }
+  return icons[surface] || '🔵'
+}
 
 // Parse player names from match_name
 const players = computed(() => {
@@ -149,6 +230,7 @@ const isOnlineMode = computed(() => {
         </span>
         <span v-else class="badge badge-waiting">WAITING</span>
         
+        <span class="badge badge-surface-icon" :title="surfaceInfo.surface">{{ surfaceInfo.icon }}</span>
         <span v-if="tournamentDisplay" class="badge badge-tournament">{{ tournamentDisplay }}</span>
         <span v-else class="badge" :class="surfaceClass">{{ surfaceDisplay }}</span>
       </div>
@@ -167,7 +249,7 @@ const isOnlineMode = computed(() => {
             </div>
             <span class="host-badge" title="Match Host">HOST</span>
           </div>
-          <span class="player-elo">elo: {{ server.elo }}</span>
+          <span class="player-elo" :class="{ 'elo-favorite': player1IsFavorite }">elo: {{ server.elo }}</span>
         </div>
         
         <!-- Serving Indicator P1 -->
@@ -198,7 +280,7 @@ const isOnlineMode = computed(() => {
               </span>
             </div>
           </div>
-          <span class="player-elo">elo: {{ server.other_elo }}</span>
+          <span class="player-elo" :class="{ 'elo-favorite': player2IsFavorite }">elo: {{ server.other_elo }}</span>
         </div>
 
         <!-- Serving Indicator P2 -->
@@ -226,6 +308,11 @@ const isOnlineMode = computed(() => {
       <span class="footer-tag" :class="{ 'online-tag': isOnlineMode }">
         <span v-if="isOnlineMode" class="online-dot-pulse"></span>
         {{ server.game_info?.mode_display || 'Singles' }}
+      </span>
+      
+      <!-- Match Duration -->
+      <span v-if="matchDuration" class="footer-tag duration-tag" title="Match duration">
+        ⏱️ {{ matchDuration }}
       </span>
       
       <!-- Mod Version -->
@@ -505,5 +592,26 @@ const isOnlineMode = computed(() => {
   white-space: nowrap;
   flex-shrink: 1; 
   text-overflow: ellipsis; 
+}
+
+/* Elo Favorite Highlight */
+.elo-favorite {
+  color: var(--color-brand-primary) !important;
+  font-weight: 700;
+}
+
+/* Duration Tag */
+.duration-tag {
+  color: var(--color-text-secondary);
+  background-color: rgba(107, 114, 128, 0.1);
+  gap: 4px;
+}
+
+/* Surface Icon Badge */
+.badge-surface-icon {
+  font-size: 1rem;
+  padding: 2px 4px;
+  background: transparent;
+  line-height: 1;
 }
 </style>
