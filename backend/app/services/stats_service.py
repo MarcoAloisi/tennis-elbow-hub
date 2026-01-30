@@ -102,6 +102,7 @@ class StatsService:
                     self._record_match(server)
                     self._counted_match_ids.add(match_id)  # Mark as counted
                     finished_count += 1
+                    await self.save_to_db()  # PERSIST IMMEDIATELY
                     logger.info(
                         f"Match finished: {server.match_name} "
                         f"({server.nb_game} games, {self._detect_mod(server)})"
