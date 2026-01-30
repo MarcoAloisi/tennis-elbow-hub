@@ -31,7 +31,8 @@ class StatsService:
         self.timezone = ZoneInfo(self.settings.stats_timezone)
 
         # In-memory tracking
-        self._previous_matches: dict[int, GameServer] = {}  # creation_time_ms -> server
+        self._previous_matches: dict[str, GameServer] = {}  # match_id -> server
+        self._counted_match_ids: set[str] = set()  # Already counted match IDs (prevents duplicates)
         self._today_stats: dict[str, dict[str, int]] = self._empty_stats()
         self._current_date: date | None = None
         self._dirty = False  # True if in-memory stats differ from DB
@@ -86,18 +87,20 @@ class StatsService:
             self._today_stats = self._empty_stats()
             self._current_date = today
             self._previous_matches.clear()
+            self._counted_match_ids.clear()  # Reset counted matches for new day
             await self._load_from_db(today)
 
-        # Build current matches dict
-        current_matches = {s.creation_time_ms: s for s in current_servers}
+        # Build current matches dict using match_id
+        current_matches = {s.match_id: s for s in current_servers}
 
         # Find finished matches (in previous but not in current)
         finished_count = 0
         for match_id, server in self._previous_matches.items():
             if match_id not in current_matches:
-                # Match finished - check if it had enough games
-                if server.nb_game >= self.MIN_GAMES_THRESHOLD:
+                # Match finished - check if it had enough games AND wasn't already counted
+                if server.nb_game >= self.MIN_GAMES_THRESHOLD and match_id not in self._counted_match_ids:
                     self._record_match(server)
+                    self._counted_match_ids.add(match_id)  # Mark as counted
                     finished_count += 1
                     logger.info(
                         f"Match finished: {server.match_name} "

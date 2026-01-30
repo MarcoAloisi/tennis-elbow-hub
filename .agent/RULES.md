@@ -31,7 +31,52 @@ These guidelines are critical for maintaining the quality and architecture of th
   1.  **Live Scores**: Real-time display of game scores.
   2.  **Match Analysis**: A tool to upload/read match logs and provide detailed statistics and analysis for users.
 
-## 5. Agent Workflow
+## 5. API Architecture
+
+### Live Scores API
+Fetches real-time match data from Tennis Elbow 4 server list.
+
+```
+[External TE4 Server] → [Backend Scraper] → [WebSocket/REST] → [Frontend]
+```
+
+**Flow:**
+1. `scraper.py` fetches raw data from `LIVE_SCORES_URL` every 5 seconds
+2. `parser.py` parses the custom format into `GameServer` models
+3. Each `GameServer` gets a unique `match_id` (hash of timestamp + names + port)
+4. `stats_service.py` tracks matches: when a match disappears (5+ games) → counted as finished
+5. Data served via:
+   - `GET /api/scores` — Current live matches
+   - `WS /api/scores/ws` — WebSocket for real-time updates
+   - `GET /api/scores/stats/today` — Today's finished match counts
+   - `GET /api/scores/stats/history` — Historical daily stats
+
+**Key Files:**
+- `backend/app/services/scraper.py` — HTTP fetching
+- `backend/app/services/parser.py` — Data parsing
+- `backend/app/services/stats_service.py` — Finished match tracking
+- `backend/app/models/game_server.py` — Data models
+
+### Match Log Analysis API
+Parses HTML match log files uploaded by users.
+
+```
+[User Uploads HTML] → [Backend Parser] → [Analysis Response] → [Frontend Charts]
+```
+
+**Flow:**
+1. User uploads `.html` match log file
+2. `POST /api/matchlog/parse` receives and validates file
+3. `log_parser.py` extracts match data (players, scores, stats)
+4. Returns structured JSON with match statistics
+5. Frontend displays charts and analysis
+
+**Key Files:**
+- `backend/app/api/endpoints/matchlog.py` — Upload endpoint
+- `backend/app/services/log_parser.py` — HTML parsing logic
+- `backend/app/models/match_log.py` — Parsed data models
+
+## 6. Agent Workflow
 - **Verify First**: Before writing new code, verify existing implementation to ensure no duplication.
 - **Read Configs**: Respect `pyproject.toml` and `package.json` configurations.
 - **Testing**: Ensure changes are clearer and robust. Run tests if applicable (`pytest` for backend, `vitest` for frontend).

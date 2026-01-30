@@ -123,6 +123,22 @@ class GameServer(BaseModel):
 
     @computed_field
     @property
+    def match_id(self) -> str:
+        """Generate a unique match identifier.
+        
+        Combines creation_time_ms with match_name and port to create
+        a stable unique ID for tracking purposes.
+        """
+        import hashlib
+        
+        # Combine key identifying fields
+        raw = f"{self.creation_time_ms}:{self.match_name}:{self.port}"
+        # Create a short hash for readability
+        hash_hex = hashlib.md5(raw.encode()).hexdigest()[:12]
+        return f"m_{hash_hex}"
+
+    @computed_field
+    @property
     def surface_display(self) -> str:
         """Clean surface name for display.
 
