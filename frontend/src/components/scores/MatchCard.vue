@@ -26,7 +26,20 @@ onUnmounted(() => {
 
 const matchDuration = computed(() => {
   if (!props.server.creation_time_ms || !props.server.is_started) return null
-  const elapsed = now.value - props.server.creation_time_ms
+  
+  // Sanity check: creation_time_ms should be a Unix timestamp in milliseconds
+  // A valid timestamp for 2020+ would be > 1577836800000 (Jan 1, 2020)
+  const creationTime = props.server.creation_time_ms
+  const minValidTimestamp = 1577836800000 // Jan 1, 2020 in ms
+  
+  // If it's too small, it's likely not a Unix timestamp - skip display
+  if (creationTime < minValidTimestamp) return null
+  
+  const elapsed = now.value - creationTime
+  
+  // If elapsed is negative or too large (> 24 hours), something is wrong
+  if (elapsed < 0 || elapsed > 86400000) return null
+  
   const minutes = Math.floor(elapsed / 60000)
   if (minutes < 1) return 'Just started'
   if (minutes < 60) return `${minutes}m`
