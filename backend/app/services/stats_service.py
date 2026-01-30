@@ -97,8 +97,15 @@ class StatsService:
         finished_count = 0
         for match_id, server in self._previous_matches.items():
             if match_id not in current_matches:
-                # Match finished - check if it had enough games AND wasn't already counted
-                if server.nb_game >= self.MIN_GAMES_THRESHOLD and match_id not in self._counted_match_ids:
+                # Match gone - only count if:
+                # 1. It actually started (not WAITING - is_started=True when IP=0)
+                # 2. Had enough games played
+                # 3. Wasn't already counted
+                if (
+                    server.is_started
+                    and server.nb_game >= self.MIN_GAMES_THRESHOLD
+                    and match_id not in self._counted_match_ids
+                ):
                     self._record_match(server)
                     self._counted_match_ids.add(match_id)  # Mark as counted
                     finished_count += 1
