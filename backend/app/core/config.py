@@ -53,7 +53,14 @@ class Settings(BaseSettings):
 
     # Live Scores
     live_scores_url: str = ""
-    score_refresh_interval: int = 10  # seconds
+    score_refresh_interval: int = 5  # seconds (changed from 10)
+
+    # Database
+    database_url: str | None = None  # Set by Render or use SQLite locally
+
+    # Stats Tracking
+    stats_timezone: str = "Europe/Rome"  # CEST for daily reset
+    stats_checkpoint_interval: int = 300  # Save to DB every 5 minutes
 
     # WebSocket
     ws_heartbeat_interval: int = 30  # seconds

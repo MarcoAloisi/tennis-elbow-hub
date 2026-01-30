@@ -107,6 +107,43 @@ export const useScoresStore = defineStore('scores', () => {
         }
     }
 
+    const stats = computed(() => {
+        const result = {
+            xkt: { total: 0, bo1: 0, bo3: 0, bo5: 0, other: 0 },
+            wtsl: { total: 0, bo1: 0, bo3: 0, bo5: 0, other: 0 },
+            vanilla: { total: 0, bo1: 0, bo3: 0, bo5: 0, other: 0 }
+        }
+
+        servers.value.forEach(server => {
+            // Determine Mod
+            let mod = 'vanilla'
+            const tag = (server.tag_line || '').toLowerCase()
+            if (tag.includes('xkt')) {
+                mod = 'xkt'
+            } else if (tag.includes('wtsl')) {
+                mod = 'wtsl'
+            }
+
+            // Increment Mod Total
+            result[mod].total++
+
+            // Determine Format
+            // nb_set: 0/1 -> 1 Set, 2 -> Best of 3, 3 -> Best of 5
+            const sets = server.game_info.nb_set
+            if (sets === 0 || sets === 1) {
+                result[mod].bo1++
+            } else if (sets === 2) {
+                result[mod].bo3++
+            } else if (sets === 3) {
+                result[mod].bo5++
+            } else {
+                result[mod].other++
+            }
+        })
+
+        return result
+    })
+
     return {
         // State
         servers,
@@ -118,6 +155,7 @@ export const useScoresStore = defineStore('scores', () => {
         filteredServers,
         serverCount,
         activeMatchCount,
+        stats,
         // Actions
         fetchScores,
         updateFromWebSocket,

@@ -52,6 +52,45 @@ async def get_live_scores(
     )
 
 
+@router.get(
+    "/stats/today",
+    summary="Get today's finished match stats",
+    description="Get aggregated statistics for matches finished today.",
+)
+async def get_today_stats() -> dict:
+    """Get today's finished match statistics.
+
+    Returns:
+        Today's stats by mod and format.
+    """
+    from app.services.stats_service import get_stats_service
+
+    stats_service = get_stats_service()
+    return stats_service.get_today_stats()
+
+
+@router.get(
+    "/stats/history",
+    summary="Get historical stats",
+    description="Get daily stats for the last N days.",
+)
+async def get_stats_history(
+    days: Annotated[int, Query(ge=1, le=90, description="Number of days")] = 7,
+) -> list[dict]:
+    """Get historical daily statistics.
+
+    Args:
+        days: Number of days to retrieve (1-90).
+
+    Returns:
+        List of daily stats.
+    """
+    from app.services.stats_service import get_stats_service
+
+    stats_service = get_stats_service()
+    return await stats_service.get_history(days)
+
+
 class ConnectionManager:
     """Manages WebSocket connections for live score updates."""
 

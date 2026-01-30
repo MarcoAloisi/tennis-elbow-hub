@@ -53,14 +53,38 @@ function formatTime(isoString) {
       
       <div class="header-right">
         <div class="stats-group">
+          <!-- Main Count -->
           <div class="single-stat-card">
               <span class="stat-value">{{ store.serverCount }}</span>
               <span class="stat-label">Matches</span>
           </div>
-          <div class="single-stat-card">
-              <span class="stat-value">{{ store.activeMatchCount }}</span>
-              <span class="stat-label">Live</span>
-          </div>
+
+          <!-- Mod Breakdown Loop -->
+          <template v-for="(modStats, modName) in store.stats" :key="modName">
+            <div class="stat-divider"></div>
+            
+            <div class="stats-breakdown mod-group">
+              <div class="mod-header">
+                <span class="mod-name">{{ modName }}</span>
+                <span class="mod-total">{{ modStats.total }}</span>
+              </div>
+              
+              <div class="format-grid">
+                <div class="mini-stat-row" title="1 set">
+                  <span class="mini-label-row">1s</span>
+                  <span class="mini-val-row">{{ modStats.bo1 }}</span>
+                </div>
+                <div class="mini-stat-row" title="Best of 3">
+                  <span class="mini-label-row">Bo3</span>
+                  <span class="mini-val-row">{{ modStats.bo3 }}</span>
+                </div>
+                <div class="mini-stat-row" title="Best of 5">
+                  <span class="mini-label-row">Bo5</span>
+                  <span class="mini-val-row">{{ modStats.bo5 }}</span>
+                </div>
+              </div>
+            </div>
+          </template>
         </div>
         
         <div class="connection-pill" :class="{ connected: isConnected }">
@@ -166,6 +190,75 @@ function formatTime(isoString) {
   box-shadow: var(--shadow-sm);
 }
 
+.stat-divider {
+  width: 1px;
+  background-color: var(--color-border);
+  height: 48px; /* Increased height for content */
+  align-self: center;
+}
+
+.stats-breakdown {
+  display: flex;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-2) var(--space-3);
+  box-shadow: var(--shadow-sm);
+  gap: var(--space-3);
+}
+
+.mod-group {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+
+.mod-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 2px;
+  margin-bottom: 2px;
+}
+
+.mod-name {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.mod-total {
+  font-size: 0.8rem;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-brand-live);
+  margin-left: auto;
+}
+
+.format-grid {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.mini-stat-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.mini-label-row {
+  font-size: 0.6rem;
+  color: var(--color-text-muted);
+}
+
+.mini-val-row {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
 .stat-value {
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
@@ -269,9 +362,10 @@ function formatTime(isoString) {
     gap: var(--space-4);
   }
   
-  .header-stats {
+  .stats-group {
     width: 100%;
-    justify-content: space-between;
+    justify-content: center;
+    flex-wrap: wrap;
   }
   
   .matches-grid {

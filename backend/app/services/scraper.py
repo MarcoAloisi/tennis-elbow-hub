@@ -76,8 +76,11 @@ class ScraperService:
             logger.error(f"Request error fetching from {url}: {e}")
             return None
 
-    async def fetch_servers(self) -> GameServerList:
+    async def fetch_servers(self, track_stats: bool = True) -> GameServerList:
         """Fetch and parse live server data.
+
+        Args:
+            track_stats: Whether to track finished matches for stats.
 
         Returns:
             GameServerList containing parsed servers.
@@ -88,6 +91,15 @@ class ScraperService:
         if raw_data:
             servers = list(parse_server_data(raw_data))
             logger.info(f"Parsed {len(servers)} servers")
+
+        # Track finished matches for stats
+        if track_stats and servers:
+            from app.services.stats_service import get_stats_service
+
+            stats_service = get_stats_service()
+            finished = await stats_service.track_matches(servers)
+            if finished > 0:
+                logger.info(f"Detected {finished} finished matches")
 
         return GameServerList(
             servers=servers,

@@ -47,12 +47,26 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Startup
     logger.info(f"Starting {settings.app_name} in {settings.app_env} mode")
 
+    # Initialize database
+    from app.core.database import init_db, close_db
+    from app.services.stats_service import get_stats_service
+
+    await init_db()
+    logger.info("Database initialized")
+
     yield
 
     # Shutdown
     logger.info("Shutting down...")
+
+    # Save any pending stats
+    stats_service = get_stats_service()
+    await stats_service.save_to_db()
+
+    # Close connections
     scraper = get_scraper_service()
     await scraper.close()
+    await close_db()
 
 
 # Create FastAPI application
