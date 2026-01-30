@@ -61,31 +61,33 @@ function formatTime(isoString) {
               <span class="stat-label">Today</span>
           </div>
 
-          <!-- Mod Breakdown Loop -->
+          <!-- Mod Breakdown Loop (skip 'date' key) -->
           <template v-for="(modStats, modName) in store.stats" :key="modName">
-            <div class="stat-divider"></div>
-            
-            <div class="stats-breakdown mod-group">
-              <div class="mod-header">
-                <span class="mod-name">{{ modName }}</span>
-                <span class="mod-total">{{ modStats.total }}</span>
-              </div>
+            <template v-if="modName !== 'date'">
+              <div class="stat-divider"></div>
               
-              <div class="format-grid">
-                <div class="mini-stat-row" title="1 set">
-                  <span class="mini-label-row">1s</span>
-                  <span class="mini-val-row">{{ modStats.bo1 }}</span>
+              <div class="stats-breakdown mod-group">
+                <div class="mod-header">
+                  <span class="mod-name">{{ modName }}</span>
+                  <span class="mod-total">{{ modStats.total }}</span>
                 </div>
-                <div class="mini-stat-row" title="Best of 3">
-                  <span class="mini-label-row">Bo3</span>
-                  <span class="mini-val-row">{{ modStats.bo3 }}</span>
-                </div>
-                <div class="mini-stat-row" title="Best of 5">
-                  <span class="mini-label-row">Bo5</span>
-                  <span class="mini-val-row">{{ modStats.bo5 }}</span>
+                
+                <div class="format-grid">
+                  <div class="mini-stat-row" title="1 set">
+                    <span class="mini-label-row">1s</span>
+                    <span class="mini-val-row">{{ modStats.bo1 }}</span>
+                  </div>
+                  <div class="mini-stat-row" title="Best of 3">
+                    <span class="mini-label-row">Bo3</span>
+                    <span class="mini-val-row">{{ modStats.bo3 }}</span>
+                  </div>
+                  <div class="mini-stat-row" title="Best of 5">
+                    <span class="mini-label-row">Bo5</span>
+                    <span class="mini-val-row">{{ modStats.bo5 }}</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            </template>
           </template>
         </div>
         
