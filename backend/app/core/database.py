@@ -52,6 +52,11 @@ def get_engine():
         connect_args = {}
         if "sqlite" in url:
             connect_args["check_same_thread"] = False
+        # When using Supabase transaction pooler (pgbouncer), we must disable prepared statements
+        # to avoid "prepared statement already exists" errors.
+        # This applies to asyncpg connections.
+        elif "postgresql+asyncpg" in url:
+            connect_args["statement_cache_size"] = 0
         
         _engine = create_async_engine(
             url,
