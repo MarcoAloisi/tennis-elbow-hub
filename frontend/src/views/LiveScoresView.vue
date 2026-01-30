@@ -23,10 +23,12 @@ watch(wsData, (newData) => {
 // Initial fetch
 onMounted(() => {
   store.fetchScores()
+  store.fetchDailyStats()
 })
 
 function handleRefresh() {
   store.fetchScores()
+  store.fetchDailyStats()
 }
 
 function handleFilterUpdate(newFilters) {
@@ -53,10 +55,10 @@ function formatTime(isoString) {
       
       <div class="header-right">
         <div class="stats-group">
-          <!-- Main Count -->
+          <!-- Today's Finished Matches -->
           <div class="single-stat-card">
-              <span class="stat-value">{{ store.serverCount }}</span>
-              <span class="stat-label">Matches</span>
+              <span class="stat-value">{{ store.dailyStatsTotal }}</span>
+              <span class="stat-label">Today</span>
           </div>
 
           <!-- Mod Breakdown Loop -->

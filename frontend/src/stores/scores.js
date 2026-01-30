@@ -19,6 +19,14 @@ export const useScoresStore = defineStore('scores', () => {
         searchQuery: ''
     })
 
+    // Daily stats from backend API (finished matches only)
+    const dailyStats = ref({
+        date: null,
+        xkt: { total: 0, bo1: 0, bo3: 0, bo5: 0 },
+        wtsl: { total: 0, bo1: 0, bo3: 0, bo5: 0 },
+        vanilla: { total: 0, bo1: 0, bo3: 0, bo5: 0 }
+    })
+
     // Getters
     const filteredServers = computed(() => {
         let result = servers.value
@@ -55,6 +63,12 @@ export const useScoresStore = defineStore('scores', () => {
     const serverCount = computed(() => servers.value.length)
     const activeMatchCount = computed(() => servers.value.filter(s => s.is_started).length)
 
+    // Total finished matches today
+    const dailyStatsTotal = computed(() => {
+        const s = dailyStats.value
+        return s.xkt.total + s.wtsl.total + s.vanilla.total
+    })
+
     // Actions
     async function fetchScores() {
         isLoading.value = true
@@ -85,6 +99,22 @@ export const useScoresStore = defineStore('scores', () => {
         }
     }
 
+    async function fetchDailyStats() {
+        try {
+            const url = apiUrl('/api/scores/stats/today')
+            const response = await fetch(url)
+
+            if (!response.ok) {
+                throw new Error(`HTTP error ${response.status}`)
+            }
+
+            const data = await response.json()
+            dailyStats.value = data
+        } catch (e) {
+            console.error('Failed to fetch daily stats:', e)
+        }
+    }
+
     function updateFromWebSocket(data) {
         if (data && data.servers) {
             servers.value = data.servers
@@ -107,42 +137,8 @@ export const useScoresStore = defineStore('scores', () => {
         }
     }
 
-    const stats = computed(() => {
-        const result = {
-            xkt: { total: 0, bo1: 0, bo3: 0, bo5: 0, other: 0 },
-            wtsl: { total: 0, bo1: 0, bo3: 0, bo5: 0, other: 0 },
-            vanilla: { total: 0, bo1: 0, bo3: 0, bo5: 0, other: 0 }
-        }
-
-        servers.value.forEach(server => {
-            // Determine Mod
-            let mod = 'vanilla'
-            const tag = (server.tag_line || '').toLowerCase()
-            if (tag.includes('xkt')) {
-                mod = 'xkt'
-            } else if (tag.includes('wtsl')) {
-                mod = 'wtsl'
-            }
-
-            // Increment Mod Total
-            result[mod].total++
-
-            // Determine Format
-            // nb_set: 0/1 -> 1 Set, 2 -> Best of 3, 3 -> Best of 5
-            const sets = server.game_info.nb_set
-            if (sets === 0 || sets === 1) {
-                result[mod].bo1++
-            } else if (sets === 2) {
-                result[mod].bo3++
-            } else if (sets === 3) {
-                result[mod].bo5++
-            } else {
-                result[mod].other++
-            }
-        })
-
-        return result
-    })
+    // Expose stats as alias to dailyStats for template compatibility
+    const stats = computed(() => dailyStats.value)
 
     return {
         // State
@@ -151,15 +147,19 @@ export const useScoresStore = defineStore('scores', () => {
         error,
         lastUpdated,
         filters,
+        dailyStats,
         // Getters
         filteredServers,
         serverCount,
         activeMatchCount,
+        dailyStatsTotal,
         stats,
         // Actions
         fetchScores,
+        fetchDailyStats,
         updateFromWebSocket,
         setFilter,
         clearFilters
     }
 })
+
