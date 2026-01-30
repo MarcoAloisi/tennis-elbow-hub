@@ -1,10 +1,3 @@
-databases:
-  - name: tennis-hub-db
-    plan: free
-    databaseName: tennis_hub
-    user: tennis_hub_user
-    region: frankfurt
-
 services:
   # Backend API Service
   - type: web
@@ -25,9 +18,7 @@ services:
       - key: LIVE_SCORES_URL
         sync: false
       - key: DATABASE_URL
-        fromDatabase:
-          name: tennis-hub-db
-          property: connectionString
+        sync: false
       - key: STATS_TIMEZONE
         value: "Europe/Rome"
 
