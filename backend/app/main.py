@@ -54,17 +54,29 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await init_db()
     logger.info("Database initialized")
 
+    # Start background polling
+    scraper = get_scraper_service()
+    # Use configured interval or default to 60s if not set
+    # Ensure interval is at least 15s for stats tracking
+    interval = getattr(settings, "score_refresh_interval", 60)
+    interval = max(int(interval), 15)
+    
+    await scraper.start_polling(interval=interval)
+
     yield
 
     # Shutdown
     logger.info("Shutting down...")
+
+    # Stop background polling
+    scraper = get_scraper_service()
+    await scraper.stop_polling()
 
     # Save any pending stats
     stats_service = get_stats_service()
     await stats_service.save_to_db()
 
     # Close connections
-    scraper = get_scraper_service()
     await scraper.close()
     await close_db()
 

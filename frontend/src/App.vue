@@ -23,6 +23,11 @@ import ThemeToggle from './components/common/ThemeToggle.vue'
             <span class="nav-icon">📊</span>
             Match Log Analysis
           </RouterLink>
+          <div class="nav-divider"></div>
+          <RouterLink to="/tour-logs" class="nav-link" active-class="active">
+            <span class="nav-icon">🏆</span>
+            WTSL Tour Logs
+          </RouterLink>
         </nav>
         
         <div class="header-actions">

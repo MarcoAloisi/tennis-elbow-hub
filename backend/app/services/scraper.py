@@ -4,6 +4,7 @@ This module handles HTTP requests to the score source URL
 and manages the data fetching lifecycle.
 """
 
+import asyncio
 from datetime import datetime, timezone
 
 import httpx
@@ -23,6 +24,7 @@ class ScraperService:
         """Initialize the scraper service."""
         self.settings = get_settings()
         self._client: httpx.AsyncClient | None = None
+        self._polling_task: asyncio.Task | None = None
 
     async def get_client(self) -> httpx.AsyncClient:
         """Get or create the HTTP client.
@@ -46,6 +48,49 @@ class ScraperService:
         if self._client and not self._client.is_closed:
             await self._client.aclose()
             self._client = None
+        await self.stop_polling()
+
+    async def start_polling(self, interval: int = 60) -> None:
+        """Start background polling of server list.
+        
+        Args:
+            interval: Polling interval in seconds.
+        """
+        if self._polling_task and not self._polling_task.done():
+            logger.warning("Polling already started")
+            return
+            
+        logger.info(f"Starting background polling (interval={interval}s)")
+        self._polling_task = asyncio.create_task(self._polling_loop(interval))
+
+    async def stop_polling(self) -> None:
+        """Stop background polling."""
+        if self._polling_task:
+            logger.info("Stopping background polling")
+            self._polling_task.cancel()
+            try:
+                await self._polling_task
+            except asyncio.CancelledError:
+                pass
+            self._polling_task = None
+
+    async def _polling_loop(self, interval: int) -> None:
+        """Background loop to fetch servers periodically.
+        
+        Args:
+            interval: Sleep interval between fetches.
+        """
+        while True:
+            try:
+                # We always track stats in background polling
+                await self.fetch_servers(track_stats=True)
+            except asyncio.CancelledError:
+                logger.info("Polling loop cancelled")
+                raise
+            except Exception as e:
+                logger.error(f"Error in polling loop: {e}")
+            
+            await asyncio.sleep(interval)
 
     async def fetch_raw_data(self) -> str | None:
         """Fetch raw score data from the configured URL.

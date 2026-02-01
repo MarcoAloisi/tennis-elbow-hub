@@ -1,3 +1,7 @@
+---
+trigger: always_on
+---
+
 # Project Rules & Guidelines
 
 These guidelines are critical for maintaining the quality and architecture of the Tennis Elbow 4 Hub project. All agents and developers must adhere to these rules.
@@ -126,6 +130,18 @@ Fetches real-time match data from Tennis Elbow 4 server list.
    - `GET /api/scores/stats/today` — Today's finished match counts
    - `GET /api/scores/stats/history` — Historical daily stats
 
+**Key Files:**
+- `backend/app/services/scraper.py` — HTTP fetching
+- `backend/app/services/parser.py` — Data parsing with WTSL mod detection
+- `backend/app/services/stats_service.py` — Finished match tracking (SQLite)
+- `backend/app/models/game_server.py` — Data models (GameServer, MatchInfo)
+
+**Features:**
+- WTSL mod detection from match names (e.g., "XKT(WTSL)")
+- Match duration display ("Started 15 min ago")
+- ELO difference indicator with color-coding
+- Tournament-to-surface mapping with icons
+
 **Protocol Specification:**
 
 The server list is a string containing multiple space-separated entries. Each entry represents a game server.
@@ -135,15 +151,15 @@ The server list is a string containing multiple space-separated entries. Each en
 Ip Port "Name" GameInfo MaxPing Elo NbGame "TagLine" "Score" OtherElo GiveUpRate Reputation "SurfaceName" CreationTimeInMs
 ```
 
-- **Ip**: Hex string (e.g., `4A3B2C1D`) or `0` (or `0.0.0.0`) if the match is started.
-- **Port**: Hex number. Matches use various ports (e.g., `10E1`, `C0E1`, `DB65`), though `10E1` is common.
+- **Ip**: Hex string (e.g., `4A3B2C1D`) or `0` if the match is started.
+- **Port**: Hex number.
 - **Name**: Quoted string.
 - **GameInfo**: Hex bitfield (see below).
 - **MaxPing, Elo, NbGame**: Hex numbers.
 - **TagLine, Score**: Quoted strings.
 - **OtherElo, GiveUpRate, Reputation**: Hex numbers.
 - **SurfaceName**: Quoted string.
-- **CreationTimeInMs**: Hex number. Note: Despite the name, this value appears to be a Unix timestamp in **seconds**, not milliseconds.
+- **CreationTimeInMs**: Hex number.
 
 **GameInfo Bitfield (28 bits):**
 - **Trial**: 2 bits
@@ -157,17 +173,6 @@ Ip Port "Name" GameInfo MaxPing Elo NbGame "TagLine" "Score" OtherElo GiveUpRate
 - **Preview**: 3 bits
 - **Tiredness**: 1 bit
 
-**Key Files:**
-- `backend/app/services/scraper.py` — HTTP fetching
-- `backend/app/services/parser.py` — Data parsing with WTSL mod detection
-- `backend/app/services/stats_service.py` — Finished match tracking (SQLite)
-- `backend/app/models/game_server.py` — Data models (GameServer, MatchInfo)
-
-**Features:**
-- WTSL mod detection from match names (e.g., "XKT(WTSL)")
-- Match duration display ("Started 15 min ago")
-- ELO difference indicator with color-coding
-- Tournament-to-surface mapping with icons
 
 ---
 

@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import LiveScoresView from '../views/LiveScoresView.vue'
 import MatchAnalysisView from '../views/MatchAnalysisView.vue'
+import WTSLTourLogsView from '../views/WTSLTourLogsView.vue'
 
 const routes = [
     {
@@ -17,6 +18,14 @@ const routes = [
         component: MatchAnalysisView,
         meta: {
             title: 'Match Analysis'
+        }
+    },
+    {
+        path: '/tour-logs',
+        name: 'WTSLTourLogs',
+        component: WTSLTourLogsView,
+        meta: {
+            title: 'WTSL Tour Logs'
         }
     }
 ]
