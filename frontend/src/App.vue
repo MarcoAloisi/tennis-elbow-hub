@@ -1,6 +1,8 @@
 <script setup>
 import { RouterView, RouterLink } from 'vue-router'
 import ThemeToggle from './components/common/ThemeToggle.vue'
+import AdSidebar from './components/common/AdSidebar.vue'
+import KofiWidget from './components/common/KofiWidget.vue'
 </script>
 
 <template>
@@ -36,11 +38,28 @@ import ThemeToggle from './components/common/ThemeToggle.vue'
       </div>
     </header>
     
-    <!-- Main Content -->
-    <main class="app-main">
-      <RouterView />
-    </main>
+    <!-- Content Wrapper with Ads -->
+    <div class="content-wrapper">
+      <!-- Left Ad Rail -->
+      <aside class="ad-rail left">
+        <AdSidebar side="left" />
+      </aside>
+
+      <!-- Main Content -->
+      <main class="app-main">
+        <RouterView />
+      </main>
+
+      <!-- Right Ad Rail -->
+      <aside class="ad-rail right">
+        <AdSidebar side="right" />
+      </aside>
+    </div>
     
+    <!-- Ko-fi Widget -->
+    <!-- REPLACE 'tenniselbowhub' WITH YOUR ACTUAL KO-FI USERNAME -->
+    <KofiWidget username="marcolinote4" />
+
     <!-- Footer -->
     <footer class="app-footer">
       <p>Tennis Elbow Hub &copy; 2025 - Tennis Elbow 4 Live Scores & Analysis</p>
@@ -137,12 +156,43 @@ import ThemeToggle from './components/common/ThemeToggle.vue'
   gap: var(--space-3);
 }
 
-.app-main {
-  flex: 1;
-  max-width: 1200px;
+/* Layout Grid */
+.content-wrapper {
+  display: flex;
+  justify-content: center;
+  flex: 1; /* Take remaining height */
   width: 100%;
-  margin: 0 auto;
+}
+
+.app-main {
+  width: 100%;
+  max-width: 1200px;
   padding: var(--space-8) var(--space-6);
+  /* Removed margin: 0 auto as flex handles centering/layout */
+}
+
+/* Ad Rails */
+.ad-rail {
+  display: none; /* Hidden by default */
+  width: 200px; /* Base width for rail */
+  padding-top: var(--space-8);
+}
+
+/* Responsive Ads: Show only on large screens */
+@media (min-width: 1600px) {
+  .ad-rail {
+    display: flex;
+  }
+
+  .ad-rail.left {
+    justify-content: flex-end;
+    padding-right: var(--space-4);
+  }
+
+  .ad-rail.right {
+    justify-content: flex-start;
+    padding-left: var(--space-4);
+  }
 }
 
 .app-footer {
@@ -152,6 +202,8 @@ import ThemeToggle from './components/common/ThemeToggle.vue'
   font-size: var(--font-size-sm);
   background: var(--color-surface); /* Match Header */
   border-top: 1px solid var(--color-border);
+  position: relative; /* Ensure it stacks correctly */
+  z-index: 10;
 }
 
 /* Responsive */
