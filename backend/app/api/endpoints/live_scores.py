@@ -159,25 +159,51 @@ async def websocket_live_scores(
     await manager.connect(websocket)
 
     try:
-        while True:
-            # Fetch and send scores
-            try:
-                scores = await scraper.fetch_servers()
-                await websocket.send_text(scores.model_dump_json())
-            except Exception as e:
-                logger.error(f"Error fetching scores: {e}")
-                await websocket.send_json({"error": str(e)})
+        # Send initial data immediately if available
+        current_data = scraper.get_latest_data()
+        if current_data:
+            await websocket.send_text(current_data.model_dump_json())
 
-            # Wait for next update or client message
+        while True:
+            # Wait for next update from scraper (pushes immediately when available)
+            # This is efficient: we sleep until the background task wakes us up
             try:
-                # Use wait_for to allow both timeout and incoming messages
-                await asyncio.wait_for(
-                    websocket.receive_text(),
-                    timeout=float(settings.score_refresh_interval),
+                # Create tasks for both event waiting and client messages relative to interval
+                # We need to respect the client's liveness check/timeout too
+                
+                # Wait for new data signal
+                update_task = asyncio.create_task(scraper.wait_for_update())
+                
+                # Check for client disconnects/messages
+                client_task = asyncio.create_task(websocket.receive_text())
+                
+                # Wait for either new data OR client message
+                done, pending = await asyncio.wait(
+                    [update_task, client_task],
+                    return_when=asyncio.FIRST_COMPLETED
                 )
-            except asyncio.TimeoutError:
-                # Normal timeout, continue to next update
-                pass
+                
+                # Process completed tasks
+                for task in done:
+                    if task is update_task:
+                        # New data available!
+                        data = scraper.get_latest_data()
+                        if data:
+                            await websocket.send_text(data.model_dump_json())
+                    
+                    elif task is client_task:
+                        # Client sent a message (ping or close)
+                        # We just acknowledge and continue
+                        pass
+                
+                # Clean up pending tasks
+                for task in pending:
+                    task.cancel()
+                    
+            except Exception as e:
+                logger.error(f"Error in websocket loop: {e}")
+                # Don't break loop immediately on minor errors, but maybe delay
+                await asyncio.sleep(1)
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)

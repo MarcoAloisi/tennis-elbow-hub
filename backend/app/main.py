@@ -57,9 +57,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Start background polling
     scraper = get_scraper_service()
     # Use configured interval or default to 60s if not set
-    # Ensure interval is at least 15s for stats tracking
+    # Ensure interval is at least 5s for stats tracking
     interval = getattr(settings, "score_refresh_interval", 60)
-    interval = max(int(interval), 15)
+    interval = max(int(interval), 5)
     
     await scraper.start_polling(interval=interval)
 

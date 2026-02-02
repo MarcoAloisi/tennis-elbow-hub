@@ -25,6 +25,8 @@ class ScraperService:
         self.settings = get_settings()
         self._client: httpx.AsyncClient | None = None
         self._polling_task: asyncio.Task | None = None
+        self._cache: GameServerList | None = None
+        self._update_event = asyncio.Event()
 
     async def get_client(self) -> httpx.AsyncClient:
         """Get or create the HTTP client.
@@ -83,6 +85,7 @@ class ScraperService:
         while True:
             try:
                 # We always track stats in background polling
+                # This will also update the cache
                 await self.fetch_servers(track_stats=True)
             except asyncio.CancelledError:
                 logger.info("Polling loop cancelled")
@@ -124,6 +127,8 @@ class ScraperService:
     async def fetch_servers(self, track_stats: bool = True) -> GameServerList:
         """Fetch and parse live server data.
 
+        Updates the internal cache and notifies listeners.
+
         Args:
             track_stats: Whether to track finished matches for stats.
 
@@ -146,11 +151,31 @@ class ScraperService:
             if finished > 0:
                 logger.info(f"Detected {finished} finished matches")
 
-        return GameServerList(
+        # Update cache
+        result = GameServerList(
             servers=servers,
             total=len(servers),
             timestamp=datetime.now(timezone.utc).isoformat(),
         )
+        self._cache = result
+        
+        # Notify listeners
+        self._update_event.set()
+        self._update_event.clear()
+        
+        return result
+
+    def get_latest_data(self) -> GameServerList | None:
+        """Get the most recently fetched data from cache.
+        
+        Returns:
+            Cached GameServerList or None if no data yet.
+        """
+        return self._cache
+
+    async def wait_for_update(self) -> None:
+        """Wait for the next data update."""
+        await self._update_event.wait()
 
     async def fetch_servers_filtered(
         self,
@@ -162,6 +187,8 @@ class ScraperService:
     ) -> GameServerList:
         """Fetch servers with optional filters.
 
+        Uses cached data if available, otherwise triggers a fetch.
+
         Args:
             surface: Filter by surface name (case-insensitive).
             started_only: Only return started matches.
@@ -171,7 +198,11 @@ class ScraperService:
         Returns:
             Filtered GameServerList.
         """
-        result = await self.fetch_servers()
+        # specific fetch logic changed to prefer cache
+        if self._cache:
+            result = self._cache
+        else:
+            result = await self.fetch_servers()
 
         filtered = result.servers
 
