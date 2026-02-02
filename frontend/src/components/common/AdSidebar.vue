@@ -13,30 +13,16 @@ defineProps({
     <div class="ad-mock-content">
       <div class="ad-label">Advertisement</div>
       
-      <!-- 
-        AD CONFIGURATION INSTRUCTIONS:
-        1. Create a new "Display Ad Unit" in Google AdSense.
-        2. Copy the code they provide.
-        3. Since we added the main script to index.html, you ONLY need the <ins> tag and the push() script.
-        4. Replace the .ad-placeholder div below with that code.
-      -->
-      
-      <!-- Placeholder for actual ad code - REPLACE THIS BLOCK -->
-      <div class="ad-placeholder">
-        <span>Ad Space</span>
-      </div>
-      <!-- Example functionality:
+      <!-- TE4 Ad Unit -->
       <ins class="adsbygoogle"
            style="display:block"
            data-ad-client="ca-pub-7154517961345659"
-           data-ad-slot="YOUR_AD_SLOT_ID"
+           data-ad-slot="6495286119"
            data-ad-format="auto"
            data-full-width-responsive="true"></ins>
       <script>
            (adsbygoogle = window.adsbygoogle || []).push({});
       </script>
-      -->
-      <!-- End Placeholder -->
       
     </div>
   </div>
