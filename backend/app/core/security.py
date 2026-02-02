@@ -77,6 +77,11 @@ def sanitize_filename(filename: str) -> str:
 async def validate_upload_file(file: UploadFile) -> bytes:
     """Validate an uploaded file for security.
 
+    Checks:
+    - Filename presence
+    - Extension and MIME type whitelist
+    - Size limit (via chunked reading to prevent Memory DoS)
+
     Args:
         file: FastAPI UploadFile object.
 
@@ -109,19 +114,40 @@ async def validate_upload_file(file: UploadFile) -> bytes:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"MIME type not allowed: {file.content_type}",
         )
-
-    # Read and check file size
-    contents = await file.read()
-    if len(contents) > settings.max_upload_size_bytes:
-        raise HTTPException(
+    
+    # 1. Check Content-Length Header (Fast Fail)
+    # This is not trustable as it can be spoofed, but good for UX fail-fast
+    content_length = file.size
+    if content_length and content_length > settings.max_upload_size_bytes:
+         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail=f"File too large. Maximum size: {settings.max_upload_size_mb}MB",
         )
 
-    # Reset file position for potential re-read
-    await file.seek(0)
+    # 2. Chunked Reading (Robust Fail)
+    # Read file in chunks to ensure we never load more than MAX + Buffer into RAM
+    max_size = settings.max_upload_size_bytes
+    current_size = 0
+    chunks = []
+    
+    # Chunk size: 1MB or appropriately tuned
+    CHUNK_SIZE = 1024 * 1024 
+    
+    while True:
+        chunk = await file.read(CHUNK_SIZE)
+        if not chunk:
+            break
+            
+        current_size += len(chunk)
+        if current_size > max_size:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File too large. Maximum size: {settings.max_upload_size_mb}MB",
+            )
+        chunks.append(chunk)
 
-    return contents
+    # Reassemble (safe now as size is confirmed < MAX)
+    return b"".join(chunks)
 
 
 def get_security_headers() -> dict[str, str]:

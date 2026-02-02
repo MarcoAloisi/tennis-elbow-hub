@@ -136,6 +136,21 @@ def parse_number(num_str: str) -> float | None:
         return None
 
 
+def sanitize_for_csv(value: str) -> str:
+    """Sanitize string to prevent CSV formula injection (DDE/DCOM).
+    
+    If the value starts with =, +, -, or @, it can be executed as a formula
+    in Excel. We prefix it with ' to force it as text.
+    """
+    if not value:
+        return ""
+    
+    value = value.strip()
+    if value and value[0] in ('=', '+', '-', '@'):
+        return f"'{value}"
+    return value
+    
+    
 def process_row(row: dict[str, str]) -> dict[str, Any] | None:
     """Process a single CSV row into cleaned data.
     
@@ -156,17 +171,23 @@ def process_row(row: dict[str, str]) -> dict[str, Any] | None:
     # Keep full date with time for deduplication
     raw_date = row.get('Date', '').strip()
     
+    # Sanitize text fields that might be displayed or re-exported
+    player_name = sanitize_for_csv(row.get('Player', ''))
+    opponent_name = sanitize_for_csv(row.get('Opponent', ''))
+    match_image = sanitize_for_csv(row.get('Image Name', ''))
+    tournament = sanitize_for_csv(row.get('Tournament', ''))
+    
     return {
-        'imageName': row.get('Image Name', '').strip(),  # For unique match ID
-        'player': row.get('Player', '').strip(),
+        'imageName': match_image,  # For unique match ID
+        'player': player_name,
         'elo': player_elo,
         'playerWon': player_won,  # True if +, False if -, None if unknown
         'crc': row.get('Crc', '').strip(),
         'result': result.strip(),
-        'opponent': row.get('Opponent', '').strip(),
+        'opponent': opponent_name,
         'opponentElo': opponent_elo,
         'opponentCrc': row.get('Opponent Crc', '').strip(),
-        'tournament': row.get('Tournament', '').strip(),
+        'tournament': tournament,
         'dateTime': raw_date,  # Full date+time for deduplication
         'date': clean_date(raw_date),  # Cleaned date for display
         # Stats - Serve

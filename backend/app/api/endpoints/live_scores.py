@@ -66,7 +66,7 @@ async def get_today_stats() -> dict:
     from app.services.stats_service import get_stats_service
 
     stats_service = get_stats_service()
-    return stats_service.get_today_stats()
+    return await stats_service.get_today_stats_async()
 
 
 @router.get(
