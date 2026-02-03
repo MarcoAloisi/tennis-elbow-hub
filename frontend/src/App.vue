@@ -17,13 +17,23 @@ import KofiWidget from './components/common/KofiWidget.vue'
         
         <nav class="nav-links">
           <RouterLink to="/" class="nav-link" active-class="active">
-            <span class="nav-icon">📊</span>
+            <span class="nav-icon">🎾</span>
             Live Scores
           </RouterLink>
           <div class="nav-divider"></div>
           <RouterLink to="/analysis" class="nav-link" active-class="active">
             <span class="nav-icon">📊</span>
             Match Log Analysis
+          </RouterLink>
+          <div class="nav-divider"></div>
+          <RouterLink to="/online-tours" class="nav-link" active-class="active">
+            <span class="nav-icon">🌐</span>
+            Online Tours
+          </RouterLink>
+          <div class="nav-divider"></div>
+          <RouterLink to="/guides" class="nav-link" active-class="active">
+            <span class="nav-icon">🎬</span>
+            Guides
           </RouterLink>
           <div class="nav-divider"></div>
           <RouterLink to="/tour-logs" class="nav-link" active-class="active">

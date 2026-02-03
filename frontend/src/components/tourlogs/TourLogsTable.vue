@@ -15,34 +15,25 @@ const props = defineProps({
 // Table columns configuration
 const columns = [
     { key: 'date', label: 'Date', width: '100px' },
-    { key: 'player', label: 'Winner', width: '120px' },
+    { key: 'player', label: 'Player', width: '120px' },
     { key: 'elo', label: 'ELO', width: '70px' },
     { key: 'result', label: 'Result', width: '120px' },
-    { key: 'opponent', label: 'Loser', width: '120px' },
+    { key: 'opponent', label: 'Opponent', width: '120px' },
     { key: 'opponentElo', label: 'Opp ELO', width: '70px' },
     { key: 'tournament', label: 'Tournament', width: '150px' },
-    // Winner serve stats
-    { key: 'firstServePct', label: 'W 1st%', width: '70px', format: 'pct' },
-    { key: 'oppFirstServePct', label: 'L 1st%', width: '70px', format: 'pct' },
-    { key: 'aces', label: 'W Aces', width: '65px' },
-    { key: 'oppAces', label: 'L Aces', width: '65px' },
-    { key: 'doubleFaults', label: 'W DF', width: '55px' },
-    { key: 'oppDoubleFaults', label: 'L DF', width: '55px' },
+    // Player stats (Opponent stats removed as they appear in their own row)
+    { key: 'firstServePct', label: '1st%', width: '70px', format: 'pct' },
+    { key: 'aces', label: 'Aces', width: '65px' },
+    { key: 'doubleFaults', label: 'DF', width: '55px' },
     // Points
-    { key: 'winners', label: 'W Wnrs', width: '65px' },
-    { key: 'oppWinners', label: 'L Wnrs', width: '65px' },
-    { key: 'unforcedErrors', label: 'W UE', width: '55px' },
-    { key: 'oppUnforcedErrors', label: 'L UE', width: '55px' },
+    { key: 'winners', label: 'Wnrs', width: '65px' },
+    { key: 'unforcedErrors', label: 'UE', width: '55px' },
     // Serve won
-    { key: 'firstServeWonPct', label: 'W 1stW%', width: '75px', format: 'pct' },
-    { key: 'oppFirstServeWonPct', label: 'L 1stW%', width: '75px', format: 'pct' },
-    { key: 'secondServeWonPct', label: 'W 2ndW%', width: '75px', format: 'pct' },
-    { key: 'oppSecondServeWonPct', label: 'L 2ndW%', width: '75px', format: 'pct' },
+    { key: 'firstServeWonPct', label: '1stW%', width: '75px', format: 'pct' },
+    { key: 'secondServeWonPct', label: '2ndW%', width: '75px', format: 'pct' },
     // Return
-    { key: 'returnPointsWonPct', label: 'W Ret%', width: '70px', format: 'pct' },
-    { key: 'oppReturnPointsWonPct', label: 'L Ret%', width: '70px', format: 'pct' },
-    { key: 'breakPointsWonPct', label: 'W BP%', width: '65px', format: 'pct' },
-    { key: 'oppBreakPointsWonPct', label: 'L BP%', width: '65px', format: 'pct' },
+    { key: 'returnPointsWonPct', label: 'Ret%', width: '70px', format: 'pct' },
+    { key: 'breakPointsWonPct', label: 'BP%', width: '65px', format: 'pct' },
 ]
 
 // Format cell value
@@ -78,8 +69,8 @@ function getEloDiffClass(playerElo, opponentElo) {
                     <tr v-for="(row, index) in data" :key="index">
                         <td v-for="col in columns" :key="col.key" 
                             :class="{
-                                'winner-cell': col.key === 'player',
-                                'loser-cell': col.key === 'opponent',
+                                'player-cell': col.key === 'player',
+                                'opponent-cell': col.key === 'opponent',
                                 [getEloDiffClass(row.elo, row.opponentElo)]: col.key === 'elo'
                             }">
                             {{ formatValue(row[col.key], col.format) }}
@@ -94,7 +85,7 @@ function getEloDiffClass(playerElo, opponentElo) {
             </table>
         </div>
         <div class="table-footer">
-            <span class="row-count">{{ data.length }} matches</span>
+            <span class="row-count">{{ data.length }} records</span>
         </div>
     </div>
 </template>
@@ -143,12 +134,12 @@ function getEloDiffClass(playerElo, opponentElo) {
     background: var(--color-bg-hover, rgba(0, 0, 0, 0.02));
 }
 
-.winner-cell {
+.player-cell {
     color: var(--color-brand-primary);
     font-weight: 600;
 }
 
-.loser-cell {
+.opponent-cell {
     color: var(--color-text-secondary);
 }
 

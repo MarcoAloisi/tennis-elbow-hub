@@ -3,6 +3,7 @@
 Fetches and processes tour log data from Google Sheets CSV.
 """
 
+import hashlib
 import re
 from io import StringIO
 from typing import Any
@@ -19,7 +20,7 @@ router = APIRouter(prefix="/tour-logs", tags=["Tour Logs"])
 # Google Sheets published CSV URL
 TOUR_LOGS_CSV_URL = (
     "https://docs.google.com/spreadsheets/d/e/"
-    "2PACX-1vSSmOIpik7GxM7cLpuO6H1lCIDGZHs229frl1t_MKBtiwnT394nTWRMXGpeSEc8wLUwC8CEcq6OIPX6"
+    "2PACX-1vRm0Kujb49DJx1yWV8rE_DRXKBuTEc24jIOHjPpjaZd2OVIESYohFtbGCEJGDhtxIxXtpIM_8YnMeaP"
     "/pub?output=csv"
 )
 
@@ -73,34 +74,26 @@ def clean_date(date_str: str) -> str:
     """
     if not date_str:
         return ""
+    # Usually format is M/D/YYYY H:MM:SS or similar
     return date_str.split()[0] if ' ' in date_str else date_str
 
 
-def parse_elo(elo_str: str) -> tuple[int | None, bool | None]:
-    """Extract numeric ELO and win/loss indicator from string.
+def parse_elo(elo_str: str) -> int | None:
+    """Extract numeric ELO from string.
     
     Args:
-        elo_str: ELO string like "1870 +27" or "1870 -15" or "NaN"
+        elo_str: ELO string like "1870" or "NaN"
         
     Returns:
-        Tuple of (ELO value, is_win boolean). 
-        is_win is True if +, False if -, None if unknown.
+        ELO value or None.
     """
-    if not elo_str or elo_str.lower() == 'nan':
-        return None, None
+    if not elo_str or str(elo_str).lower() == 'nan':
+        return None
     try:
-        parts = elo_str.split()
-        elo_value = int(parts[0])
-        is_win = None
-        if len(parts) > 1:
-            delta = parts[1]
-            if delta.startswith('+'):
-                is_win = True
-            elif delta.startswith('-'):
-                is_win = False
-        return elo_value, is_win
+        # Take first part if there's a space (though new format seems to be just number)
+        return int(str(elo_str).split()[0])
     except (ValueError, IndexError):
-        return None, None
+        return None
 
 
 def parse_percentage(pct_str: str) -> float | None:
@@ -112,10 +105,10 @@ def parse_percentage(pct_str: str) -> float | None:
     Returns:
         Float value or None if invalid.
     """
-    if not pct_str or pct_str.lower() == 'nan':
+    if not pct_str or str(pct_str).lower() == 'nan':
         return None
     try:
-        return float(pct_str.replace('%', '').strip())
+        return float(str(pct_str).replace('%', '').strip())
     except ValueError:
         return None
 
@@ -129,29 +122,51 @@ def parse_number(num_str: str) -> float | None:
     Returns:
         Float value or None if invalid.
     """
-    if not num_str or num_str.lower() == 'nan':
+    if not num_str or str(num_str).lower() == 'nan':
         return None
     try:
-        return float(num_str.strip())
+        return float(str(num_str).strip())
     except ValueError:
         return None
 
 
 def sanitize_for_csv(value: str) -> str:
-    """Sanitize string to prevent CSV formula injection (DDE/DCOM).
-    
-    If the value starts with =, +, -, or @, it can be executed as a formula
-    in Excel. We prefix it with ' to force it as text.
-    """
+    """Sanitize string to prevent CSV formula injection."""
     if not value:
         return ""
     
-    value = value.strip()
+    value = str(value).strip()
     if value and value[0] in ('=', '+', '-', '@'):
         return f"'{value}"
     return value
+
+
+def generate_ids(row: dict[str, Any]) -> tuple[str, str]:
+    """Generate unique IDs for the row and the match.
     
+    Returns:
+        (row_id, match_id)
+    """
+    # Key components
+    date = row.get('dateTime', '')
+    image = row.get('imageName', '')
+    tournament = row.get('tournament', '')
+    p1 = row.get('player', '').lower().strip()
+    p2 = row.get('opponent', '').lower().strip()
     
+    # Match ID: Unique to the match event (same for both players)
+    # Sort players to ensure commutativity
+    players_sorted = sorted([p1, p2])
+    match_str = f"{date}|{tournament}|{image}|{players_sorted[0]}|{players_sorted[1]}"
+    match_id = hashlib.sha256(match_str.encode()).hexdigest()
+    
+    # Row ID: Unique to this specific player stat entry
+    row_str = f"{match_id}|{p1}"
+    row_id = hashlib.sha256(row_str.encode()).hexdigest()
+    
+    return row_id, match_id
+
+
 def process_row(row: dict[str, str]) -> dict[str, Any] | None:
     """Process a single CSV row into cleaned data.
     
@@ -165,32 +180,38 @@ def process_row(row: dict[str, str]) -> dict[str, Any] | None:
     if not is_valid_result(result):
         return None
     
-    # Parse ELO with win indicator
-    player_elo, player_won = parse_elo(row.get('ELO', ''))
-    opponent_elo, _ = parse_elo(row.get('Opponent ELO', ''))
-    
-    # Keep full date with time for deduplication
+    # Basic fields
     raw_date = row.get('Date', '').strip()
-    
-    # Sanitize text fields that might be displayed or re-exported
     player_name = sanitize_for_csv(row.get('Player', ''))
     opponent_name = sanitize_for_csv(row.get('Opponent', ''))
     match_image = sanitize_for_csv(row.get('Image Name', ''))
     tournament = sanitize_for_csv(row.get('Tournament', ''))
     
-    return {
-        'imageName': match_image,  # For unique match ID
+    # Temporary dict to generate IDs
+    temp_data = {
+        'dateTime': raw_date,
+        'imageName': match_image,
+        'tournament': tournament,
         'player': player_name,
-        'elo': player_elo,
-        'playerWon': player_won,  # True if +, False if -, None if unknown
+        'opponent': opponent_name
+    }
+    
+    row_id, match_id = generate_ids(temp_data)
+    
+    return {
+        'id': row_id,
+        'matchId': match_id,
+        'imageName': match_image,
+        'player': player_name,
+        'elo': parse_elo(row.get('ELO', '')),
         'crc': row.get('Crc', '').strip(),
         'result': result.strip(),
         'opponent': opponent_name,
-        'opponentElo': opponent_elo,
+        'opponentElo': parse_elo(row.get('Opponent ELO', '')),
         'opponentCrc': row.get('Opponent Crc', '').strip(),
         'tournament': tournament,
-        'dateTime': raw_date,  # Full date+time for deduplication
-        'date': clean_date(raw_date),  # Cleaned date for display
+        'dateTime': raw_date,
+        'date': clean_date(raw_date),
         # Stats - Serve
         'firstServePct': parse_percentage(row.get('1st Serve %', '')),
         'aces': parse_number(row.get('Aces', '')),
@@ -245,67 +266,20 @@ async def get_tour_logs(request: Request) -> dict[str, Any]:
         content = response.content.decode('latin-1')
         reader = csv.DictReader(StringIO(content))
         
-        # Process all rows first
-        all_rows = []
+        # Process all valid rows
+        # No more merging of rows - returning everything as-is
+        processed_data = []
         for row in reader:
             processed = process_row(row)
             if processed:
-                all_rows.append(processed)
+                processed_data.append(processed)
         
-        # Create match key for pairing rows
-        def create_match_key(row):
-            players = sorted([row['player'].lower(), row['opponent'].lower()])
-            return f"{row['dateTime']}|{row['imageName']}|{players[0]}|{players[1]}"
-        
-        # Group rows by match key
-        matches = {}
-        for row in all_rows:
-            key = create_match_key(row)
-            if key not in matches:
-                matches[key] = []
-            matches[key].append(row)
-        
-        # Merge winner/loser stats - keep winner row and add opponent stats
-        merged_data = []
-        for key, rows in matches.items():
-            winner = None
-            loser = None
-            
-            for row in rows:
-                if row.get('playerWon') is True:
-                    winner = row
-                elif row.get('playerWon') is False:
-                    loser = row
-            
-            if winner:
-                # Add opponent stats from loser's row
-                if loser:
-                    winner['oppFirstServePct'] = loser.get('firstServePct')
-                    winner['oppAces'] = loser.get('aces')
-                    winner['oppDoubleFaults'] = loser.get('doubleFaults')
-                    winner['oppFastestServe'] = loser.get('fastestServe')
-                    winner['oppAvgFirstServeSpeed'] = loser.get('avgFirstServeSpeed')
-                    winner['oppAvgSecondServeSpeed'] = loser.get('avgSecondServeSpeed')
-                    winner['oppWinners'] = loser.get('winners')
-                    winner['oppForcedErrors'] = loser.get('forcedErrors')
-                    winner['oppUnforcedErrors'] = loser.get('unforcedErrors')
-                    winner['oppTotalPointsWon'] = loser.get('totalPointsWon')
-                    winner['oppNetPointsWonPct'] = loser.get('netPointsWonPct')
-                    winner['oppReturnPointsWonPct'] = loser.get('returnPointsWonPct')
-                    winner['oppReturnWinners'] = loser.get('returnWinners')
-                    winner['oppBreakPointsWonPct'] = loser.get('breakPointsWonPct')
-                    winner['oppBreaksPerGamePct'] = loser.get('breaksPerGamePct')
-                    winner['oppFirstServeWonPct'] = loser.get('firstServeWonPct')
-                    winner['oppSecondServeWonPct'] = loser.get('secondServeWonPct')
-                
-                merged_data.append(winner)
-        
-        logger.info(f"Fetched {len(merged_data)} unique matches with merged stats")
+        logger.info(f"Fetched {len(processed_data)} tour log entries")
         
         return {
             "success": True,
-            "count": len(merged_data),
-            "data": merged_data,
+            "count": len(processed_data),
+            "data": processed_data,
         }
         
     except httpx.HTTPError as e:

@@ -1,0 +1,51 @@
+{
+    "_comment": "Video guides configuration",
+    "categories": [
+        {
+            "id": "all",
+            "label": "All Guides",
+            "icon": "📚"
+        },
+        {
+            "id": "xkt",
+            "label": "XKT",
+            "icon": "🎮"
+        },
+        {
+            "id": "wtsl",
+            "label": "WTSL",
+            "icon": "🌍"
+        },
+        {
+            "id": "gameplay",
+            "label": "Gameplay",
+            "icon": "🎾"
+        }
+    ],
+    "videos": [
+        {
+            "id": "xkt-online",
+            "title": "How to Play Online (XKT)",
+            "description": "Step-by-step guide to getting started with the XKT online tour.",
+            "category": "xkt",
+            "youtubeId": "Zzoqi-ik568",
+            "youtubeUrl": "https://www.youtube.com/watch?v=Zzoqi-ik568"
+        },
+        {
+            "id": "wtsl-online",
+            "title": "How to Play Online (WTSL)",
+            "description": "Complete guide to joining and playing in the WTSL tour.",
+            "category": "wtsl",
+            "youtubeId": "9N02QlHvm54",
+            "youtubeUrl": "https://www.youtube.com/watch?v=9N02QlHvm54"
+        },
+        {
+            "id": "gameplay-basics",
+            "title": "Gameplay Basics Guide",
+            "description": "Learn the fundamentals of Tennis Elbow 4 gameplay.",
+            "category": "gameplay",
+            "youtubeId": "4naVHUvScC4",
+            "youtubeUrl": "https://www.youtube.com/watch?v=4naVHUvScC4"
+        }
+    ]
+}

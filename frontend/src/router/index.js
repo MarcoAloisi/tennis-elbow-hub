@@ -2,6 +2,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 import LiveScoresView from '../views/LiveScoresView.vue'
 import MatchAnalysisView from '../views/MatchAnalysisView.vue'
 import WTSLTourLogsView from '../views/WTSLTourLogsView.vue'
+import OnlineToursView from '../views/OnlineToursView.vue'
+import GuidesView from '../views/GuidesView.vue'
 
 const routes = [
     {
@@ -27,6 +29,37 @@ const routes = [
         meta: {
             title: 'WTSL Tour Logs'
         }
+    },
+    {
+        path: '/online-tours',
+        name: 'OnlineTours',
+        component: OnlineToursView,
+        redirect: '/online-tours/xkt',
+        meta: {
+            title: 'Online Tours'
+        },
+        children: [
+            {
+                path: 'xkt',
+                name: 'XKTTour',
+                component: OnlineToursView,
+                meta: { title: 'XKT Tour' }
+            },
+            {
+                path: 'wtsl',
+                name: 'WTSLTour',
+                component: OnlineToursView,
+                meta: { title: 'WTSL Tour' }
+            }
+        ]
+    },
+    {
+        path: '/guides',
+        name: 'Guides',
+        component: GuidesView,
+        meta: {
+            title: 'Guides'
+        }
     }
 ]
 
@@ -42,3 +75,4 @@ router.beforeEach((to, from, next) => {
 })
 
 export default router
+

@@ -3,10 +3,9 @@
  * WTSL Tour Logs View
  * Main view for tour logs with subtabs, filters, and data display
  */
-import { onMounted, ref, watch } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useTourLogsStore } from '@/stores/tourLogs'
 import TourLogsTable from '@/components/tourlogs/TourLogsTable.vue'
-import PlayerRankings from '@/components/tourlogs/PlayerRankings.vue'
 import StatsLeaders from '@/components/tourlogs/StatsLeaders.vue'
 
 const store = useTourLogsStore()
@@ -24,7 +23,6 @@ onMounted(() => {
 // Subtab configuration
 const tabs = [
     { id: 'data', label: 'Match Data', icon: '📋' },
-    { id: 'rankings', label: 'Rankings', icon: '🏆' },
     { id: 'leaders', label: 'Stats Leaders', icon: '⭐' },
 ]
 
@@ -67,7 +65,7 @@ function onPlayerInputBlur() {
         <div class="page-header">
             <div class="header-content">
                 <h1>WTSL Tour Logs</h1>
-                <p>Explore match statistics, player rankings, and leaderboards</p>
+                <p>Explore match statistics and leaderboards</p>
             </div>
         </div>
 
@@ -159,12 +157,6 @@ function onPlayerInputBlur() {
                 <TourLogsTable 
                     v-if="store.activeTab === 'data'" 
                     :data="store.filteredData" 
-                />
-
-                <!-- Rankings Tab -->
-                <PlayerRankings 
-                    v-if="store.activeTab === 'rankings'" 
-                    :rankings="store.playerRankings" 
                 />
 
                 <!-- Stats Leaders Tab -->
@@ -319,58 +311,6 @@ function onPlayerInputBlur() {
 
 .autocomplete-item:hover {
     background: var(--color-bg-hover);
-}
-
-/* Toggle */
-.toggle-container {
-    display: flex;
-    align-items: center;
-}
-
-.toggle {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    cursor: pointer;
-}
-
-.toggle input {
-    display: none;
-}
-
-.toggle-slider {
-    width: 44px;
-    height: 24px;
-    background: var(--color-border);
-    border-radius: 12px;
-    position: relative;
-    transition: background var(--transition-fast);
-}
-
-.toggle-slider::before {
-    content: '';
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 20px;
-    height: 20px;
-    background: white;
-    border-radius: 50%;
-    transition: transform var(--transition-fast);
-}
-
-.toggle input:checked + .toggle-slider {
-    background: var(--color-brand-primary);
-}
-
-.toggle input:checked + .toggle-slider::before {
-    transform: translateX(20px);
-}
-
-.toggle-label {
-    font-size: 0.875rem;
-    color: var(--color-text-primary);
-    font-weight: 500;
 }
 
 /* Subtabs */

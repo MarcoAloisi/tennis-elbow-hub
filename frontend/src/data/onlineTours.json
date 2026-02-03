@@ -1,0 +1,97 @@
+{
+    "_comment": "Online Tours configuration for XKT and WTSL",
+    "tours": {
+        "xkt": {
+            "name": "XKT Tour",
+            "icon": "🎮",
+            "logo": "/managames_logo.jpg",
+            "description": "This is the official ManaGames tour, played with custom builds and following rules.",
+            "settings": [
+                {
+                    "label": "Mode",
+                    "value": "Realistic"
+                },
+                {
+                    "label": "Controls",
+                    "value": "Simulation"
+                },
+                {
+                    "label": "Tiredness",
+                    "value": "ON"
+                },
+                {
+                    "label": "Preview",
+                    "value": "Service + Rally"
+                }
+            ],
+            "links": {
+                "main": {
+                    "label": "XKT Main Forum",
+                    "url": "https://www.managames.com/Forum/forum13.php",
+                    "icon": "🏠"
+                },
+                "rankings": {
+                    "label": "Rankings",
+                    "url": "https://www.managames.com/Forum/OT_Rankings.php",
+                    "icon": "📊"
+                },
+                "queue": {
+                    "label": "Tournament Queue",
+                    "url": "https://www.managames.com/Forum/OnlineTournaments.php",
+                    "icon": "🎯"
+                },
+                "rules": {
+                    "label": "Full Rules",
+                    "url": "https://www.managames.com/Forum/topic13-4767.php",
+                    "icon": "📜"
+                }
+            }
+        },
+        "wtsl": {
+            "name": "WTSL Tour",
+            "icon": "🌍",
+            "logo": "/wtsl_logo.webp",
+            "description": "This is a fork of the XKT mod, which uses real player builds. Focuses on realism of gameplay. Hosted outside of ManaGames.",
+            "settings": [
+                {
+                    "label": "Mode",
+                    "value": "Free"
+                },
+                {
+                    "label": "Controls",
+                    "value": "Simulation"
+                },
+                {
+                    "label": "Tiredness",
+                    "value": "ON"
+                },
+                {
+                    "label": "Preview",
+                    "value": "None"
+                }
+            ],
+            "links": {
+                "main": {
+                    "label": "WTSL Homepage",
+                    "url": "https://www.playwtsl.com/TE4/",
+                    "icon": "🏠"
+                },
+                "rankings": {
+                    "label": "Rankings",
+                    "url": "https://www.playwtsl.com/TE4/pages/rankings.php?tour=TE4",
+                    "icon": "📊"
+                },
+                "queue": {
+                    "label": "Tournament Queue",
+                    "url": "https://www.playwtsl.com/TE4/pages/tournaments.php?tour=TE4",
+                    "icon": "🎯"
+                },
+                "rules": {
+                    "label": "Full Rules",
+                    "url": "https://www.playwtsl.com/TE4/pages/rules.php",
+                    "icon": "📜"
+                }
+            }
+        }
+    }
+}

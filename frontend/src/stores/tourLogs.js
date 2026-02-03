@@ -23,7 +23,7 @@ export const useTourLogsStore = defineStore('tourLogs', () => {
     })
 
     // Active subtab
-    const activeTab = ref('data') // 'data', 'rankings', 'leaders'
+    const activeTab = ref('data') // 'data', 'leaders' (rankings removed)
 
     // Fetch data from API
     async function fetchData() {
@@ -63,32 +63,15 @@ export const useTourLogsStore = defineStore('tourLogs', () => {
         return name.toLowerCase().trim()
     }
 
-    // Create unique match key to deduplicate (case-insensitive)
-    function createMatchKey(row) {
-        // Sort players alphabetically (case-insensitive) to ensure same match from both perspectives has same key
-        const players = [normalizePlayerKey(row.player), normalizePlayerKey(row.opponent)].sort()
-        return `${row.date}|${players[0]}|${players[1]}|${row.result}`
-    }
-
-    // Deduplicated data - keep only the WINNER's row (player with ELO +X)
-    // Each match has 2 rows (one per player), we only want the winner's perspective
+    // Data - now we just process the raw data slightly, no more winner filtering
     const data = computed(() => {
-        const unique = []
-
-        for (const row of rawData.value) {
-            // Only keep rows where the player WON (ELO +X)
-            if (row.playerWon !== true) continue
-
-            unique.push({
-                ...row,
-                // Normalize player names for consistent display
-                playerNormalized: normalizePlayerKey(row.player),
-                opponentNormalized: normalizePlayerKey(row.opponent),
-                tournamentNormalized: normalizeTournament(row.tournament)
-            })
-        }
-
-        return unique
+        return rawData.value.map(row => ({
+            ...row,
+            // Normalize for easy filtering
+            playerNormalized: normalizePlayerKey(row.player),
+            opponentNormalized: normalizePlayerKey(row.opponent),
+            tournamentNormalized: normalizeTournament(row.tournament)
+        }))
     })
 
     // Get unique players for autocomplete (case-insensitive, keep best display name)
@@ -128,6 +111,7 @@ export const useTourLogsStore = defineStore('tourLogs', () => {
     // Parse date string DD/MM/YYYY to Date object
     function parseDate(dateStr) {
         if (!dateStr) return null
+        // Handle various date formats if needed, but assuming DD/MM/YYYY given clean_date
         const [day, month, year] = dateStr.split('/')
         return new Date(year, month - 1, day)
     }
@@ -174,70 +158,14 @@ export const useTourLogsStore = defineStore('tourLogs', () => {
         return valid.reduce((a, b) => a + b, 0) / valid.length
     }
 
-    // Player rankings (win% and ELO) - case-insensitive grouping
-    // Now that data only contains winner rows: player = winner, opponent = loser
-    const playerRankings = computed(() => {
-        const stats = {} // keyed by normalized name
-
-        filteredData.value.forEach(row => {
-            // Player column = winner of this match
-            if (row.player) {
-                const key = row.playerNormalized
-                if (!stats[key]) {
-                    stats[key] = { displayName: row.player, wins: 0, losses: 0, elo: null, lastDate: null }
-                }
-                stats[key].wins++
-
-                // Update ELO if this is a more recent match
-                const rowDate = parseDate(row.date)
-                if (row.elo !== null && (!stats[key].lastDate || rowDate > stats[key].lastDate)) {
-                    stats[key].elo = row.elo
-                    stats[key].lastDate = rowDate
-                }
-            }
-
-            // Opponent column = loser of this match
-            if (row.opponent) {
-                const key = row.opponentNormalized
-                if (!stats[key]) {
-                    stats[key] = { displayName: row.opponent, wins: 0, losses: 0, elo: null, lastDate: null }
-                }
-                stats[key].losses++
-
-                // Update ELO if more recent
-                const rowDate = parseDate(row.date)
-                if (row.opponentElo !== null && (!stats[key].lastDate || rowDate > stats[key].lastDate)) {
-                    stats[key].elo = row.opponentElo
-                    stats[key].lastDate = rowDate
-                }
-            }
-        })
-
-        // Calculate win% and create ranking array (minimum 5 matches)
-        return Object.entries(stats)
-            .map(([key, s]) => ({
-                name: s.displayName,
-                wins: s.wins,
-                losses: s.losses,
-                matches: s.wins + s.losses,
-                winPct: s.wins + s.losses > 0
-                    ? (s.wins / (s.wins + s.losses) * 100).toFixed(1)
-                    : 0,
-                elo: s.elo,
-            }))
-            .filter(p => p.matches >= 5)
-            .sort((a, b) => {
-                // Sort by win% desc, then by matches desc
-                const winDiff = parseFloat(b.winPct) - parseFloat(a.winPct)
-                return winDiff !== 0 ? winDiff : b.matches - a.matches
-            })
-    })
-
-    // Stats leaders - average stats per player (using only winner stats from each match)
+    // Stats leaders - average stats per player
+    // Aggregates data from ALL rows where the player appears in the 'player' column
     const statsLeaders = computed(() => {
         const playerStats = {} // keyed by normalized name
 
-        // Collect stats per player (only from matches they won, as that's when stats are recorded)
+        // Use filteredData so we can see leaders for specific tournaments/dates if desired
+        // Or should we use global data? Usually leaders are global, but filtering is nice.
+        // Let's use filteredData to allow "Leaders in 2024" etc.
         filteredData.value.forEach(row => {
             const key = row.playerNormalized
             if (!key) return
@@ -299,65 +227,13 @@ export const useTourLogsStore = defineStore('tourLogs', () => {
             if (row.avgRallyLength !== null) ps.avgRallyLength.push(row.avgRallyLength)
             if (row.firstServeWonPct !== null) ps.firstServeWonPct.push(row.firstServeWonPct)
             if (row.secondServeWonPct !== null) ps.secondServeWonPct.push(row.secondServeWonPct)
-
-            // Also collect opponent stats (loser's stats from opp* fields)
-            const oppKey = row.opponentNormalized
-            if (oppKey) {
-                if (!playerStats[oppKey]) {
-                    playerStats[oppKey] = {
-                        displayName: row.opponent,
-                        firstServePct: [],
-                        aces: [],
-                        doubleFaults: [],
-                        fastestServe: [],
-                        avgFirstServeSpeed: [],
-                        avgSecondServeSpeed: [],
-                        winners: [],
-                        forcedErrors: [],
-                        unforcedErrors: [],
-                        totalPointsWon: [],
-                        netPointsWonPct: [],
-                        returnPointsWonPct: [],
-                        returnWinners: [],
-                        breakPointsWonPct: [],
-                        breaksPerGamePct: [],
-                        setPointsSaved: [],
-                        matchPointsSaved: [],
-                        shortRalliesWonPct: [],
-                        mediumRalliesWonPct: [],
-                        longRalliesWonPct: [],
-                        avgRallyLength: [],
-                        firstServeWonPct: [],
-                        secondServeWonPct: [],
-                        matches: 0,
-                    }
-                }
-
-                const ops = playerStats[oppKey]
-                ops.matches++
-
-                // Push opponent stats from opp* fields
-                if (row.oppFirstServePct !== null && row.oppFirstServePct !== undefined) ops.firstServePct.push(row.oppFirstServePct)
-                if (row.oppAces !== null && row.oppAces !== undefined) ops.aces.push(row.oppAces)
-                if (row.oppDoubleFaults !== null && row.oppDoubleFaults !== undefined) ops.doubleFaults.push(row.oppDoubleFaults)
-                if (row.oppFastestServe !== null && row.oppFastestServe !== undefined) ops.fastestServe.push(row.oppFastestServe)
-                if (row.oppAvgFirstServeSpeed !== null && row.oppAvgFirstServeSpeed !== undefined) ops.avgFirstServeSpeed.push(row.oppAvgFirstServeSpeed)
-                if (row.oppAvgSecondServeSpeed !== null && row.oppAvgSecondServeSpeed !== undefined) ops.avgSecondServeSpeed.push(row.oppAvgSecondServeSpeed)
-                if (row.oppWinners !== null && row.oppWinners !== undefined) ops.winners.push(row.oppWinners)
-                if (row.oppForcedErrors !== null && row.oppForcedErrors !== undefined) ops.forcedErrors.push(row.oppForcedErrors)
-                if (row.oppUnforcedErrors !== null && row.oppUnforcedErrors !== undefined) ops.unforcedErrors.push(row.oppUnforcedErrors)
-                if (row.oppTotalPointsWon !== null && row.oppTotalPointsWon !== undefined) ops.totalPointsWon.push(row.oppTotalPointsWon)
-                if (row.oppNetPointsWonPct !== null && row.oppNetPointsWonPct !== undefined) ops.netPointsWonPct.push(row.oppNetPointsWonPct)
-                if (row.oppReturnPointsWonPct !== null && row.oppReturnPointsWonPct !== undefined) ops.returnPointsWonPct.push(row.oppReturnPointsWonPct)
-                if (row.oppReturnWinners !== null && row.oppReturnWinners !== undefined) ops.returnWinners.push(row.oppReturnWinners)
-                if (row.oppBreakPointsWonPct !== null && row.oppBreakPointsWonPct !== undefined) ops.breakPointsWonPct.push(row.oppBreakPointsWonPct)
-                if (row.oppBreaksPerGamePct !== null && row.oppBreaksPerGamePct !== undefined) ops.breaksPerGamePct.push(row.oppBreaksPerGamePct)
-                if (row.oppFirstServeWonPct !== null && row.oppFirstServeWonPct !== undefined) ops.firstServeWonPct.push(row.oppFirstServeWonPct)
-                if (row.oppSecondServeWonPct !== null && row.oppSecondServeWonPct !== undefined) ops.secondServeWonPct.push(row.oppSecondServeWonPct)
-            }
         })
 
         // Calculate average stats per player
+        // Note: We do NOT include opponent stats here because in the new data format,
+        // each row represents ONE player's stats (the 'Player' column).
+        // The opponent's stats are in a separate row where THEY are the 'Player'.
+
         const result = []
         for (const [key, stats] of Object.entries(playerStats)) {
             result.push({
@@ -391,16 +267,16 @@ export const useTourLogsStore = defineStore('tourLogs', () => {
 
         // If player filter is active, only show that player's stats
         const playerFilter = filters.value.player?.toLowerCase()
-        let filteredResult = playerFilter
+        let finalResult = playerFilter
             ? result.filter(p => p.name.toLowerCase().includes(playerFilter))
             : result
 
         // Require at least 5 matches (unless searching for a specific player)
         if (!playerFilter) {
-            filteredResult = filteredResult.filter(p => p.matches >= 5)
+            finalResult = finalResult.filter(p => p.matches >= 5)
         }
 
-        return filteredResult.sort((a, b) => b.matches - a.matches)
+        return finalResult.sort((a, b) => b.matches - a.matches)
     })
 
     // Set player filter from suggestion
@@ -435,7 +311,6 @@ export const useTourLogsStore = defineStore('tourLogs', () => {
         uniqueTournaments,
         playerSuggestions,
         filteredData,
-        playerRankings,
         statsLeaders,
         // Actions
         fetchData,
