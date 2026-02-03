@@ -25,11 +25,9 @@ onMounted(() => {
       
       <!-- TE4 Ad Unit -->
       <ins class="adsbygoogle"
-           style="display:block"
+           style="display:inline-block;width:160px;height:600px"
            data-ad-client="ca-pub-7154517961345659"
-           data-ad-slot="6495286119"
-           data-ad-format="auto"
-           data-full-width-responsive="true"></ins>
+           data-ad-slot="6495286119"></ins>
       
     </div>
   </div>
