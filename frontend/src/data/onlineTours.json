@@ -44,6 +44,16 @@
                     "label": "Full Rules",
                     "url": "https://www.managames.com/Forum/topic13-4767.php",
                     "icon": "📜"
+                },
+                "discordXKT": {
+                    "label": "XKT Discord",
+                    "url": "https://discord.com/invite/F2H3RVcRJ3",
+                    "icon": "/xkt_logo.png"
+                },
+                "discordTE4": {
+                    "label": "TE4 Discord",
+                    "url": "https://discord.com/invite/PY7hZXZcF6",
+                    "icon": "/TE4_logo.png"
                 }
             }
         },
@@ -90,6 +100,11 @@
                     "label": "Full Rules",
                     "url": "https://www.playwtsl.com/TE4/pages/rules.php",
                     "icon": "📜"
+                },
+                "discord": {
+                    "label": "WTSL Discord (Available Soon)",
+                    "url": "#",
+                    "icon": "/wtsl_logo.webp"
                 }
             }
         }

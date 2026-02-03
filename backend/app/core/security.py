@@ -165,13 +165,13 @@ def get_security_headers() -> dict[str, str]:
         # Styles: Fonts, GTM
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://tagmanager.google.com",
         # Images: GTM, Analytics, AdSense
-        "img-src 'self' data: https://www.googletagmanager.com https://ssl.gstatic.com https://www.google-analytics.com https://pagead2.googlesyndication.com",
+        "img-src 'self' data: https://www.googletagmanager.com https://ssl.gstatic.com https://www.google-analytics.com https://pagead2.googlesyndication.com https://img.youtube.com",
         # Fonts: Google Fonts
         "font-src 'self' data: https://fonts.gstatic.com",
         # Connect: Analytics, GTM, Tag Assistant
         "connect-src 'self' https://www.google-analytics.com https://www.googletagmanager.com https://tagassistant.google.com https://stats.g.doubleclick.net",
         # Frames: GTM (noscript), AdSense
-        "frame-src 'self' https://www.googletagmanager.com https://googleads.g.doubleclick.net https://tpc.googlesyndication.com",
+        "frame-src 'self' https://www.googletagmanager.com https://googleads.g.doubleclick.net https://tpc.googlesyndication.com https://www.youtube.com",
         # Security Hardening
         "frame-ancestors 'none'",  # Prevent clickjacking
         "object-src 'none'",       # Block Flash/Java

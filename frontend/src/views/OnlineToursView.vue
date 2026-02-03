@@ -88,7 +88,13 @@ const wtslTour = tourData.tours.wtsl
               rel="noopener noreferrer"
               class="link-card"
             >
-              <span class="link-icon">{{ link.icon }}</span>
+              <img 
+                v-if="link.icon.startsWith('/')" 
+                :src="link.icon" 
+                :alt="link.label" 
+                class="link-icon-img" 
+              />
+              <span v-else class="link-icon">{{ link.icon }}</span>
               <span class="link-label">{{ link.label }}</span>
               <span class="link-arrow">→</span>
             </a>
@@ -299,6 +305,12 @@ const wtslTour = tourData.tours.wtsl
   flex: 1;
   font-weight: var(--font-weight-medium);
   color: var(--color-text-primary);
+}
+
+.link-icon-img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
 }
 
 .link-arrow {
