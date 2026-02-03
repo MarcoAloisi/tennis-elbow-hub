@@ -179,6 +179,11 @@ function onPlayerInputBlur() {
                     :stats="store.currentPlayerStats"
                 />
             </div>
+
+            <!-- Last Updated Footer -->
+            <div v-if="store.latestMatchDate" class="tour-logs-footer">
+                <span class="last-updated">Last match recorded: {{ store.latestMatchDate }}</span>
+            </div>
         </div>
     </div>
 </template>
@@ -414,6 +419,20 @@ function onPlayerInputBlur() {
 .btn-ghost:hover {
     background: var(--color-bg-hover);
     color: var(--color-text-primary);
+}
+
+/* Footer */
+.tour-logs-footer {
+    margin-top: var(--space-6);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--color-border);
+    text-align: right;
+}
+
+.last-updated {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    font-style: italic;
 }
 
 /* Responsive */

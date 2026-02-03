@@ -4,7 +4,7 @@
         "xkt": {
             "name": "XKT Tour",
             "icon": "🎮",
-            "logo": "/managames_logo.jpg",
+            "logo": "/managames_logo.png",
             "description": "This is the official ManaGames tour, played with XKT mod where players use their own builds.",
             "settings": [
                 {
@@ -35,6 +35,11 @@
                     "url": "https://discord.com/invite/F2H3RVcRJ3",
                     "icon": "/xkt_logo.png"
                 },
+                "main": {
+                    "label": "ManaGames Forum",
+                    "url": "https://www.managames.com/Forum/forum13.php",
+                    "icon": "/managames_logo.png"
+                },
                 "rankings": {
                     "label": "Rankings",
                     "url": "https://www.managames.com/Forum/OT_Rankings.php",
@@ -43,12 +48,7 @@
                 "queue": {
                     "label": "Tournament Queue",
                     "url": "https://www.managames.com/Forum/OnlineTournaments.php",
-                    "icon": "🎯"
-                },
-                "main": {
-                    "label": "ManaGames Forum",
-                    "url": "https://www.managames.com/Forum/forum13.php",
-                    "icon": "🏠"
+                    "icon": "🏆"
                 },
                 "rules": {
                     "label": "Full Rules",
@@ -58,7 +58,7 @@
                 "youtube": {
                     "label": "Tour YouTube Channel",
                     "url": "https://www.youtube.com/@TennisElbowOnlineTour",
-                    "icon": "📺"
+                    "icon": "/yt_logo.png"
                 }
             }
         },
@@ -91,10 +91,15 @@
                     "url": "https://discord.com/invite/YkPAtGMUrj",
                     "icon": "/wtsl_logo.webp"
                 },
+                "discordXKT": {
+                    "label": "XKT Mod Discord",
+                    "url": "https://discord.com/invite/F2H3RVcRJ3",
+                    "icon": "/xkt_logo.png"
+                },
                 "main": {
                     "label": "WTSL Homepage",
                     "url": "https://www.playwtsl.com/TE4/",
-                    "icon": "🏠"
+                    "icon": "/wtsl_logo.webp"
                 },
                 "rankings": {
                     "label": "Rankings",
@@ -104,7 +109,7 @@
                 "queue": {
                     "label": "Tournament Queue",
                     "url": "https://www.playwtsl.com/TE4/pages/tournaments.php?tour=TE4",
-                    "icon": "🎯"
+                    "icon": "🏆"
                 },
                 "rules": {
                     "label": "Full Rules",
@@ -114,7 +119,7 @@
                 "youtube": {
                     "label": "Tour YouTube Channel",
                     "url": "https://www.youtube.com/@WTSLTennis",
-                    "icon": "📺"
+                    "icon": "/yt_logo.png"
                 }
             }
         }

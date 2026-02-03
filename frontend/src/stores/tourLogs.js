@@ -363,6 +363,26 @@ export const useTourLogsStore = defineStore('tourLogs', () => {
         }
     }
 
+    // Get the latest match date from the data (for "last updated" display)
+    const latestMatchDate = computed(() => {
+        if (!data.value.length) return null
+
+        let latestDate = null
+        let latestDateStr = null
+
+        data.value.forEach(row => {
+            if (row.date) {
+                const rowDate = parseDate(row.date)
+                if (rowDate && (!latestDate || rowDate > latestDate)) {
+                    latestDate = rowDate
+                    latestDateStr = row.date
+                }
+            }
+        })
+
+        return latestDateStr
+    })
+
     return {
         // State
         data,
@@ -378,6 +398,7 @@ export const useTourLogsStore = defineStore('tourLogs', () => {
         statsLeaders,
         tourAverage,
         currentPlayerStats,
+        latestMatchDate,
         // Actions
         fetchData,
         selectPlayer,
