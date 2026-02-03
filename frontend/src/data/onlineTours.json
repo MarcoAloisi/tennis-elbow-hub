@@ -25,10 +25,15 @@
                 }
             ],
             "links": {
-                "main": {
-                    "label": "XKT Main Forum",
-                    "url": "https://www.managames.com/Forum/forum13.php",
-                    "icon": "🏠"
+                "discordTE4": {
+                    "label": "TE4 Discord",
+                    "url": "https://discord.com/invite/PY7hZXZcF6",
+                    "icon": "/TE4_logo.png"
+                },
+                "discordXKT": {
+                    "label": "XKT Discord",
+                    "url": "https://discord.com/invite/F2H3RVcRJ3",
+                    "icon": "/xkt_logo.png"
                 },
                 "rankings": {
                     "label": "Rankings",
@@ -40,20 +45,15 @@
                     "url": "https://www.managames.com/Forum/OnlineTournaments.php",
                     "icon": "🎯"
                 },
+                "main": {
+                    "label": "ManaGames Forum",
+                    "url": "https://www.managames.com/Forum/forum13.php",
+                    "icon": "🏠"
+                },
                 "rules": {
                     "label": "Full Rules",
                     "url": "https://www.managames.com/Forum/topic13-4767.php",
                     "icon": "📜"
-                },
-                "discordXKT": {
-                    "label": "XKT Discord",
-                    "url": "https://discord.com/invite/F2H3RVcRJ3",
-                    "icon": "/xkt_logo.png"
-                },
-                "discordTE4": {
-                    "label": "TE4 Discord",
-                    "url": "https://discord.com/invite/PY7hZXZcF6",
-                    "icon": "/TE4_logo.png"
                 }
             }
         },
