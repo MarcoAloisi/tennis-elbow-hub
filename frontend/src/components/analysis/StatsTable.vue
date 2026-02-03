@@ -52,6 +52,9 @@ const statCategories = {
     { key: 'break_games_won', label: 'Breaks / Games', format: 'rate_pct', path: 'break_points', total: 'break_games_total' }, 
     { key: 'set_points_saved', label: 'Set Points Saved', format: 'num', path: 'break_points' },
     { key: 'match_points_saved', label: 'Match Points Saved', format: 'num', path: 'break_points' }
+  ],
+  general: [
+    { key: 'elo_change', label: 'Avg ELO Change', format: 'dec', path: 'general' }
   ]
 }
 

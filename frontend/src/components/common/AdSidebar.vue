@@ -1,9 +1,19 @@
 <script setup>
+import { onMounted } from 'vue';
+
 defineProps({
   side: {
     type: String,
     validator: (value) => ['left', 'right'].includes(value),
     required: true
+  }
+})
+
+onMounted(() => {
+  try {
+    (window.adsbygoogle = window.adsbygoogle || []).push({});
+  } catch (e) {
+    console.error("AdSense push error:", e);
   }
 })
 </script>
@@ -20,9 +30,6 @@ defineProps({
            data-ad-slot="6495286119"
            data-ad-format="auto"
            data-full-width-responsive="true"></ins>
-      <script>
-           (adsbygoogle = window.adsbygoogle || []).push({});
-      </script>
       
     </div>
   </div>

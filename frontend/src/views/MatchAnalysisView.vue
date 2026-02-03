@@ -91,6 +91,9 @@ function mapStatsToStructure(s) {
             break_games_total: s.break_games_total,
             set_points_saved: s.set_points_saved,
             match_points_saved: s.match_points_saved
+        },
+        general: {
+            elo_change: s.elo_change
         }
     }
 }
@@ -223,6 +226,15 @@ function getPercentClass(value) {
                         <datalist id="opponents-list">
                             <option v-for="opp in store.availableOpponents" :key="opp" :value="opp" />
                         </datalist>
+                    </div>
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">Opponent ELO</label>
+                    <div class="elo-inputs">
+                        <input type="number" v-model.number="store.filters.eloMin" placeholder="Min" class="filter-input elo-input" />
+                        <span class="range-separator">-</span>
+                        <input type="number" v-model.number="store.filters.eloMax" placeholder="Max" class="filter-input elo-input" />
                     </div>
                 </div>
 
@@ -424,6 +436,7 @@ function getPercentClass(value) {
                         <td>
                             <div class="opponent-cell">
                                 {{ match.player1.name === 'Player 1' ? match.player2.name : (match.player1.name === 'Player' ? match.player2.name : match.player1.name) }} 
+
                                 <span class="vs-badge">vs</span> 
                                 {{ match.player2.name }}
                             </div>
@@ -1583,6 +1596,23 @@ function getPercentClass(value) {
 [data-theme="dark"] .sort-btn:hover {
     color: var(--color-text-primary);
 }
+
+.elo-inputs {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.elo-input {
+    width: 80px !important;
+}
+
+.range-separator {
+    color: var(--color-text-muted);
+    font-weight: bold;
+}
+
+
 
 </style>
 

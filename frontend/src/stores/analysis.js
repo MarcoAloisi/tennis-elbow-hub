@@ -4,6 +4,46 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { apiUrl } from '@/config/api'
+import tournamentData from '@/data/tournaments.json'
+
+// Helper to determine surface from tournament name
+function getSurfaceFromTournament(tournamentName) {
+    if (!tournamentName) return null
+    const nameLower = tournamentName.toLowerCase()
+
+    // 1. Check exact matches in our lists
+    // Grand Slams
+    for (const [key, surface] of Object.entries(tournamentData.grandSlams)) {
+        if (nameLower.includes(key.toLowerCase())) return surface
+    }
+    // Masters 1000
+    for (const [key, surface] of Object.entries(tournamentData.masters1000)) {
+        if (nameLower.includes(key.toLowerCase())) return surface
+    }
+    // ATP 500
+    for (const [key, surface] of Object.entries(tournamentData.atp500)) {
+        if (nameLower.includes(key.toLowerCase())) return surface
+    }
+    // ATP 250 (Check values first as some keys are short)
+    for (const [key, surface] of Object.entries(tournamentData.atp250)) {
+        if (nameLower.includes(key.toLowerCase())) return surface
+    }
+    // Challengers
+    for (const [key, surface] of Object.entries(tournamentData.challengers)) {
+        if (nameLower.includes(key.toLowerCase())) return surface
+    }
+
+    // 2. Fallback to keywords
+    if (tournamentData.keywords) {
+        for (const [surface, keywords] of Object.entries(tournamentData.keywords)) {
+            if (keywords.some(k => nameLower.includes(k.toLowerCase()))) {
+                return surface
+            }
+        }
+    }
+
+    return null
+}
 
 export const useAnalysisStore = defineStore('analysis', () => {
     // State
@@ -23,7 +63,9 @@ export const useAnalysisStore = defineStore('analysis', () => {
         sets: null, // '3', '5', or null
         cpu: true, // Hide CPU matches by default
         dateStart: null,
-        dateEnd: null
+        dateEnd: null,
+        eloMin: null,
+        eloMax: null
     })
 
     const sortDesc = ref(true) // Default to Newest first
@@ -128,44 +170,71 @@ export const useAnalysisStore = defineStore('analysis', () => {
                 if (!isUserInMatch) return false
             }
 
-            // Filter by Opponent
+            // Identify Opponent Logic (Used for ELO filtering)
+            let isUserP1 = true
+            let opponentName = ''
+            let opponentElo = null
+
+            if (userAliases.value.length > 0) {
+                if (userAliases.value.includes(info.player1_name)) {
+                    isUserP1 = true
+                    opponentName = info.player2_name
+                    opponentElo = info.player2_elo
+                } else if (userAliases.value.includes(info.player2_name)) {
+                    isUserP1 = false
+                    opponentName = info.player1_name
+                    opponentElo = info.player1_elo
+                }
+            } else {
+                const main = mainPlayerName.value
+                if (info.player1_name === main) {
+                    isUserP1 = true
+                    opponentName = info.player2_name
+                    opponentElo = info.player2_elo
+                } else {
+                    isUserP1 = false
+                    opponentName = info.player1_name
+                    opponentElo = info.player1_elo
+                }
+            }
+
+
+            // Filter by Opponent (Name)
             if (filters.value.opponent) {
                 const opp = filters.value.opponent.toLowerCase()
                 // Strict check: One of the players must be the selected opponent
-                const p1 = info.player1_name.toLowerCase()
-                const p2 = info.player2_name.toLowerCase()
-                if (p1 !== opp && p2 !== opp) {
+                if (opponentName.toLowerCase() !== opp) {
                     return false
                 }
+            }
+
+            // Filter by ELO (Min/Max) - Applied to OPPONENT only
+            if (filters.value.eloMin !== null || filters.value.eloMax !== null) {
+                // If match has no ELO data for opponent, we might filter it out or keep it?
+                // Usually filters implies "must match criteria". If no ELO, it doesn't match range.
+                if (opponentElo === null || opponentElo === undefined) return false
+
+                if (filters.value.eloMin !== null && opponentElo < filters.value.eloMin) return false
+                if (filters.value.eloMax !== null && opponentElo > filters.value.eloMax) return false
             }
 
             // Filter CPU Matches
             if (filters.value.cpu) {
                 const cpuPatterns = [/Incredible-/i, /Pro-/i, /Master-/i, /Junior-/i, /Club-/i, /-\d+$/]
-
-                // Identify if opponent is CPU
-                let opponentName = ''
-                if (userAliases.value.length > 0) {
-                    if (userAliases.value.includes(info.player1_name)) {
-                        opponentName = info.player2_name
-                    } else if (userAliases.value.includes(info.player2_name)) {
-                        opponentName = info.player1_name
-                    } else {
-                        // Fallback logic
-                        opponentName = info.player1_name // Assume P1 if neither match (weird case)
-                    }
-                } else {
-                    const main = mainPlayerName.value
-                    opponentName = info.player1_name === main ? info.player2_name : info.player1_name
-                }
-
                 if (cpuPatterns.some(p => p.test(opponentName))) return false
             }
 
-            // Filter by Surface (Tournament name check)
+            // Filter by Surface (Smart Mapping)
             if (filters.value.surface && info.tournament) {
-                if (!info.tournament.toLowerCase().includes(filters.value.surface.toLowerCase())) {
-                    return false
+                const surfaceFilter = filters.value.surface.toLowerCase()
+                const matchSurface = getSurfaceFromTournament(info.tournament)
+
+                // If we found a mapped surface, check if it matches
+                if (matchSurface) {
+                    if (matchSurface.toLowerCase() !== surfaceFilter) return false
+                } else {
+                    // Fallback to simple string check if no mapping found (should be rare with our keyword list)
+                    if (!info.tournament.toLowerCase().includes(surfaceFilter)) return false
                 }
             }
 
@@ -183,11 +252,6 @@ export const useAnalysisStore = defineStore('analysis', () => {
                 const numSets = setParts.length
 
                 // Determine match format based on sets played:
-                // - Best of 5: Can have 3, 4, or 5 sets
-                // - Best of 3: Can have 2 or 3 sets
-                // - 1 Set: Exactly 1 set
-
-                // Count sets won by each player to determine format
                 let p1Sets = 0, p2Sets = 0
                 setParts.forEach(set => {
                     const separator = set.includes('/') ? '/' : '-'
@@ -200,17 +264,8 @@ export const useAnalysisStore = defineStore('analysis', () => {
 
                 const maxSetsWon = Math.max(p1Sets, p2Sets)
 
-                // Best of 5: Winner needs 3 sets
-                // Best of 3: Winner needs 2 sets
-                // 1 Set: Only 1 set played total
-
-                // Best of 5: Winner needs 3 sets OR more than 3 sets played
-                // Best of 3: Winner needs 2 sets AND max 3 sets played
-                // 1 Set: Only 1 set played total
-
                 if (filters.value.sets === '5') {
                     // Match must be Best of 5 format
-                    // Either someone won 3 sets, OR the match went beyond 3 sets (e.g. 2-2 in sets)
                     if (maxSetsWon === 3 || numSets > 3) {
                         // It's a Bo5 match
                     } else {
@@ -219,7 +274,6 @@ export const useAnalysisStore = defineStore('analysis', () => {
                 }
                 if (filters.value.sets === '3') {
                     // Match must be Best of 3 format
-                    // Someone won 2 sets AND total sets displayed is <= 3
                     if (maxSetsWon === 2 && numSets <= 3) {
                         // It's a Bo3 match
                     } else {
@@ -348,7 +402,8 @@ export const useAnalysisStore = defineStore('analysis', () => {
             'break_games_won', 'break_games_total', 'break_games_won_pct',
             'set_points_saved', 'match_points_saved',
             // New match-level distributions
-            'match_set_win_pct', 'match_game_win_pct'
+            'match_set_win_pct', 'match_game_win_pct',
+            'elo_change'
         ];
 
 
@@ -538,6 +593,19 @@ export const useAnalysisStore = defineStore('analysis', () => {
                 collections.p2['match_game_win_pct'].push(safePct(mOppGames, mTotalGames))
                 collections.p2['match_set_win_pct'].push(safePct(mOppSets, mTotalSets))
             }
+
+            // Extract ELO Change
+            if (m.info) {
+                const p1Diff = m.info.player1_elo_diff
+                const p2Diff = m.info.player2_elo_diff
+
+                // User is P1?
+                const userDiff = isUserP1 ? p1Diff : p2Diff
+                const oppDiff = isUserP1 ? p2Diff : p1Diff
+
+                if (userDiff !== null && userDiff !== undefined) collections.p1['elo_change'].push(userDiff)
+                if (oppDiff !== null && oppDiff !== undefined) collections.p2['elo_change'].push(oppDiff)
+            }
         })
 
         // --- Aggregation Helper ---
@@ -651,6 +719,8 @@ export const useAnalysisStore = defineStore('analysis', () => {
 
             result.set_points_saved = getVal('set_points_saved')
             result.match_points_saved = getVal('match_points_saved')
+
+            result.elo_change = getVal('elo_change')
 
             // Win Rates (Special handling for Median)
             result.win_pct = (list.length > 0 ? (wins / list.length * 100) : 0).toFixed(1) // Always global average
@@ -778,7 +848,9 @@ export const useAnalysisStore = defineStore('analysis', () => {
             sets: null,
             cpu: true,
             dateStart: null,
-            dateEnd: null
+            dateEnd: null,
+            eloMin: null,
+            eloMax: null
         }
     }
 
