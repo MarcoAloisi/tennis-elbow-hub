@@ -21,7 +21,7 @@ defineProps({
         <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
       </svg>
     </div>
-    <span class="kofi-text">Support me on Ko-fi</span>
+    <span class="kofi-text">Buy me a Coffee</span>
   </a>
 </template>
 
@@ -34,8 +34,8 @@ defineProps({
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  background-color: #29abe0; /* Ko-fi Blue */
-  color: #FFFFFF;
+  background-color: var(--color-brand-primary);
+  color: var(--color-text-inverse);
   padding: 10px 16px;
   border-radius: 9999px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
@@ -49,7 +49,7 @@ defineProps({
 .kofi-widget:hover {
   transform: translateY(-2px);
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.15), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
-  background-color: #1a9bd0;
+  /* background-color: #1a9bd0; Removed to keep brand color */
 }
 
 .kofi-icon {
@@ -61,7 +61,7 @@ defineProps({
 .heart-svg {
   width: 20px;
   height: 20px;
-  fill: #FFFFFF;
+  fill: currentColor;
   animation: pulse 2s infinite;
 }
 
