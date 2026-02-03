@@ -5,7 +5,7 @@
             "name": "XKT Tour",
             "icon": "🎮",
             "logo": "/managames_logo.jpg",
-            "description": "This is the official ManaGames tour, played with custom builds and following rules.",
+            "description": "This is the official ManaGames tour, played with XKT mod where players use their own builds.",
             "settings": [
                 {
                     "label": "Mode",
@@ -26,12 +26,12 @@
             ],
             "links": {
                 "discordTE4": {
-                    "label": "TE4 Discord",
+                    "label": "TE4 Tour Discord",
                     "url": "https://discord.com/invite/PY7hZXZcF6",
                     "icon": "/TE4_logo.png"
                 },
                 "discordXKT": {
-                    "label": "XKT Discord",
+                    "label": "XKT Mod Discord",
                     "url": "https://discord.com/invite/F2H3RVcRJ3",
                     "icon": "/xkt_logo.png"
                 },
@@ -81,6 +81,11 @@
                 }
             ],
             "links": {
+                "discord": {
+                    "label": "WTSL Tour Discord",
+                    "url": "https://discord.com/invite/YkPAtGMUrj",
+                    "icon": "/wtsl_logo.webp"
+                },
                 "main": {
                     "label": "WTSL Homepage",
                     "url": "https://www.playwtsl.com/TE4/",
@@ -100,11 +105,6 @@
                     "label": "Full Rules",
                     "url": "https://www.playwtsl.com/TE4/pages/rules.php",
                     "icon": "📜"
-                },
-                "discord": {
-                    "label": "WTSL Discord (Available Soon)",
-                    "url": "#",
-                    "icon": "/wtsl_logo.webp"
                 }
             }
         }
