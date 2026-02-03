@@ -156,6 +156,28 @@ def get_security_headers() -> dict[str, str]:
     Returns:
         Dictionary of security headers to add to responses.
     """
+    # Content Security Policy (CSP) configuration
+    # Note: 'unsafe-inline' and 'unsafe-eval' are required for GTM/AdSense to function.
+    csp_directives = [
+        "default-src 'self'",
+        # Scripts: GTM, Analytics, AdSense, Tag Assistant
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://tagmanager.google.com https://www.google-analytics.com https://ssl.google-analytics.com https://pagead2.googlesyndication.com https://tagassistant.google.com",
+        # Styles: Fonts, GTM
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://tagmanager.google.com",
+        # Images: GTM, Analytics, AdSense
+        "img-src 'self' data: https://www.googletagmanager.com https://ssl.gstatic.com https://www.google-analytics.com https://pagead2.googlesyndication.com",
+        # Fonts: Google Fonts
+        "font-src 'self' data: https://fonts.gstatic.com",
+        # Connect: Analytics, GTM, Tag Assistant
+        "connect-src 'self' https://www.google-analytics.com https://www.googletagmanager.com https://tagassistant.google.com https://stats.g.doubleclick.net",
+        # Frames: GTM (noscript), AdSense
+        "frame-src 'self' https://www.googletagmanager.com https://googleads.g.doubleclick.net https://tpc.googlesyndication.com",
+        # Security Hardening
+        "frame-ancestors 'none'",  # Prevent clickjacking
+        "object-src 'none'",       # Block Flash/Java
+        "base-uri 'self'",         # Prevent base tag hijacking
+    ]
+
     return {
         "X-Content-Type-Options": "nosniff",
         "X-Frame-Options": "DENY",
@@ -163,7 +185,7 @@ def get_security_headers() -> dict[str, str]:
         "Referrer-Policy": "strict-origin-when-cross-origin",
         "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
         "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
-        "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
+        "Content-Security-Policy": "; ".join(csp_directives),
     }
 
 
