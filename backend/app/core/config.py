@@ -39,7 +39,7 @@ class Settings(BaseSettings):
         if not self.cors_origins_str:
             if self.app_env.lower() == "development":
                 return ["*"]
-            return []
+            return []  # Strict default for production
         origins = []
         for origin in self.cors_origins_str.split(","):
             origin = origin.strip()
@@ -70,7 +70,7 @@ class Settings(BaseSettings):
     rate_limit_window_seconds: int = 60
 
     # File Upload
-    max_upload_size_mb: int = 10
+    max_upload_size_mb: int = 3
 
     @property
     def max_upload_size_bytes(self) -> int:

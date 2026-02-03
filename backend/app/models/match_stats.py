@@ -91,6 +91,10 @@ class MatchInfo(BaseModel):
     date: datetime | None = Field(default=None, description="Match date")
     is_retirement: bool = Field(default=False, description="Whether the match ended in retirement")
     raw_match_id: str | None = Field(default=None, description="Unique match ID from HTML table element")
+    player1_elo: int | None = Field(default=None, description="Player 1 ELO rating")
+    player2_elo: int | None = Field(default=None, description="Player 2 ELO rating")
+    player1_elo_diff: int | None = Field(default=None, description="Player 1 ELO change")
+    player2_elo_diff: int | None = Field(default=None, description="Player 2 ELO change")
 
 
 

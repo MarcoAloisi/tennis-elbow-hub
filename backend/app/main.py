@@ -19,6 +19,7 @@ from slowapi.util import get_remote_address
 
 from app.api.router import api_router
 from app.core.config import get_settings
+from app.core.limiter import limiter
 from app.core.logging import get_logger, setup_logging
 from app.core.security import get_security_headers
 from app.services.scraper import get_scraper_service
@@ -29,9 +30,6 @@ logger = get_logger("main")
 
 # Initialize settings
 settings = get_settings()
-
-# Initialize rate limiter
-limiter = Limiter(key_func=get_remote_address)
 
 
 @asynccontextmanager

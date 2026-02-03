@@ -133,8 +133,8 @@ class GameServer(BaseModel):
         
         # Combine key identifying fields
         raw = f"{self.creation_time_ms}:{self.match_name}:{self.port}"
-        # Create a short hash for readability
-        hash_hex = hashlib.md5(raw.encode()).hexdigest()[:12]
+        # Create a stable ID using SHA256 (truncated to 16 chars)
+        hash_hex = hashlib.sha256(raw.encode()).hexdigest()[:16]
         return f"m_{hash_hex}"
 
     @computed_field

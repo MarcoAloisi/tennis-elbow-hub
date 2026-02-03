@@ -132,13 +132,14 @@ def extract_header_info(soup: BeautifulSoup) -> MatchInfo | None:
             
             # Strict Pattern (User Hint): (.*?) \(ELO: (.*?)\) def\. (.*?) \(ELO: (.*?)\) : (.*?) - (.*?) - (.*?) - (.*)
             # Use (.*) at the end to capture Date + Optional [Online] greedily, then clean it.
+            # Updated to be lenient on spaces around colon
             strict_pattern = re.compile(
-                r"(.*?) \(ELO: (.*?)\) def\. (.*?) \(ELO: (.*?)\) : (.*?) - (.*?) - (.*?) - (.*)"
+                r"(.*?) \(ELO: (.*?)\) def\. (.*?) \(ELO: (.*?)\)\s*:\s*(.*?) - (.*?) - (.*?) - (.*)"
             )
             
             # Fallback Pattern
             fallback_pattern = re.compile(
-                r"(.*?) def\. (.*?) : (.*?) - (.*?) - (.*?) - (.*)"
+                r"(.*?) def\. (.*?)\s*:\s*(.*?) - (.*?) - (.*?) - (.*)"
             )
 
             # Try Strict Match First
@@ -157,19 +158,71 @@ def extract_header_info(soup: BeautifulSoup) -> MatchInfo | None:
                 tournament = groups[5].strip()
                 duration_part = groups[6].strip()
                 date_str = groups[7].strip()
+
+                logger.info(f"Header Matched! Groups: {groups}")
+
+                # Parse ELOs if available
+                p1_elo_val = None
+                p2_elo_val = None
+                p1_diff_val = None
+                p2_diff_val = None
                 
+                # Check for ELO in group 2 and 4 from strict match
+                if groups[1] and groups[1].strip():
+                    # Extract ELO and optional diff: "1095 +30 ..." or "1095 -15 ..."
+                    # Matches "1095" then optional space then optional "+30"
+                    m = re.match(r"(\d+)(?:\s*([+-]\d+))?", groups[1].strip())
+                    if m:
+                        try:
+                            p1_elo_val = int(m.group(1))
+                            if m.group(2):
+                                p1_diff_val = int(m.group(2))
+                            logger.info(f"P1 ELO: {p1_elo_val}, Diff: {p1_diff_val}")
+                        except ValueError:
+                            pass
+                
+                if groups[3] and groups[3].strip():
+                    m = re.match(r"(\d+)(?:\s*([+-]\d+))?", groups[3].strip())
+                    if m:
+                        try:
+                            p2_elo_val = int(m.group(1))
+                            if m.group(2):
+                                p2_diff_val = int(m.group(2))
+                            logger.info(f"P2 ELO: {p2_elo_val}, Diff: {p2_diff_val}")
+                        except ValueError:
+                            pass
+                        
             else:
                 # Try Fallback
                 match = fallback_pattern.match(text)
+                p1_elo_val = None
+                p2_elo_val = None
+
                 if match:
                     groups = match.groups()
                     # Groups: 1: P1, 2: P2, 3: Score, 4: Tourn, 5: Duration, 6: Date+Online
-                    player1_name = groups[0].strip()
-                    # Clean ELO from names
-                    player1_name = re.sub(r"\s*\(ELO:.*?\)", "", player1_name).strip()
+                    raw_p1 = groups[0].strip()
+                    raw_p2 = groups[1].strip()
                     
-                    player2_name = groups[1].strip()
-                    player2_name = re.sub(r"\s*\(ELO:.*?\)", "", player2_name).strip()
+                    # Extract ELO from names if present: "Name (ELO: 1234 ...)"
+                    # Relaxed regex: doesn't enforce closing ')' immediately
+                    p1_elo_match = re.search(r"\(ELO:\s*(\d+)", raw_p1)
+                    if p1_elo_match:
+                         try:
+                             p1_elo_val = int(p1_elo_match.group(1))
+                         except ValueError:
+                             pass
+                    
+                    p2_elo_match = re.search(r"\(ELO:\s*(\d+)", raw_p2)
+                    if p2_elo_match:
+                         try:
+                             p2_elo_val = int(p2_elo_match.group(1))
+                         except ValueError:
+                             pass
+
+                    # Clean names: remove (ELO: ...) block entirely (greedy until closing paren)
+                    player1_name = re.sub(r"\s*\(ELO:.*?\)", "", raw_p1).strip()
+                    player2_name = re.sub(r"\s*\(ELO:.*?\)", "", raw_p2).strip()
                     
                     score = groups[2].strip()
                     tournament = groups[3].strip()
@@ -178,16 +231,39 @@ def extract_header_info(soup: BeautifulSoup) -> MatchInfo | None:
                 else:
                     # Legacy Split Logic (Safety Net)
                     parts = text.split(" def. ", 1)
-                    player1_name = parts[0].strip()
+                    raw_p1 = parts[0].strip()
+                    
                     # Handle checkbox garbage matching
-                    player1_name = re.sub(r"^.*?([A-Za-z])", r"\1", player1_name) 
-                    player1_name = re.sub(r"\s*\(ELO:.*?\)", "", player1_name).strip()
+                    raw_p1 = re.sub(r"^.*?([A-Za-z])", r"\1", raw_p1) 
+                    
+                    p1_elo_match = re.search(r"\(ELO:\s*(\d+)", raw_p1)
+                    if p1_elo_match:
+                         try:
+                             p1_elo_val = int(p1_elo_match.group(1))
+                         except ValueError:
+                             pass
+                             
+                    player1_name = re.sub(r"\s*\(ELO:.*?\)", "", raw_p1).strip()
 
                     rest = parts[1].strip()
-                    if " : " in rest:
-                        p2_part, details = rest.split(" : ", 1)
-                        player2_name = p2_part.strip()
-                        player2_name = re.sub(r"\s*\(ELO:.*?\)", "", player2_name).strip()
+                    
+                    # Determine split point for score (colon)
+                    # Handle both " : " and ": " or just ":"
+                    split_match = re.search(r"\s*:\s*", rest)
+                    
+                    if split_match:
+                        start, end = split_match.span()
+                        raw_p2 = rest[:start].strip()
+                        details = rest[end:].strip()
+                        
+                        p2_elo_match = re.search(r"\(ELO:\s*(\d+)", raw_p2)
+                        if p2_elo_match:
+                             try:
+                                 p2_elo_val = int(p2_elo_match.group(1))
+                             except ValueError:
+                                 pass
+                                 
+                        player2_name = re.sub(r"\s*\(ELO:.*?\)", "", raw_p2).strip()
                         
                         detail_parts = [x.strip() for x in details.split(" - ")]
                         score = detail_parts[0] if len(detail_parts) > 0 else ""
@@ -244,6 +320,10 @@ def extract_header_info(soup: BeautifulSoup) -> MatchInfo | None:
                 real_duration=real_duration,
                 date=match_date,
                 is_retirement=is_retirement,
+                player1_elo=p1_elo_val,
+                player2_elo=p2_elo_val,
+                player1_elo_diff=p1_diff_val,
+                player2_elo_diff=p2_diff_val,
             )
 
         return None

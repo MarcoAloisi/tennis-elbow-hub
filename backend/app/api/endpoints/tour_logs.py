@@ -8,8 +8,9 @@ from io import StringIO
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
+from app.core.limiter import limiter
 from app.core.logging import get_logger
 
 logger = get_logger("api.tour_logs")
@@ -227,7 +228,8 @@ def process_row(row: dict[str, str]) -> dict[str, Any] | None:
     summary="Get tour logs data",
     description="Fetch and return cleaned tour log data from Google Sheets.",
 )
-async def get_tour_logs() -> dict[str, Any]:
+@limiter.limit("20/minute")
+async def get_tour_logs(request: Request) -> dict[str, Any]:
     """Fetch tour logs from Google Sheets and return cleaned data.
     
     Returns:

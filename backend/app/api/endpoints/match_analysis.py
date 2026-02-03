@@ -3,8 +3,9 @@
 Provides endpoints for uploading and analyzing match log HTML files.
 """
 
-from fastapi import APIRouter, UploadFile
+from fastapi import APIRouter, Request, UploadFile
 
+from app.core.limiter import limiter
 from app.core.logging import get_logger
 from app.core.security import sanitize_filename, validate_upload_file
 from app.models.match_stats import MatchAnalysisResponse
@@ -20,7 +21,8 @@ router = APIRouter(prefix="/analysis", tags=["Match Analysis"])
     summary="Upload and analyze match log",
     description="Upload an HTML match log file and receive parsed statistics.",
 )
-async def upload_match_log(file: UploadFile) -> MatchAnalysisResponse:
+@limiter.limit("10/minute")
+async def upload_match_log(request: Request, file: UploadFile) -> MatchAnalysisResponse:
     """Upload and analyze a match log HTML file.
 
     Args:
