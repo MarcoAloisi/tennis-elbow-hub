@@ -3,6 +3,7 @@
 Provides REST and WebSocket endpoints for fetching live tennis match scores.
 """
 
+import asyncio
 import time
 from typing import Annotated
 from fastapi import APIRouter, Query, Request, WebSocket, WebSocketDisconnect, status

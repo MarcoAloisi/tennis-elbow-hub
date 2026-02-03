@@ -35,11 +35,6 @@ import KofiWidget from './components/common/KofiWidget.vue'
             <span class="nav-icon">🎬</span>
             Guides
           </RouterLink>
-          <div class="nav-divider"></div>
-          <RouterLink to="/tour-logs" class="nav-link" active-class="active">
-            <span class="nav-icon">🏆</span>
-            WTSL Tour Logs
-          </RouterLink>
         </nav>
         
         <div class="header-actions">

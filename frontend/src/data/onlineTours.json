@@ -54,6 +54,11 @@
                     "label": "Full Rules",
                     "url": "https://www.managames.com/Forum/topic13-4767.php",
                     "icon": "📜"
+                },
+                "youtube": {
+                    "label": "Tour YouTube Channel",
+                    "url": "https://www.youtube.com/@TennisElbowOnlineTour",
+                    "icon": "📺"
                 }
             }
         },
@@ -61,7 +66,7 @@
             "name": "WTSL Tour",
             "icon": "🌍",
             "logo": "/wtsl_logo.webp",
-            "description": "This is a fork of the XKT mod, which uses real player builds. Focuses on realism of gameplay. Hosted outside of ManaGames.",
+            "description": "This is a fork of the XKT mod, which uses real ATP player builds and also host WTA and doubles tours. Focuses on realism of gameplay. Hosted outside of ManaGames.",
             "settings": [
                 {
                     "label": "Mode",
@@ -105,6 +110,11 @@
                     "label": "Full Rules",
                     "url": "https://www.playwtsl.com/TE4/pages/rules.php",
                     "icon": "📜"
+                },
+                "youtube": {
+                    "label": "Tour YouTube Channel",
+                    "url": "https://www.youtube.com/@WTSLTennis",
+                    "icon": "📺"
                 }
             }
         }

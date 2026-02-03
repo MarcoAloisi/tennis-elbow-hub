@@ -279,6 +279,70 @@ export const useTourLogsStore = defineStore('tourLogs', () => {
         return finalResult.sort((a, b) => b.matches - a.matches)
     })
 
+    // Tour-wide average stats (aggregate all players)
+    const tourAverage = computed(() => {
+        const allStats = statsLeaders.value
+        if (!allStats.length) return null
+
+        const avg = (arr, key) => {
+            const vals = arr.map(p => p[key]).filter(v => v !== null && v !== undefined)
+            return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null
+        }
+
+        const totalMatches = allStats.reduce((sum, p) => sum + p.matches, 0)
+
+        return {
+            name: 'Tour Average',
+            playerCount: allStats.length,
+            matches: totalMatches,
+            firstServePct: avg(allStats, 'firstServePct'),
+            aces: avg(allStats, 'aces'),
+            doubleFaults: avg(allStats, 'doubleFaults'),
+            fastestServe: avg(allStats, 'fastestServe'),
+            avgFirstServeSpeed: avg(allStats, 'avgFirstServeSpeed'),
+            avgSecondServeSpeed: avg(allStats, 'avgSecondServeSpeed'),
+            winners: avg(allStats, 'winners'),
+            forcedErrors: avg(allStats, 'forcedErrors'),
+            unforcedErrors: avg(allStats, 'unforcedErrors'),
+            totalPointsWon: avg(allStats, 'totalPointsWon'),
+            netPointsWonPct: avg(allStats, 'netPointsWonPct'),
+            returnPointsWonPct: avg(allStats, 'returnPointsWonPct'),
+            returnWinners: avg(allStats, 'returnWinners'),
+            breakPointsWonPct: avg(allStats, 'breakPointsWonPct'),
+            breaksPerGamePct: avg(allStats, 'breaksPerGamePct'),
+            setPointsSaved: avg(allStats, 'setPointsSaved'),
+            matchPointsSaved: avg(allStats, 'matchPointsSaved'),
+            shortRalliesWonPct: avg(allStats, 'shortRalliesWonPct'),
+            mediumRalliesWonPct: avg(allStats, 'mediumRalliesWonPct'),
+            longRalliesWonPct: avg(allStats, 'longRalliesWonPct'),
+            avgRallyLength: avg(allStats, 'avgRallyLength'),
+            firstServeWonPct: avg(allStats, 'firstServeWonPct'),
+            secondServeWonPct: avg(allStats, 'secondServeWonPct'),
+        }
+    })
+
+    // Current stats to display: filtered player or tour average
+    const currentPlayerStats = computed(() => {
+        const playerFilter = filters.value.player?.toLowerCase()
+
+        if (playerFilter) {
+            // Find exact match first, then partial match
+            const exactMatch = statsLeaders.value.find(
+                p => p.name.toLowerCase() === playerFilter
+            )
+            if (exactMatch) return exactMatch
+
+            // Partial match - return first player that matches
+            const partialMatch = statsLeaders.value.find(
+                p => p.name.toLowerCase().includes(playerFilter)
+            )
+            if (partialMatch) return partialMatch
+        }
+
+        // No filter or no match - return tour average
+        return tourAverage.value
+    })
+
     // Set player filter from suggestion
     function selectPlayer(playerName) {
         filters.value.player = playerName
@@ -312,6 +376,8 @@ export const useTourLogsStore = defineStore('tourLogs', () => {
         playerSuggestions,
         filteredData,
         statsLeaders,
+        tourAverage,
+        currentPlayerStats,
         // Actions
         fetchData,
         selectPlayer,

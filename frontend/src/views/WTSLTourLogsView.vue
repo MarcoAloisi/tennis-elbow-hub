@@ -4,9 +4,11 @@
  * Main view for tour logs with subtabs, filters, and data display
  */
 import { onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import { useTourLogsStore } from '@/stores/tourLogs'
 import TourLogsTable from '@/components/tourlogs/TourLogsTable.vue'
 import StatsLeaders from '@/components/tourlogs/StatsLeaders.vue'
+import PlayerStatsGrid from '@/components/tourlogs/PlayerStatsGrid.vue'
 
 const store = useTourLogsStore()
 const showPlayerDropdown = ref(false)
@@ -24,6 +26,7 @@ onMounted(() => {
 const tabs = [
     { id: 'data', label: 'Match Data', icon: '📋' },
     { id: 'leaders', label: 'Stats Leaders', icon: '⭐' },
+    { id: 'playerstats', label: 'Player Stats', icon: '📊' },
 ]
 
 // Debounced player filter update
@@ -61,6 +64,11 @@ function onPlayerInputBlur() {
 
 <template>
     <div class="tour-logs-view">
+        <!-- Breadcrumb -->
+        <RouterLink to="/online-tours/wtsl" class="breadcrumb">
+            ← Back to WTSL Tour
+        </RouterLink>
+
         <!-- Header -->
         <div class="page-header">
             <div class="header-content">
@@ -164,6 +172,12 @@ function onPlayerInputBlur() {
                     v-if="store.activeTab === 'leaders'" 
                     :leaders="store.statsLeaders"
                 />
+
+                <!-- Player Stats Tab -->
+                <PlayerStatsGrid 
+                    v-if="store.activeTab === 'playerstats'" 
+                    :stats="store.currentPlayerStats"
+                />
             </div>
         </div>
     </div>
@@ -172,6 +186,24 @@ function onPlayerInputBlur() {
 <style scoped>
 .tour-logs-view {
     min-height: calc(100vh - 200px);
+}
+
+.breadcrumb {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    margin-bottom: var(--space-4);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    background: var(--color-bg-secondary);
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+}
+
+.breadcrumb:hover {
+    color: var(--color-text-primary);
+    background: var(--color-bg-hover);
 }
 
 .page-header {

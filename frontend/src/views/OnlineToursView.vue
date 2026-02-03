@@ -99,6 +99,22 @@ const wtslTour = tourData.tours.wtsl
               <span class="link-arrow">→</span>
             </a>
           </div>
+
+          <!-- Tour Logs Link (WTSL only) -->
+          <div v-if="currentTourKey === 'wtsl'" class="tour-stats-section">
+            <h3>Tour Statistics</h3>
+            <RouterLink 
+              to="/tour-logs" 
+              class="link-card tour-logs-highlight"
+            >
+              <span class="link-icon">📊</span>
+              <div class="tour-logs-content">
+                <span class="link-label">Tour Logs & Player Stats</span>
+                <span class="link-sublabel">View match history and detailed statistics</span>
+              </div>
+              <span class="link-arrow">→</span>
+            </RouterLink>
+          </div>
         </div>
 
         <!-- Guide Video Link -->
@@ -321,6 +337,44 @@ const wtslTour = tourData.tours.wtsl
 
 .link-card:hover .link-arrow {
   transform: translateX(4px);
+}
+
+/* Tour Logs Highlight Card */
+.tour-stats-section {
+  margin-top: var(--space-6);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--color-border);
+}
+
+.tour-stats-section h3 {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-4);
+}
+
+.tour-logs-highlight {
+  background: linear-gradient(135deg, rgba(59, 177, 67, 0.1), rgba(59, 177, 67, 0.05));
+  border: 1px solid rgba(59, 177, 67, 0.3);
+  padding: var(--space-5);
+}
+
+.tour-logs-highlight:hover {
+  background: linear-gradient(135deg, rgba(59, 177, 67, 0.2), rgba(59, 177, 67, 0.1));
+  border-color: var(--color-brand-primary);
+}
+
+.tour-logs-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.link-sublabel {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  font-weight: normal;
 }
 
 /* Guide Link Section */
