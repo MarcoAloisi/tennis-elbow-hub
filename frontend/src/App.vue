@@ -216,16 +216,41 @@ import KofiWidget from './components/common/KofiWidget.vue'
   .header-content {
     flex-wrap: wrap;
     gap: var(--space-4);
-  }
-  
-  .nav-links {
-    order: 3;
-    width: 100%;
-    justify-content: center;
+    padding: var(--space-4); /* Ensure padding on small screens */
   }
   
   .logo-text {
     font-size: var(--font-size-lg);
+  }
+
+  /* Make nav scrollable horizontally */
+  .nav-links {
+    order: 3;
+    width: 100%;
+    justify-content: flex-start; /* Align start to allow scroll from left */
+    overflow-x: auto;
+    white-space: nowrap;
+    padding-bottom: var(--space-2); /* Space for scrollbar if visible */
+    gap: var(--space-2);
+    /* Hide scrollbar for cleaner look */
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+  
+  .nav-links::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Hide divider on mobile to save space */
+  .nav-divider {
+    display: none;
+  }
+
+  .nav-link {
+    background: var(--color-bg-secondary); /* Add bg to separate links visually */
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-sm);
+    flex-shrink: 0; /* Prevent shrinking */
   }
 }
 </style>

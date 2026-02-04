@@ -6,7 +6,7 @@ import { ref, watch, onMounted } from 'vue'
 const THEME_KEY = 'tennis-tracker-theme'
 
 // Theme state - shared across all component instances
-const theme = ref('light')
+const theme = ref('dark')
 
 export function useTheme() {
     /**

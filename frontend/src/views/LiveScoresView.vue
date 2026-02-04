@@ -304,13 +304,26 @@ function formatTime(isoString) {
 }
 
 .connection-pill.connected .status-dot {
-  background: var(--color-success);
-  animation: pulse 2s infinite;
+  background: var(--color-error);
+  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  animation: pulse-red 2s infinite;
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+@keyframes pulse-red {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+  }
+  
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
 }
 
 .loading-state {
@@ -363,13 +376,41 @@ function formatTime(isoString) {
 @media (max-width: 768px) {
   .page-header {
     flex-direction: column;
-    gap: var(--space-4);
+    gap: var(--space-6);
+  }
+
+  .header-content {
+    text-align: center;
   }
   
-  .stats-group {
+  .header-right {
     width: 100%;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .stats-group {
+    flex-direction: column;
+    width: 100%;
+    gap: var(--space-3);
+  }
+
+  .stat-divider {
+    display: none;
+  }
+
+  /* Make stats cards consistent full width on mobile */
+  .single-stat-card,
+  .stats-breakdown {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  /* Keep Single stat card centered internally or adjust if needed */
+  .single-stat-card {
+    flex-direction: row;
+    gap: var(--space-4);
     justify-content: center;
-    flex-wrap: wrap;
   }
   
   .matches-grid {

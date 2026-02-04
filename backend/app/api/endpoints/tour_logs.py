@@ -264,7 +264,27 @@ async def get_tour_logs(request: Request) -> dict[str, Any]:
         # Parse CSV - handle latin-1 encoding
         import csv
         content = response.content.decode('latin-1')
-        reader = csv.DictReader(StringIO(content))
+        
+        # Check first line to see if headers are present
+        params = {}
+        first_line = content.splitlines()[0] if content else ""
+        if "Result" not in first_line and "Player" not in first_line:
+             # Assume headers are missing, provide default list based on observed structure
+             # Critical columns: 0=Image, 1=Player, 4=Result, 5=Opponent, 8=Tournament, 9=Date
+             params['fieldnames'] = [
+                 "Image Name", "Player", "ELO", "Crc", "Result", "Opponent", 
+                 "Opponent ELO", "Opponent Crc", "Tournament", "Date", 
+                 "1st Serve %", "Aces", "Double Faults", "Fastest Serve", 
+                 "Avg 1st Serve Speed", "Avg 2nd Serve Speed", "Winners", 
+                 "Forced Errors", "Unforced Errors", "Net Points Won %", 
+                 "Return Points Won %", "Total Points Won", "Break Points Won %", 
+                 "Breaks / Games %", "Set Points Saved", 
+                 "Average Rally Length", "1st Serve Won %", "2nd Serve Won %",
+                 "Return Winners"
+             ]
+             logger.warning("CSV headers missing, using hardcoded fieldnames")
+
+        reader = csv.DictReader(StringIO(content), **params)
         
         # Process all valid rows
         # No more merging of rows - returning everything as-is
