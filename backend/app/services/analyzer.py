@@ -439,6 +439,8 @@ def build_player_stats(
     rows: list[StatsRow],
     player_index: int,
     player_name: str,
+    elo: int | None = None,
+    elo_diff: int | None = None,
 ) -> PlayerMatchStats:
     """Build player statistics from extracted positional data.
 
@@ -446,6 +448,8 @@ def build_player_stats(
         rows: List of row data dictionaries.
         player_index: 0 for player 1, 1 for player 2.
         player_name: Player name.
+        elo: Player ELO rating.
+        elo_diff: Player ELO change.
 
     Returns:
         PlayerMatchStats model.
@@ -586,8 +590,17 @@ def build_player_stats(
         match_points_saved=match_saved,
     )
 
+    # General Stats
+    # Import locally to avoid circulars if any, but models are separate
+    from app.models.match_stats import GeneralStats
+    general = GeneralStats(
+        elo=elo,
+        elo_diff=elo_diff
+    )
+
     return PlayerMatchStats(
         name=player_name,
+        general=general,
         serve=serve,
         rally=rally,
         points=points,
@@ -633,8 +646,20 @@ def analyze_match_log(html_content: str) -> MatchStats | None:
         logger.info(f"Extracted {len(stats)} stat rows")
 
         # Build player stats
-        player1 = build_player_stats(stats, 0, info.player1_name)
-        player2 = build_player_stats(stats, 1, info.player2_name)
+        player1 = build_player_stats(
+            stats, 
+            0, 
+            info.player1_name,
+            elo=info.player1_elo,
+            elo_diff=info.player1_elo_diff
+        )
+        player2 = build_player_stats(
+            stats, 
+            1, 
+            info.player2_name,
+            elo=info.player2_elo,
+            elo_diff=info.player2_elo_diff
+        )
 
         return MatchStats(
             info=info,

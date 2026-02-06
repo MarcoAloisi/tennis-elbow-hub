@@ -69,10 +69,19 @@ class BreakPointStats(BaseModel):
     match_points_saved: int = Field(ge=0, description="Match points saved")
 
 
+
+class GeneralStats(BaseModel):
+    """General player statistics."""
+
+    elo: int | None = Field(default=None, description="Player ELO rating")
+    elo_diff: int | None = Field(default=None, description="Player ELO change")
+
+
 class PlayerMatchStats(BaseModel):
     """Complete match statistics for a single player."""
 
     name: str = Field(description="Player name")
+    general: GeneralStats = Field(default_factory=GeneralStats, description="General statistics")
     serve: ServeStats = Field(description="Serve statistics")
     rally: RallyStats = Field(description="Rally statistics")
     points: PointStats = Field(description="Point statistics")

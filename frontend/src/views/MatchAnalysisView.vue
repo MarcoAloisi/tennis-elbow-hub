@@ -483,6 +483,9 @@ function getPercentClass(value) {
           <div class="players-display">
             <div class="player-side">
               <h2 class="player-name">{{ store.matchInfo?.player1_name }}</h2>
+              <div class="player-meta" v-if="store.matchInfo?.player1_elo">
+                  <span class="elo-badge">ELO: {{ store.matchInfo.player1_elo }}</span>
+              </div>
               <span class="player-label">Player 1</span>
             </div>
             <div class="vs-display">
@@ -491,6 +494,9 @@ function getPercentClass(value) {
             </div>
             <div class="player-side right">
               <h2 class="player-name">{{ store.matchInfo?.player2_name }}</h2>
+              <div class="player-meta" v-if="store.matchInfo?.player2_elo">
+                  <span class="elo-badge">ELO: {{ store.matchInfo.player2_elo }}</span>
+              </div>
               <span class="player-label">Player 2</span>
             </div>
           </div>
@@ -1680,5 +1686,26 @@ code {
 
 
 
+
+.player-meta {
+    margin: 0.25rem 0;
+}
+
+.elo-badge {
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.winner .elo-badge {
+    background: rgba(var(--primary-rgb), 0.1);
+    color: var(--primary);
+    border-color: rgba(var(--primary-rgb), 0.2);
+}
 </style>
 

@@ -54,7 +54,7 @@ const statCategories = {
     { key: 'match_points_saved', label: 'Match Points Saved', format: 'num', path: 'break_points' }
   ],
   general: [
-    { key: 'elo_change', label: 'Avg ELO Change', format: 'dec', path: 'general' }
+    { key: 'elo_diff', label: 'ELO Change', format: 'dec', path: 'general' }
   ]
 }
 
