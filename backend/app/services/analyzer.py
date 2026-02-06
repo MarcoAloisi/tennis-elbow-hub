@@ -48,11 +48,15 @@ def parse_ratio(text: str) -> tuple[int, int, float]:
         denom = int(ratio_match.group(2))
         
         # Try to find percentage in the same string to be precise, otherwise calculate it
-        pct_match = re.search(r"(\d+(?:\.\d+)?)\s*%", text)
-        if pct_match:
-            pct = float(pct_match.group(1))
+        # Handle 100% specially to avoid issues
+        if num == denom and num > 0:
+            pct = 100.0
         else:
-            pct = (num / denom * 100) if denom > 0 else 0.0
+            pct_match = re.search(r"(\d+(?:\.\d+)?)\s*%", text)
+            if pct_match:
+                pct = float(pct_match.group(1))
+            else:
+                pct = (num / denom * 100) if denom > 0 else 0.0
             
         return (num, denom, pct)
 
@@ -65,9 +69,10 @@ def parse_ratio(text: str) -> tuple[int, int, float]:
 
     # Strategy 3: Try just a number "62"
     # match() is fine here as we want to ensure it's the main content if nothing else matched
-    match = re.match(r"(\d+)", text)
-    if match:
-        return (int(match.group(1)), 0, 0.0)
+    # But text might be "226 Km/h", so we look for \d+
+    val_match = re.match(r"(\d+)", text)
+    if val_match:
+        return (int(val_match.group(1)), 0, 0.0)
 
     return (0, 0, 0.0)
 
@@ -122,24 +127,26 @@ def extract_header_info(soup: BeautifulSoup) -> MatchInfo | None:
         for p in soup.find_all("p"):
             text = p.get_text().strip()
 
-            # Trigger: Look for <p> tags that contain the string " def. "
-            if " def. " not in text:
+            # Trigger: Look for <p> tags that contain " def. " or " bat. "
+            # Added " bat. " for French support
+            if " def. " not in text and " bat. " not in text:
                 continue
 
             logger.debug(f"Found header candidate: {text[:100]}")
 
             # Define Regex Patterns
             
-            # Strict Pattern (User Hint): (.*?) \(ELO: (.*?)\) def\. (.*?) \(ELO: (.*?)\) : (.*?) - (.*?) - (.*?) - (.*)
-            # Use (.*) at the end to capture Date + Optional [Online] greedily, then clean it.
-            # Updated to be lenient on spaces around colon
+            # Separator regex: handles " def. " or " bat. "
+            sep_pattern = r"(?: def\. | bat\. )"
+            
+            # Strict Pattern (User Hint): (.*?) \(ELO: (.*?)\) [sep] (.*?) \(ELO: (.*?)\) : (.*?) - (.*?) - (.*?) - (.*)
             strict_pattern = re.compile(
-                r"(.*?) \(ELO: (.*?)\) def\. (.*?) \(ELO: (.*?)\)\s*:\s*(.*?) - (.*?) - (.*?) - (.*)"
+                r"(.*?) \(ELO: (.*?)\)" + sep_pattern + r"(.*?) \(ELO: (.*?)\)\s*:\s*(.*?) - (.*?) - (.*?) - (.*)"
             )
             
             # Fallback Pattern
             fallback_pattern = re.compile(
-                r"(.*?) def\. (.*?)\s*:\s*(.*?) - (.*?) - (.*?) - (.*)"
+                r"(.*?)" + sep_pattern + r"(.*?)\s*:\s*(.*?) - (.*?) - (.*?) - (.*)"
             )
 
             # Try Strict Match First
@@ -169,8 +176,6 @@ def extract_header_info(soup: BeautifulSoup) -> MatchInfo | None:
                 
                 # Check for ELO in group 2 and 4 from strict match
                 if groups[1] and groups[1].strip():
-                    # Extract ELO and optional diff: "1095 +30 ..." or "1095 -15 ..."
-                    # Matches "1095" then optional space then optional "+30"
                     m = re.match(r"(\d+)(?:\s*([+-]\d+))?", groups[1].strip())
                     if m:
                         try:
@@ -197,6 +202,8 @@ def extract_header_info(soup: BeautifulSoup) -> MatchInfo | None:
                 match = fallback_pattern.match(text)
                 p1_elo_val = None
                 p2_elo_val = None
+                p1_diff_val = None
+                p2_diff_val = None
 
                 if match:
                     groups = match.groups()
@@ -205,7 +212,6 @@ def extract_header_info(soup: BeautifulSoup) -> MatchInfo | None:
                     raw_p2 = groups[1].strip()
                     
                     # Extract ELO from names if present: "Name (ELO: 1234 ...)"
-                    # Relaxed regex: doesn't enforce closing ')' immediately
                     p1_elo_match = re.search(r"\(ELO:\s*(\d+)", raw_p1)
                     if p1_elo_match:
                          try:
@@ -220,7 +226,7 @@ def extract_header_info(soup: BeautifulSoup) -> MatchInfo | None:
                          except ValueError:
                              pass
 
-                    # Clean names: remove (ELO: ...) block entirely (greedy until closing paren)
+                    # Clean names: remove (ELO: ...) block entirely
                     player1_name = re.sub(r"\s*\(ELO:.*?\)", "", raw_p1).strip()
                     player2_name = re.sub(r"\s*\(ELO:.*?\)", "", raw_p2).strip()
                     
@@ -230,7 +236,12 @@ def extract_header_info(soup: BeautifulSoup) -> MatchInfo | None:
                     date_str = groups[5].strip()
                 else:
                     # Legacy Split Logic (Safety Net)
-                    parts = text.split(" def. ", 1)
+                    # Handle both separators
+                    if " bat. " in text:
+                        parts = text.split(" bat. ", 1)
+                    else:
+                        parts = text.split(" def. ", 1)
+                        
                     raw_p1 = parts[0].strip()
                     
                     # Handle checkbox garbage matching
@@ -248,7 +259,6 @@ def extract_header_info(soup: BeautifulSoup) -> MatchInfo | None:
                     rest = parts[1].strip()
                     
                     # Determine split point for score (colon)
-                    # Handle both " : " and ": " or just ":"
                     split_match = re.search(r"\s*:\s*", rest)
                     
                     if split_match:
@@ -276,17 +286,10 @@ def extract_header_info(soup: BeautifulSoup) -> MatchInfo | None:
                         continue
 
             # Clean Player Checkboxes if regex captured them
-            # e.g. "<input ...>Madferit"
-            # Since get_text() removes tags, only text remains. 
-            # But sometimes "checkbox" text might linger? 
-            # Usually get_text() is clean. The inputs are <input value="..."/>
-            
-            # Additional cleaning
             player1_name = player1_name.strip()
             player2_name = player2_name.strip()
 
             # Parse Duration
-            # Format: "0:35'55 (1:41'43)" -> extract "0:35'55"
             duration = ""
             real_duration = ""
             dur_match = re.match(r"([\d:\']+)\s*\(([\d:\']+)\)", duration_part)
@@ -309,7 +312,7 @@ def extract_header_info(soup: BeautifulSoup) -> MatchInfo | None:
                         pass
             
             # Check for Retirement
-            is_retirement = "ret." in score.lower()
+            is_retirement = "ret." in score.lower() or "ab." in score.lower() # "ab." for abandon usually? or TE4 uses ret? French file says "ret." too.
 
             return MatchInfo(
                 player1_name=player1_name,
@@ -333,138 +336,176 @@ def extract_header_info(soup: BeautifulSoup) -> MatchInfo | None:
         return None
 
 
-def extract_stats_from_table(soup: BeautifulSoup) -> dict[str, tuple[str, str]]:
-    """Extract statistics from the HTML table.
+StatsRow = dict[str, str | None]
 
-    The TE4 table format has 6 or 7 columns per row:
-    - Col 0: Player 1 value (left stat)
-    - Col 1: Label (left stat)
-    - Col 2: Player 2 value (left stat)
-    - Col 3: Spacer
-    - Col 4: Player 1 value (right stat)
-    - Col 5: Label (right stat)
-    - Col 6: Player 2 value (right stat)
+def extract_stats_from_table(soup: BeautifulSoup) -> list[StatsRow]:
+    """Extract statistics from the HTML table by position.
+
+    The TE4 table format has 6 or 7 columns per row.
+    We extract rows into a structured list where each row has:
+    - left_p1, left_label, left_p2
+    - right_p1, right_label, right_p2 (optional)
 
     Args:
         soup: BeautifulSoup object of the HTML.
 
     Returns:
-        Dictionary mapping stat labels to (player1_value, player2_value).
+        List of dictionaries containing row data.
     """
-    stats: dict[str, tuple[str, str]] = {}
+    rows_data: list[StatsRow] = []
 
-    # Find all tables
+    # Find the main stats table
+    # The file might have multiple tables if checkboxes are present, 
+    # but usually the stats are in the table following the header.
+    # We iterate all tables and look for the one with stats structure.
     tables = soup.find_all("table")
 
     for table in tables:
         rows = table.find_all("tr")
+        current_table_rows: list[StatsRow] = []
+        is_valid_stats_table = False
+
         for row in rows:
             cells = row.find_all("td")
             if len(cells) >= 3:
-                # First stat group (columns 0, 1, 2)
-                p1_val = cells[0].get_text().strip()
-                label = cells[1].get_text().strip()
-                p2_val = cells[2].get_text().strip()
+                # Basic row structure
+                row_item: StatsRow = {
+                    "left_p1": cells[0].get_text().strip(),
+                    "left_p2": cells[2].get_text().strip(),
+                    "left_label": cells[1].get_text().strip(),
+                    "right_p1": None,
+                    "right_p2": None,
+                    "right_label": None,
+                }
+                
+                # Check for second group (columns 4, 5, 6)
+                # cell 3 is spacer
+                if len(cells) >= 7:
+                     row_item["right_p1"] = cells[4].get_text().strip()
+                     row_item["right_label"] = cells[5].get_text().strip()
+                     row_item["right_p2"] = cells[6].get_text().strip()
+                
+                current_table_rows.append(row_item)
+                
+                # Heuristic to identify this as the stats table:
+                # Look for known percentage signs or '/' in values, or specific structure length
+                p1_val = row_item["left_p1"]
+                if "/" in str(p1_val) or "%" in str(p1_val):
+                    is_valid_stats_table = True
 
-                if label and label != "&nbsp;":
-                    # Normalize label
-                    label_normalized = label.upper().strip()
-                    stats[label_normalized] = (p1_val, p2_val)
-                    if "SERVE WON" in label_normalized or "ACES" in label_normalized:
-                        logger.info(f"DEBUG STAT: {label_normalized} => P1='{p1_val}' P2='{p2_val}'")
+        if is_valid_stats_table and len(current_table_rows) >= 10:
+            # We found the stats table (it usually has ~12 rows)
+            rows_data = current_table_rows
+            break
+            
+    return rows_data
 
 
-                # Second stat group (columns 4, 5, 6) if present
-                if len(cells) >= 7 and cells[3].get_text().strip() in ("", "\xa0"):
-                    p1_val2 = cells[4].get_text().strip()
-                    label2 = cells[5].get_text().strip()
-                    p2_val2 = cells[6].get_text().strip() if len(cells) > 6 else ""
-
-                    if label2 and label2 != "&nbsp;":
-                        label2_normalized = label2.upper().strip()
-                        stats[label2_normalized] = (p1_val2, p2_val2)
-
-    return stats
-
-
-def get_stat_value(
-    stats: dict[str, tuple[str, str]],
-    labels: list[str],
-    player_index: int,
-) -> str:
-    """Get stat value with fallback to multiple label variants.
-
+def get_val(rows: list[StatsRow], r: int, side: str, p_idx: int) -> str:
+    """Helper to safely get a value from rows list.
+    
     Args:
-        stats: Dictionary of stats.
-        labels: List of possible label names (checked in order).
-        player_index: 0 for player 1, 1 for player 2.
-
-    Returns:
-        The stat value or "0" if not found.
+        rows: The list of row data
+        r: Row index
+        side: "left" or "right"
+        p_idx: 0 (player 1) or 1 (player 2)
     """
-    for label in labels:
-        label_upper = label.upper()
-        if label_upper in stats:
-            return stats[label_upper][player_index]
-    return "0"
+    if r >= len(rows):
+        return "0"
+    
+    key = f"{side}_p{p_idx + 1}"
+    val = rows[r].get(key)
+    return str(val) if val is not None else "0"
 
 
-def extract_avg_rally_length(stats: dict[str, tuple[str, str]]) -> float:
-    """Extract average rally length from stats.
-
-    The format is: "AVERAGE RALLY LENGTH: 4.6"
-
-    Args:
-        stats: Dictionary of stats.
-
-    Returns:
-        Average rally length as float.
+def extract_rally_length(rows: list[StatsRow]) -> float:
+    """Extract average rally length from Row 3 (Right side).
+    
+    The value is usually embedded in the label: "AVERAGE RALLY LENGTH: 4.6"
+    or in other languages: "Longueur moyenne des échanges: 3.4"
     """
-    for label in stats.keys():
-        if "AVERAGE RALLY LENGTH" in label:
-            match = re.search(r"(\d+(?:\.\d+)?)", label)
-            if match:
-                return float(match.group(1))
+    if len(rows) <= 3:
+        return 0.0
+        
+    label = rows[3].get("right_label", "")
+    if label:
+        match = re.search(r"(\d+(?:\.\d+)?)", label)
+        if match:
+            return float(match.group(1))
     return 0.0
 
 
 def build_player_stats(
-    stats: dict[str, tuple[str, str]],
+    rows: list[StatsRow],
     player_index: int,
     player_name: str,
 ) -> PlayerMatchStats:
-    """Build player statistics from extracted data.
+    """Build player statistics from extracted positional data.
 
     Args:
-        stats: Dictionary of stat labels to values.
+        rows: List of row data dictionaries.
         player_index: 0 for player 1, 1 for player 2.
         player_name: Player name.
 
     Returns:
         PlayerMatchStats model.
     """
+    # MAPPING STRATEGY (Based on TE4 English & French logs)
+    # Row 0: Left=1st Serve %, Right=Short Rallies Won
+    # Row 1: Left=Aces, Right=Medium Rallies Won
+    # Row 2: Left=Double Faults, Right=Long Rallies Won
+    # Row 3: Left=Fastest Serve, Right=Avg Rally Length (Label)
+    # Row 4: Left=Avg 1st Serve Speed, Right=Set Points Saved
+    # Row 5: Left=Avg 2nd Serve Speed, Right=Match Points Saved
+    # Row 6: Left=Winners, Right=1st Serve Won %
+    # Row 7: Left=Forced Errors, Right=2nd Serve Won %
+    # Row 8: Left=Unforced Errors, Right=Return Points Won
+    # Row 9: Left=Net Points Won, Right=Return Winners
+    # Row 10: Left=Break Points Won, Right=Breaks/Games
+    # Row 11: Left=Total Points Won
 
-    def get_stat(labels: list[str]) -> str:
-        return get_stat_value(stats, labels, player_index)
+    def val(r: int, side: str) -> str:
+        return get_val(rows, r, side, player_index)
 
     # Parse serve stats
-    first_serve = parse_ratio(get_stat(["1ST SERVE %", "FIRST SERVE %"]))
+    # Row 0 Left: 1st Serve %
+    first_serve = parse_ratio(val(0, "left"))
+    
+    # Row 1 Left: Aces
+    aces = parse_ratio(val(1, "left"))[0]
+    
+    # Row 2 Left: Double Faults
+    dfs = parse_ratio(val(2, "left"))[0]
+    
+    # Row 3 Left: Fastest Serve
+    fastest = parse_speed(val(3, "left"))
+    
+    # Row 4 Left: Avg 1st Serve
+    avg_1st = parse_speed(val(4, "left"))
+    
+    # Row 5 Left: Avg 2nd Serve
+    avg_2nd = parse_speed(val(5, "left"))
+
     serve = ServeStats(
         first_serve_in=first_serve[0],
         first_serve_total=first_serve[1],
         first_serve_pct=first_serve[2],
-        aces=parse_ratio(get_stat(["ACES"]))[0],
-        double_faults=parse_ratio(get_stat(["DOUBLE FAULTS"]))[0],
-        fastest_serve_kmh=parse_speed(get_stat(["FASTEST SERVE"])),
-        avg_first_serve_kmh=parse_speed(get_stat(["AVG 1ST SERVE SPEED"])),
-        avg_second_serve_kmh=parse_speed(get_stat(["AVG 2ND SERVE SPEED"])),
+        aces=aces,
+        double_faults=dfs,
+        fastest_serve_kmh=fastest,
+        avg_first_serve_kmh=avg_1st,
+        avg_second_serve_kmh=avg_2nd,
     )
 
     # Parse rally stats
-    short_rallies = parse_ratio(get_stat(["SHORT RALLIES WON (< 5)"]))
-    normal_rallies = parse_ratio(get_stat(["MEDIUM RALLIES WON (5-8)"]))
-    long_rallies = parse_ratio(get_stat(["LONG RALLIES WON (> 8)"]))
-    avg_rally = extract_avg_rally_length(stats)
+    # Row 0 Right: Short Rallies
+    short_rallies = parse_ratio(val(0, "right"))
+    # Row 1 Right: Medium Rallies
+    normal_rallies = parse_ratio(val(1, "right"))
+    # Row 2 Right: Long Rallies
+    long_rallies = parse_ratio(val(2, "right"))
+    # Row 3 Right: Avg Rally Length (Extracted from label, shared for both players usually, but logic is generic)
+    avg_rally = extract_rally_length(rows)
 
     rally = RallyStats(
         short_rallies_won=short_rallies[0],
@@ -477,42 +518,73 @@ def build_player_stats(
     )
 
     # Parse point stats
-    net_points = parse_ratio(get_stat(["NET POINTS WON"]))
-    first_serve_pts = parse_ratio(get_stat(["1ST SERVE WON %"]))
-    second_serve_pts = parse_ratio(get_stat(["2ND SERVE WON %"]))
-    return_pts = parse_ratio(get_stat(["RETURN POINTS WON"]))
+    # Row 6 Left: Winners
+    winners = parse_ratio(val(6, "left"))[0]
+    # Row 7 Left: Forced Errors
+    forced = parse_ratio(val(7, "left"))[0]
+    # Row 8 Left: Unforced Errors
+    unforced = parse_ratio(val(8, "left"))[0]
+    
+    # Row 9 Left: Net Points Won
+    net_pts = parse_ratio(val(9, "left"))
+    
+    # Row 6 Right: 1st Serve Won %
+    first_won = parse_ratio(val(6, "right"))
+    # Row 7 Right: 2nd Serve Won %
+    second_won = parse_ratio(val(7, "right"))
+    
+    # Row 8 Right: Return Points Won
+    ret_pts = parse_ratio(val(8, "right"))
+    
+    # Row 9 Right: Return Winners
+    ret_winners_val = val(9, "right")
+    # Sometimes Row 9 Right is empty or diff? English says "RETURN WINNERS" at Row 9 Right
+    ret_winners = parse_ratio(ret_winners_val)[0]
+    
+    # Row 11 Left: Total Points Won
+    total_won = parse_ratio(val(11, "left"))[0]
 
     points = PointStats(
-        winners=parse_ratio(get_stat(["WINNERS"]))[0],
-        forced_errors=parse_ratio(get_stat(["FORCED ERRORS"]))[0],
-        unforced_errors=parse_ratio(get_stat(["UNFORCED ERRORS"]))[0],
-        net_points_won=net_points[0],
-        net_points_total=net_points[1],
-        points_on_first_serve_won=first_serve_pts[0],
-        points_on_first_serve_total=first_serve_pts[1],
-        points_on_second_serve_won=second_serve_pts[0],
-        points_on_second_serve_total=second_serve_pts[1],
-        return_points_won=return_pts[0],
-        return_points_total=return_pts[1],
-        return_winners=parse_ratio(get_stat(["RETURN WINNERS"]))[0],
-        total_points_won=parse_ratio(get_stat(["TOTAL POINTS WON"]))[0],
+        winners=winners,
+        forced_errors=forced,
+        unforced_errors=unforced,
+        net_points_won=net_pts[0],
+        net_points_total=net_pts[1],
+        points_on_first_serve_won=first_won[0],
+        points_on_first_serve_total=first_won[1],
+        points_on_second_serve_won=second_won[0],
+        points_on_second_serve_total=second_won[1],
+        return_points_won=ret_pts[0],
+        return_points_total=ret_pts[1],
+        return_winners=ret_winners,
+        total_points_won=total_won,
     )
 
     # Parse break point stats
-    break_pts = parse_ratio(get_stat(["BREAK POINTS WON"]))
-    break_games = parse_ratio(get_stat(["BREAKS / GAMES"]))
+    # Row 10 Left: Break Points Won
+    bp_won = parse_ratio(val(10, "left"))
+    # Row 10 Right: Breaks / Games
+    # Careful: Row 10 Right is Breaks/Games, but break points saved is not explicitly there?
+    # TE4 stats: "BREAK POINTS WON" is for the attacker. 
+    # To get "Break Points Saved" for P1, we would look at P2's "BREAK POINTS WON" failure count?
+    # But current logic was: set_points_saved = ???
+    # Old logic: set_points_saved = parse_ratio(get_stat(["SET POINTS SAVED"]))[0]
+    # Row 4 Right: Set Points Saved
+    set_saved = parse_ratio(val(4, "right"))[0]
+    # Row 5 Right: Match Points Saved
+    match_saved = parse_ratio(val(5, "right"))[0]
+    
+    # Row 10 Right: Breaks / Games
+    break_games = parse_ratio(val(10, "right"))
 
     break_points = BreakPointStats(
-        break_points_won=break_pts[0],
-        break_points_total=break_pts[1],
+        break_points_won=bp_won[0],
+        break_points_total=bp_won[1],
         break_games_won=break_games[0],
         break_games_total=break_games[1],
-        set_points_saved=parse_ratio(get_stat(["SET POINTS SAVED"]))[0],
-        match_points_saved=parse_ratio(get_stat(["MATCH POINTS SAVED"]))[0],
+        set_points_saved=set_saved,
+        match_points_saved=match_saved,
     )
-
-    # Debug Logging for critical stats
-    logger.info(f"DEBUG BUILD: {player_name} P1stWon={points.points_on_first_serve_won}/{points.points_on_first_serve_total} (Src: {get_stat(['1ST SERVE WON %'])}) DF={serve.double_faults}")
 
     return PlayerMatchStats(
         name=player_name,
@@ -599,7 +671,8 @@ def parse_match_log_file(html_content: str) -> list[MatchStats]:
             continue
 
         # Check for valid match indicators before parsing
-        if " def. " not in chunk and " vs " not in chunk:
+        # Added " bat. " for French support
+        if " def. " not in chunk and " bat. " not in chunk and " vs " not in chunk:
             logger.debug(f"Skipping chunk {i} - no match indicators found")
             continue
             

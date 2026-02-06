@@ -209,13 +209,16 @@ export const useAnalysisStore = defineStore('analysis', () => {
             }
 
             // Filter by ELO (Min/Max) - Applied to OPPONENT only
-            if (filters.value.eloMin !== null || filters.value.eloMax !== null) {
+            const eMin = (filters.value.eloMin !== null && filters.value.eloMin !== '') ? filters.value.eloMin : null
+            const eMax = (filters.value.eloMax !== null && filters.value.eloMax !== '') ? filters.value.eloMax : null
+
+            if (eMin !== null || eMax !== null) {
                 // If match has no ELO data for opponent, we might filter it out or keep it?
                 // Usually filters implies "must match criteria". If no ELO, it doesn't match range.
                 if (opponentElo === null || opponentElo === undefined) return false
 
-                if (filters.value.eloMin !== null && opponentElo < filters.value.eloMin) return false
-                if (filters.value.eloMax !== null && opponentElo > filters.value.eloMax) return false
+                if (eMin !== null && opponentElo < eMin) return false
+                if (eMax !== null && opponentElo > eMax) return false
             }
 
             // Filter CPU Matches

@@ -181,7 +181,22 @@ function getPercentClass(value) {
         @upload="handleUpload"
       />
       
-      <!-- Sample button removed -->
+      <div class="help-card">
+        <div class="help-title">
+            <span class="icon">❓</span> Where to find your match logs?
+        </div>
+        <div class="help-content">
+            <div class="method">
+                <span class="method-label">In-Game (Easiest):</span>
+                <p>Go to <strong>Settings ➝ Training Club ➝ Match Logs</strong>. This will open the folder containing your logs.</p>
+            </div>
+            <div class="method">
+                <span class="method-label">Manual Path:</span>
+                <p>Navigate to: <code>%AppData%\LocalLow\Mana Games\Tennis Elbow 4\Profiles\</code></p>
+                <p class="method-note">Inside, open your profile folder (e.g., <strong>XKT</strong> or <strong>WTSL</strong>) to find the HTML files.</p>
+            </div>
+        </div>
+      </div>
     </div>
 
     <!-- Analysis Results -->
@@ -586,6 +601,57 @@ function getPercentClass(value) {
   align-items: center;
   max-width: 600px;
   margin: 0 auto;
+}
+
+.help-card {
+  margin-top: var(--space-6);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  max-width: 100%;
+  width: 100%;
+}
+
+.help-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--font-weight-bold);
+  margin-bottom: var(--space-3);
+  color: var(--color-text-primary);
+}
+
+.help-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.method p {
+    margin: var(--space-1) 0 0;
+}
+
+.method-label {
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-primary);
+}
+
+.method-note {
+    font-size: var(--font-size-xs);
+    font-style: italic;
+    margin-top: var(--space-1) !important;
+    opacity: 0.8;
+}
+
+code {
+    background: var(--color-bg-primary);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    word-break: break-all;
 }
 
 .sample-action {
