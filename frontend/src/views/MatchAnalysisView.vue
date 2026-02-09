@@ -93,7 +93,7 @@ function mapStatsToStructure(s) {
             match_points_saved: s.match_points_saved
         },
         general: {
-            elo_change: s.elo_change
+            elo_diff: s.elo_change
         }
     }
 }

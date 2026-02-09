@@ -127,17 +127,18 @@ def extract_header_info(soup: BeautifulSoup) -> MatchInfo | None:
         for p in soup.find_all("p"):
             text = p.get_text().strip()
 
-            # Trigger: Look for <p> tags that contain " def. " or " bat. "
-            # Added " bat. " for French support
-            if " def. " not in text and " bat. " not in text:
+            # Trigger: Look for <p> tags that contain match separators
+            # EN: "def.", FR: "bat.", ES: "vs", PL: "Przegrana"
+            separators = [" def. ", " bat. ", " vs ", " Przegrana "]
+            if not any(sep in text for sep in separators):
                 continue
 
             logger.debug(f"Found header candidate: {text[:100]}")
 
             # Define Regex Patterns
             
-            # Separator regex: handles " def. " or " bat. "
-            sep_pattern = r"(?: def\. | bat\. )"
+            # Separator regex: handles EN/FR/ES/PL separators
+            sep_pattern = r"(?: def\. | bat\. | vs | Przegrana )"
             
             # Strict Pattern (User Hint): (.*?) \(ELO: (.*?)\) [sep] (.*?) \(ELO: (.*?)\) : (.*?) - (.*?) - (.*?) - (.*)
             strict_pattern = re.compile(
@@ -236,9 +237,13 @@ def extract_header_info(soup: BeautifulSoup) -> MatchInfo | None:
                     date_str = groups[5].strip()
                 else:
                     # Legacy Split Logic (Safety Net)
-                    # Handle both separators
+                    # Handle all language separators
                     if " bat. " in text:
                         parts = text.split(" bat. ", 1)
+                    elif " vs " in text:
+                        parts = text.split(" vs ", 1)
+                    elif " Przegrana " in text:
+                        parts = text.split(" Przegrana ", 1)
                     else:
                         parts = text.split(" def. ", 1)
                         
@@ -311,8 +316,8 @@ def extract_header_info(soup: BeautifulSoup) -> MatchInfo | None:
                     except ValueError:
                         pass
             
-            # Check for Retirement
-            is_retirement = "ret." in score.lower() or "ab." in score.lower() # "ab." for abandon usually? or TE4 uses ret? French file says "ret." too.
+            # Check for Retirement ("ret." used in EN/ES/FR, "ab." for abandon)
+            is_retirement = "ret." in score.lower() or "ab." in score.lower()
 
             return MatchInfo(
                 player1_name=player1_name,
@@ -696,8 +701,9 @@ def parse_match_log_file(html_content: str) -> list[MatchStats]:
             continue
 
         # Check for valid match indicators before parsing
-        # Added " bat. " for French support
-        if " def. " not in chunk and " bat. " not in chunk and " vs " not in chunk:
+        # EN: "def.", FR: "bat.", ES: "vs", PL: "Przegrana"
+        chunk_separators = [" def. ", " bat. ", " vs ", " Przegrana "]
+        if not any(sep in chunk for sep in chunk_separators):
             logger.debug(f"Skipping chunk {i} - no match indicators found")
             continue
             
