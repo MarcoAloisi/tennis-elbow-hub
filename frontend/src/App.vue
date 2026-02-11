@@ -1,8 +1,17 @@
 <script setup>
-import { RouterView, RouterLink } from 'vue-router'
+import { computed } from 'vue'
+import { RouterView, RouterLink, useRoute } from 'vue-router'
 import ThemeToggle from './components/common/ThemeToggle.vue'
 import AdSidebar from './components/common/AdSidebar.vue'
 import KofiWidget from './components/common/KofiWidget.vue'
+
+const route = useRoute()
+
+/** Hide ads on content-only pages so Google doesn't flag empty ad containers */
+const showAds = computed(() => {
+  const noAdRoutes = ['/', '/privacy-policy']
+  return !noAdRoutes.includes(route.path)
+})
 </script>
 
 <template>
@@ -16,7 +25,7 @@ import KofiWidget from './components/common/KofiWidget.vue'
         </div>
         
         <nav class="nav-links">
-          <RouterLink to="/" class="nav-link" active-class="active">
+          <RouterLink to="/live" class="nav-link" active-class="active">
             <span class="nav-icon">🎾</span>
             Live Scores
           </RouterLink>
@@ -46,7 +55,7 @@ import KofiWidget from './components/common/KofiWidget.vue'
     <!-- Content Wrapper with Ads -->
     <div class="content-wrapper">
       <!-- Left Ad Rail -->
-      <aside class="ad-rail left">
+      <aside v-if="showAds" class="ad-rail left">
         <AdSidebar side="left" />
       </aside>
 
@@ -56,7 +65,7 @@ import KofiWidget from './components/common/KofiWidget.vue'
       </main>
 
       <!-- Right Ad Rail -->
-      <aside class="ad-rail right">
+      <aside v-if="showAds" class="ad-rail right">
         <AdSidebar side="right" />
       </aside>
     </div>
@@ -67,7 +76,12 @@ import KofiWidget from './components/common/KofiWidget.vue'
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Tennis Elbow Hub &copy; 2025 - Tennis Elbow 4 Live Scores & Analysis</p>
+      <p>Tennis Elbow Hub &copy; 2025–2026 — Tennis Elbow 4 Live Scores & Analysis</p>
+      <div class="footer-links">
+        <RouterLink to="/">About</RouterLink>
+        <span class="footer-sep">·</span>
+        <RouterLink to="/privacy-policy">Privacy Policy</RouterLink>
+      </div>
     </footer>
   </div>
 </template>
@@ -203,12 +217,34 @@ import KofiWidget from './components/common/KofiWidget.vue'
 .app-footer {
   text-align: center;
   padding: var(--space-6);
-  color: var(--color-text-secondary); /* Slightly sharper text */
+  color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
-  background: var(--color-surface); /* Match Header */
+  background: var(--color-surface);
   border-top: 1px solid var(--color-border);
-  position: relative; /* Ensure it stacks correctly */
+  position: relative;
   z-index: 10;
+}
+
+.footer-links {
+  margin-top: var(--space-2);
+  display: flex;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.footer-links a {
+  color: var(--color-text-muted);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.footer-links a:hover {
+  color: var(--color-accent);
+}
+
+.footer-sep {
+  color: var(--color-text-muted);
+  opacity: 0.5;
 }
 
 /* Responsive */
