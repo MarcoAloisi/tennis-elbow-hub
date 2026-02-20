@@ -261,7 +261,6 @@ const closeUploadModal = () => {
                 ref="fileInput" 
                 accept="image/png, image/jpeg, image/webp" 
                 @change="handleFileChange" 
-                required
                 class="file-input-hidden"
               />
               
