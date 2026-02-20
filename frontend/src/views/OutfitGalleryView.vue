@@ -24,6 +24,21 @@ const fileInput = ref(null)
 const uploadError = ref('')
 const uploadSuccess = ref(false)
 const isSubmitting = ref(false)
+const editingOutfitId = ref(null)
+
+const handleEditOutfit = (outfit) => {
+  editingOutfitId.value = outfit.id
+  formModel.value = {
+    title: outfit.title,
+    outfit_code: outfit.outfit_code,
+    category: outfit.category,
+    uploader_name: outfit.uploader_name,
+    image: null // Optional during edit
+  }
+  isUploadModalOpen.value = true
+  uploadSuccess.value = false
+  uploadError.value = ''
+}
 
 onMounted(() => {
   outfitsStore.fetchOutfits()
@@ -59,6 +74,14 @@ const handleFileChange = (e) => {
     formModel.value.image = file
     uploadError.value = ''
     dragActive.value = false
+  }
+}
+
+const removeImage = (e) => {
+  e.stopPropagation() // Prevent opening the file dialog
+  formModel.value.image = null
+  if (fileInput.value) {
+    fileInput.value.value = ''
   }
 }
 
@@ -102,7 +125,7 @@ const submitForm = async () => {
   uploadError.value = ''
   uploadSuccess.value = false
   
-  if (!formModel.value.image) {
+  if (!editingOutfitId.value && !formModel.value.image) {
     uploadError.value = 'Please select an image to upload.'
     return
   }
@@ -114,13 +137,17 @@ const submitForm = async () => {
     formData.append('title', formModel.value.title)
     formData.append('outfit_code', formModel.value.outfit_code)
     formData.append('category', formModel.value.category)
-    // If the user didn't provide a name, fallback to their account display name
     formData.append('uploader_name', formModel.value.uploader_name || authStore.user?.user_metadata?.display_name || 'Anonymous')
-    formData.append('image', formModel.value.image)
+    if (formModel.value.image) {
+      formData.append('image', formModel.value.image)
+    }
     
-    // Pass the JWT session token instead of the manual secret
     const token = authStore.session?.access_token
-    await outfitsStore.createOutfit(formData, token)
+    if (editingOutfitId.value) {
+      await outfitsStore.updateOutfit(editingOutfitId.value, formData, token)
+    } else {
+      await outfitsStore.createOutfit(formData, token)
+    }
     
     uploadSuccess.value = true
     setTimeout(() => {
@@ -128,7 +155,7 @@ const submitForm = async () => {
     }, 1500)
     
   } catch (err) {
-    uploadError.value = err.message || 'Failed to upload outfit.'
+    uploadError.value = err.message || (editingOutfitId.value ? 'Failed to update outfit.' : 'Failed to upload outfit.')
   } finally {
     isSubmitting.value = false
   }
@@ -143,6 +170,7 @@ const openUploadModal = () => {
 const closeUploadModal = () => {
   isUploadModalOpen.value = false
   dragActive.value = false
+  editingOutfitId.value = null
   // Reset form
   formModel.value = {
     title: '',
@@ -190,7 +218,7 @@ const closeUploadModal = () => {
     <!-- Gallery Grid -->
     <div class="gallery-grid" v-if="filteredOutfits.length > 0">
       <div v-for="outfit in filteredOutfits" :key="outfit.id" class="grid-item">
-        <OutfitCard :outfit="outfit" />
+        <OutfitCard :outfit="outfit" @edit="handleEditOutfit" />
       </div>
     </div>
     
@@ -208,7 +236,7 @@ const closeUploadModal = () => {
     <div v-if="isUploadModalOpen" class="modal-overlay" @click.self="closeUploadModal">
       <div class="modal-content">
         <div class="modal-header">
-          <h2>Upload New Outfit</h2>
+          <h2>{{ editingOutfitId ? 'Edit Outfit' : 'Upload New Outfit' }}</h2>
           <button class="btn-close" @click="closeUploadModal">✕</button>
         </div>
         
@@ -265,10 +293,18 @@ const closeUploadModal = () => {
               />
               
               <div class="drop-zone-content">
-                <span v-if="formModel.image" class="file-name">✅ {{ formModel.image.name }}</span>
+                <div v-if="formModel.image" class="file-name-container">
+                  <span class="file-name">✅ {{ formModel.image.name }}</span>
+                  <button type="button" class="remove-image-btn" @click="removeImage" title="Remove image">✕</button>
+                </div>
                 <span v-else>
-                  <strong>Choose a file</strong> or drag it here.<br>
-                  <small>You can also paste (Ctrl+V) an image directly!</small>
+                  <template v-if="editingOutfitId">
+                    <strong>Keep current image</strong> or choose a new file to replace it.<br>
+                  </template>
+                  <template v-else>
+                    <strong>Choose a file</strong> or drag it here.<br>
+                  </template>
+                  <small>Also you can press PrintScreen, take a picture of the outfit in game, come here and just press Control+V (paste)</small>
                 </span>
               </div>
             </div>
@@ -279,14 +315,14 @@ const closeUploadModal = () => {
             {{ uploadError }}
           </div>
           <div v-if="uploadSuccess" class="alert success-alert">
-            Outfit uploaded successfully!
+            {{ editingOutfitId ? 'Outfit updated successfully!' : 'Outfit uploaded successfully!' }}
           </div>
 
           <div class="form-actions">
             <button type="button" class="btn-cancel" @click="closeUploadModal" :disabled="isSubmitting">Cancel</button>
             <button type="submit" class="btn-primary" :disabled="isSubmitting">
-              <span v-if="isSubmitting">Uploading...</span>
-              <span v-else>Submit Outfit</span>
+              <span v-if="isSubmitting">{{ editingOutfitId ? 'Saving...' : 'Uploading...' }}</span>
+              <span v-else>{{ editingOutfitId ? 'Save Changes' : 'Submit Outfit' }}</span>
             </button>
           </div>
         </form>
@@ -516,14 +552,44 @@ input:focus, select:focus, textarea:focus {
   background: rgba(163, 230, 53, 0.05); /* very light neon tint */
 }
 
-.drop-zone-content strong {
-  color: var(--color-text-primary);
+.drop-zone-content {
+  text-align: center;
+  color: var(--color-text-secondary);
+  pointer-events: none; /* Let clicks pass through to to the drop-zone */
+}
+
+.file-name-container {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  pointer-events: auto; /* Allow clicking the remove button */
 }
 
 .file-name {
+  font-family: var(--font-data);
   color: var(--color-brand-primary);
-  font-weight: 600;
+  font-weight: 500;
   word-break: break-all;
+}
+
+.remove-image-btn {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.remove-image-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  transform: scale(1.1);
 }
 
 textarea {

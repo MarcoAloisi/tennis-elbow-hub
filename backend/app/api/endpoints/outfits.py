@@ -135,6 +135,85 @@ async def create_outfit(
         )
 
 
+@router.put("/{outfit_id}", response_model=OutfitResponse)
+async def update_outfit(
+    outfit_id: int,
+    title: Annotated[str, Form(...)],
+    outfit_code: Annotated[str, Form(...)],
+    category: Annotated[str, Form(...)],
+    uploader_name: Annotated[str, Form(...)],
+    current_user: Annotated[Any, Depends(get_current_user)],
+    image: Annotated[UploadFile | None, File(...)] = None,
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Update an existing outfit (Authenticated users)."""
+    
+    # 1. Get outfit from DB
+    result = await db.execute(select(Outfit).where(Outfit.id == outfit_id))
+    outfit = result.scalar_one_or_none()
+    
+    if not outfit:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Outfit not found",
+        )
+        
+    public_url = outfit.image_url
+    
+    # 2. If a new image is provided, upload it and delete the old one
+    if image is not None and image.size > 0:
+        try:
+            supabase = get_supabase()
+            
+            # Generate unique filename for new image
+            ext = image.filename.split(".")[-1] if image.filename and "." in image.filename else "png"
+            filename = f"{uuid.uuid4()}.{ext}"
+            
+            file_content = await image.read()
+            
+            # Upload new image
+            supabase.storage.from_("outfits").upload(
+                file=file_content,
+                path=filename,
+                file_options={"content-type": image.content_type or "image/png"}
+            )
+            
+            # Get new public URL
+            public_url = supabase.storage.from_("outfits").get_public_url(filename)
+            
+            # Try to delete the old image to save space
+            try:
+                old_filename = outfit.image_url.split("/")[-1]
+                supabase.storage.from_("outfits").remove([old_filename])
+            except Exception as old_img_e:
+                print(f"Warning: Failed to delete old image from Supabase: {str(old_img_e)}")
+                
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to upload new image: {str(e)}"
+            )
+            
+    # 3. Update metadata in Database
+    try:
+        outfit.title = title
+        outfit.outfit_code = outfit_code
+        outfit.category = category
+        outfit.uploader_name = uploader_name
+        outfit.image_url = public_url
+        
+        await db.commit()
+        await db.refresh(outfit)
+        return outfit
+        
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update outfit record: {str(e)}"
+        )
+
+
 @router.delete("/{outfit_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_outfit(
     outfit_id: int,

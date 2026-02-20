@@ -1,23 +1,22 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { apiUrl } from '@/config/api'
 
 export const useOutfitsStore = defineStore('outfits', () => {
     const outfits = ref([])
     const loading = ref(false)
     const error = ref(null)
 
-    // API base URL
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
-
     async function fetchOutfits(category = 'All') {
         loading.value = true
         error.value = null
         try {
-            let url = `${API_URL}/outfits`
+            let path = '/api/outfits'
             if (category && category !== 'All') {
-                url += `?category=${category}`
+                path += `?category=${category}`
             }
 
+            const url = apiUrl(path)
             const response = await fetch(url)
             if (!response.ok) {
                 throw new Error(`Error fetching outfits: ${response.statusText}`)
@@ -35,7 +34,7 @@ export const useOutfitsStore = defineStore('outfits', () => {
         loading.value = true
         error.value = null
         try {
-            const response = await fetch(`${API_URL}/outfits`, {
+            const response = await fetch(apiUrl('/api/outfits'), {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -61,9 +60,42 @@ export const useOutfitsStore = defineStore('outfits', () => {
         }
     }
 
+    async function updateOutfit(outfitId, formData, token) {
+        loading.value = true
+        error.value = null
+        try {
+            const response = await fetch(apiUrl(`/api/outfits/${outfitId}`), {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: formData
+            })
+
+            if (!response.ok) {
+                const errData = await response.json()
+                throw new Error(errData.detail || `Error updating outfit: ${response.statusText}`)
+            }
+
+            const updatedOutfit = await response.json()
+            // Find and update the outfit in the local array
+            const index = outfits.value.findIndex(o => o.id === outfitId)
+            if (index !== -1) {
+                outfits.value[index] = updatedOutfit
+            }
+            return updatedOutfit
+        } catch (err) {
+            error.value = err.message
+            console.error('Failed to update outfit:', err)
+            throw err
+        } finally {
+            loading.value = false
+        }
+    }
+
     async function deleteOutfit(outfitId, token) {
         try {
-            const response = await fetch(`${API_URL}/outfits/${outfitId}`, {
+            const response = await fetch(apiUrl(`/api/outfits/${outfitId}`), {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -88,6 +120,7 @@ export const useOutfitsStore = defineStore('outfits', () => {
         error,
         fetchOutfits,
         createOutfit,
+        updateOutfit,
         deleteOutfit
     }
 })

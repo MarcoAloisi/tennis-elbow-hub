@@ -10,6 +10,8 @@ const props = defineProps({
   }
 })
 
+const emit = defineEmits(['edit'])
+
 const authStore = useAuthStore()
 const outfitsStore = useOutfitsStore()
 const copied = ref(false)
@@ -73,6 +75,9 @@ const formattedDate = computed(() => {
       </div>
       
       <div v-if="authStore.user" class="admin-actions">
+        <button class="btn-edit" @click="emit('edit', outfit)" title="Edit Outfit">
+          ✏️ Edit
+        </button>
         <button class="btn-delete" @click="deleteOutfit" :disabled="isDeleting" title="Delete Outfit">
           <span v-if="isDeleting">🗑️...</span>
           <span v-else>🗑️ Delete</span>
@@ -245,7 +250,29 @@ const formattedDate = computed(() => {
 .admin-actions {
   display: flex;
   justify-content: flex-end;
+  gap: var(--space-2);
   margin-bottom: var(--space-3);
+}
+
+.btn-edit {
+  background: transparent;
+  color: var(--color-brand-primary);
+  border: 1px solid rgba(163, 230, 53, 0.3);
+  padding: 4px 12px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-heading);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-edit:hover {
+  background: rgba(163, 230, 53, 0.1);
+  border-color: var(--color-brand-primary);
 }
 
 .btn-delete {
