@@ -160,7 +160,7 @@ async def update_outfit(
         
     public_url = outfit.image_url
     
-    # 2. If a new image is provided, upload it and delete the old one
+    # 2. If a new image is provided, upload it (keeping the old one in storage per spec)
     if image is not None and image.size > 0:
         try:
             supabase = get_supabase()
@@ -180,13 +180,6 @@ async def update_outfit(
             
             # Get new public URL
             public_url = supabase.storage.from_("outfits").get_public_url(filename)
-            
-            # Try to delete the old image to save space
-            try:
-                old_filename = outfit.image_url.split("/")[-1]
-                supabase.storage.from_("outfits").remove([old_filename])
-            except Exception as old_img_e:
-                print(f"Warning: Failed to delete old image from Supabase: {str(old_img_e)}")
                 
         except Exception as e:
             raise HTTPException(
