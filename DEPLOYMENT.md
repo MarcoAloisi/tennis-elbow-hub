@@ -57,6 +57,9 @@ git push -u origin main
    - `APP_ENV` = `production`
    - `DEBUG` = `false`
    - `LIVE_SCORES_URL` = `your-private-url`
+   - `SUPABASE_URL` = `your-project-url`
+   - `SUPABASE_KEY` = `your-service-role-key`
+   - `SUPABASE_JWT_SECRET` = `your-jwt-secret`
 5. Click **"Create Web Service"**
 6. **Copy the URL** (e.g., `https://tennis-elbow-hub-api.onrender.com`)
 
@@ -71,6 +74,8 @@ git push -u origin main
    - **Publish Directory**: `dist`
 4. Add Environment Variables:
    - `VITE_API_URL` = `https://tennis-tracker-api.onrender.com` (your backend URL)
+   - `VITE_SUPABASE_URL` = `https://your-project.supabase.co`
+   - `VITE_SUPABASE_ANON_KEY` = `your-anon-public-key`
 5. Click **"Create Static Site"**
 
 ---
@@ -140,13 +145,19 @@ After both are deployed, update the backend's `CORS_ORIGINS`:
 |----------|-------|
 | `APP_ENV` | `production` |
 | `DEBUG` | `false` |
-| `CORS_ORIGINS` | Your frontend URL |
-| `LIVE_SCORES_URL` | Your private scores URL |
+| `CORS_ORIGINS_STR` | Your frontend URL (e.g., `https://tennis-hub.onrender.com`) |
+| `LIVE_SCORES_URL` | Your private TE4 scores URL |
+| `DATABASE_URL` | Connecting URL to your Supabase PostgreSQL DB |
+| `SUPABASE_URL` | Your Supabase Project URL |
+| `SUPABASE_KEY` | Your Supabase `service_role` Secret Key |
+| `SUPABASE_JWT_SECRET` | Your Supabase JWT Secret Key |
 
 ### Frontend:
 | Variable | Value |
 |----------|-------|
-| `VITE_API_URL` | Your backend URL |
+| `VITE_API_URL` | Your backend URL on Render |
+| `VITE_SUPABASE_URL` | Your Supabase Project URL |
+| `VITE_SUPABASE_ANON_KEY`| Your Supabase `anon` Public Key |
 
 ---
 

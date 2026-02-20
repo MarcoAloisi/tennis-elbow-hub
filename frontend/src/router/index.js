@@ -6,6 +6,8 @@ import OnlineToursView from '../views/OnlineToursView.vue'
 import GuidesView from '../views/GuidesView.vue'
 import AboutView from '../views/AboutView.vue'
 import PrivacyPolicyView from '../views/PrivacyPolicyView.vue'
+import OutfitGalleryView from '../views/OutfitGalleryView.vue'
+import LoginView from '../views/LoginView.vue'
 
 const routes = [
     {
@@ -15,6 +17,15 @@ const routes = [
         meta: {
             title: 'Home',
             description: 'Tennis Elbow Hub — the community hub for Tennis Elbow 4 players. Live scores, match analysis, online tours, and video guides.'
+        }
+    },
+    {
+        path: '/login',
+        name: 'Login',
+        component: LoginView,
+        meta: {
+            title: 'Log In',
+            description: 'Log in to your Tennis Elbow Hub account to upload and manage outfits.'
         }
     },
     {
@@ -42,6 +53,15 @@ const routes = [
         meta: {
             title: 'WTSL Tour Logs',
             description: 'Analyze WTSL tour CSV files with player rankings, statistical leaders, and complete match history.'
+        }
+    },
+    {
+        path: '/outfit-gallery',
+        name: 'OutfitGallery',
+        component: OutfitGalleryView,
+        meta: {
+            title: 'Outfit Code Gallery',
+            description: 'Browse, preview, and copy player outfits for Tennis Elbow 4.'
         }
     },
     {

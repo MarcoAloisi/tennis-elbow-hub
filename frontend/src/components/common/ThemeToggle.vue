@@ -24,17 +24,19 @@ const { theme, toggleTheme } = useTheme()
   width: 44px;
   height: 44px;
   border-radius: var(--radius-md);
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
   cursor: pointer;
   transition: all var(--transition-fast);
-  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .theme-toggle:hover {
   background: var(--color-bg-hover);
-  border-color: var(--color-border-hover);
-  transform: scale(1.05);
+  color: var(--color-text-primary);
 }
 
 .theme-toggle:active {
@@ -53,27 +55,31 @@ const { theme, toggleTheme } = useTheme()
 
 .sun, .moon {
   position: absolute;
+  top: 50%;
+  left: 50%;
   font-size: 1.25rem;
   transition: all var(--transition-base);
+  line-height: 1;
+  display: flex;
 }
 
 .sun {
   opacity: 1;
-  transform: rotate(0deg);
+  transform: translate(-50%, -50%) rotate(0deg);
 }
 
 .moon {
   opacity: 0;
-  transform: rotate(-90deg);
+  transform: translate(-50%, -50%) rotate(-90deg);
 }
 
 .theme-icon.is-dark .sun {
   opacity: 0;
-  transform: rotate(90deg);
+  transform: translate(-50%, -50%) rotate(90deg);
 }
 
 .theme-icon.is-dark .moon {
   opacity: 1;
-  transform: rotate(0deg);
+  transform: translate(-50%, -50%) rotate(0deg);
 }
 </style>

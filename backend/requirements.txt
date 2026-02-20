@@ -26,3 +26,6 @@ sqlalchemy[asyncio]>=2.0.0
 asyncpg>=0.29.0
 aiosqlite>=0.19.0
 tzdata>=2024.1  # For Windows timezone support
+
+# Supabase
+supabase>=2.3.0

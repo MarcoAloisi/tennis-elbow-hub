@@ -1,17 +1,36 @@
 <script setup>
-import { computed } from 'vue'
-import { RouterView, RouterLink, useRoute } from 'vue-router'
+import { computed, onMounted } from 'vue'
+import { RouterView, RouterLink, useRoute, useRouter } from 'vue-router'
+import { useAuthStore } from './stores/auth'
 import ThemeToggle from './components/common/ThemeToggle.vue'
 import AdSidebar from './components/common/AdSidebar.vue'
 import KofiWidget from './components/common/KofiWidget.vue'
 
 const route = useRoute()
+const router = useRouter()
+const authStore = useAuthStore()
 
-/** Hide ads on content-only pages so Google doesn't flag empty ad containers */
+onMounted(() => {
+  authStore.initAuth()
+})
+
 const showAds = computed(() => {
   const noAdRoutes = ['/', '/privacy-policy']
   return !noAdRoutes.includes(route.path)
 })
+
+const handleUpdateName = async () => {
+  const currentName = authStore.user?.user_metadata?.display_name || authStore.user?.email?.split('@')[0] || ''
+  const newName = prompt('Enter your new Display Name:', currentName)
+  if (newName !== null && newName.trim() !== '') {
+    try {
+      await authStore.updateDisplayName(newName.trim())
+      // Name updates instantly due to reactivity in Pinia
+    } catch (err) {
+      alert('Failed to update name: ' + err.message)
+    }
+  }
+}
 </script>
 
 <template>
@@ -40,6 +59,11 @@ const showAds = computed(() => {
             Online Tours
           </RouterLink>
           <div class="nav-divider"></div>
+          <RouterLink to="/outfit-gallery" class="nav-link" active-class="active">
+            <span class="nav-icon">👕</span>
+            Outfit Gallery
+          </RouterLink>
+          <div class="nav-divider"></div>
           <RouterLink to="/guides" class="nav-link" active-class="active">
             <span class="nav-icon">🎬</span>
             Guides
@@ -47,6 +71,25 @@ const showAds = computed(() => {
         </nav>
         
         <div class="header-actions">
+          <div class="nav-divider"></div>
+          
+          <div v-if="!authStore.loading" class="auth-buttons">
+            <template v-if="authStore.user">
+              <span 
+                class="user-greeting is-clickable" 
+                @click="handleUpdateName" 
+                title="Click to set your Display Name"
+              >
+                Hi, {{ authStore.user?.user_metadata?.display_name || authStore.user?.email.split('@')[0] || 'Admin' }}
+              </span>
+              <button class="btn-logout" @click="authStore.logout()" title="Log Out">
+                <span class="logout-icon">🚪</span>
+              </button>
+            </template>
+            <template v-else>
+              <button class="btn-login" @click="router.push('/login')">Log In</button>
+            </template>
+          </div>
           <ThemeToggle />
         </div>
       </div>
@@ -172,7 +215,74 @@ const showAds = computed(() => {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
+}
+
+.auth-buttons {
+  display: flex;
+  align-items: center;
+}
+
+.user-greeting {
+  font-family: var(--font-heading);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.02em;
+  transition: color var(--transition-fast);
+}
+
+.user-greeting.is-clickable {
+  cursor: pointer;
+}
+
+.user-greeting.is-clickable:hover {
+  color: var(--color-text-primary);
+  text-decoration: underline;
+}
+
+.btn-login {
+  display: flex;
+  align-items: center;
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: none;
+  padding: var(--space-3) var(--space-2);
+  border-radius: var(--radius-md);
+  font-family: var(--font-heading);
+  font-weight: var(--font-weight-medium);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.btn-login:hover {
+  color: var(--color-text-primary);
+}
+
+.btn-logout {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid transparent;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.logout-icon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.btn-logout:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
 }
 
 /* Layout Grid */

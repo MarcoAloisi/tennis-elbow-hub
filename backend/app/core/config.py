@@ -62,6 +62,11 @@ class Settings(BaseSettings):
     stats_timezone: str = "Europe/Rome"  # CEST for daily reset
     stats_checkpoint_interval: int = 300  # Save to DB every 5 minutes
 
+    # Supabase (Storage, Outfits, Auth)
+    supabase_url: str = ""
+    supabase_key: str = ""
+    supabase_jwt_secret: str = ""
+
     # WebSocket
     ws_heartbeat_interval: int = 30  # seconds
 

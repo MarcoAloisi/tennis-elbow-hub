@@ -24,6 +24,7 @@ dependencies = [
     "lxml>=5.1.0",
     "bleach>=6.1.0",
     "slowapi>=0.1.9",
+    "supabase>=2.3.0",
 ]
 
 [project.optional-dependencies]
