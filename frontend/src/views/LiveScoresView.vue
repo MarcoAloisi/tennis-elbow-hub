@@ -24,11 +24,15 @@ watch(wsData, (newData) => {
 onMounted(() => {
   store.fetchScores()
   store.fetchDailyStats()
+  store.fetchMonthlyStats()
+  store.fetchTopPlayers()
 })
 
 function handleRefresh() {
   store.fetchScores()
   store.fetchDailyStats()
+  store.fetchMonthlyStats()
+  store.fetchTopPlayers()
 }
 
 function handleFilterUpdate(newFilters) {
@@ -96,6 +100,81 @@ function formatTime(isoString) {
           {{ isConnected ? 'Online' : 'Connecting...' }}
         </div>
       </div>
+    </div>
+
+    <!-- Monthly Stats & Top Players Section -->
+    <div class="monthly-overview-section" v-if="store.monthlyStats.days_recorded > 0 || store.topPlayers.length > 0">
+      
+      <!-- Top 5 Players Card -->
+      <div class="overview-card top-players-card">
+        <div class="card-header">
+          <h3>Top most active players</h3>
+        </div>
+        <div class="card-content">
+          <table class="simple-table" v-if="store.topPlayers.length > 0">
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Player</th>
+                <th class="text-right">Matches</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(player, index) in store.topPlayers" :key="player.name">
+                <td class="rank-col">#{{ index + 1 }}</td>
+                <td class="player-col">{{ player.name }}</td>
+                <td class="matches-col text-right">{{ player.matches }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p v-else class="text-muted">No players found.</p>
+        </div>
+      </div>
+
+      <!-- Monthly Averages Card -->
+      <div class="overview-card monthly-averages-card">
+        <div class="card-header">
+          <h3>Daily Averages (This Month)</h3>
+          <span class="days-recorded">Based on {{ store.monthlyStats.days_recorded }} days</span>
+        </div>
+        <div class="card-content">
+          <table class="simple-table averages-table" v-if="store.monthlyStats.days_recorded > 0">
+            <thead>
+              <tr>
+                <th>Mod</th>
+                <th class="text-center">Total/Day</th>
+                <th class="text-center">BO1</th>
+                <th class="text-center">BO3</th>
+                <th class="text-center">BO5</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mod-name">XKT</td>
+                <td class="text-center font-bold">{{ store.monthlyStats.xkt.avg_total }}</td>
+                <td class="text-center">{{ store.monthlyStats.xkt.avg_bo1 }}</td>
+                <td class="text-center">{{ store.monthlyStats.xkt.avg_bo3 }}</td>
+                <td class="text-center">{{ store.monthlyStats.xkt.avg_bo5 }}</td>
+              </tr>
+              <tr>
+                <td class="mod-name">WTSL</td>
+                <td class="text-center font-bold">{{ store.monthlyStats.wtsl.avg_total }}</td>
+                <td class="text-center">{{ store.monthlyStats.wtsl.avg_bo1 }}</td>
+                <td class="text-center">{{ store.monthlyStats.wtsl.avg_bo3 }}</td>
+                <td class="text-center">{{ store.monthlyStats.wtsl.avg_bo5 }}</td>
+              </tr>
+              <tr>
+                <td class="mod-name">Vanilla</td>
+                <td class="text-center font-bold">{{ store.monthlyStats.vanilla.avg_total }}</td>
+                <td class="text-center">{{ store.monthlyStats.vanilla.avg_bo1 }}</td>
+                <td class="text-center">{{ store.monthlyStats.vanilla.avg_bo3 }}</td>
+                <td class="text-center">{{ store.monthlyStats.vanilla.avg_bo5 }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
 
     <!-- Filters -->
@@ -373,6 +452,92 @@ function formatTime(isoString) {
   color: var(--color-text-muted);
 }
 
+/* Monthly Overview Section */
+.monthly-overview-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-6);
+  margin-bottom: var(--space-8);
+}
+
+.overview-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.overview-card .card-header {
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.overview-card .card-header h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.days-recorded {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.overview-card .card-content {
+  padding: 0;
+  flex: 1;
+}
+
+/* Simple Table Styling */
+.simple-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.simple-table th, 
+.simple-table td {
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.9rem;
+}
+
+.simple-table th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background: rgba(0, 0, 0, 0.02);
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+}
+
+.simple-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.simple-table tbody tr:hover {
+  background: var(--color-bg-hover);
+}
+
+.text-right { text-align: right; }
+.text-center { text-align: center; }
+.text-muted { color: var(--color-text-muted); padding: var(--space-4) var(--space-5); }
+.font-bold { font-weight: 700; color: var(--color-brand-live); }
+
+.rank-col { width: 60px; color: var(--color-text-muted); font-weight: 600; }
+.player-col { font-weight: 600; color: var(--color-text-primary); }
+.matches-col { font-weight: 700; color: var(--color-brand-primary); }
+.mod-name { font-weight: 600; }
+
+
 @media (max-width: 768px) {
   .page-header {
     flex-direction: column;
@@ -414,6 +579,10 @@ function formatTime(isoString) {
   }
   
   .matches-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .monthly-overview-section {
     grid-template-columns: 1fr;
   }
 }

@@ -1,0 +1,1 @@
+from app.core.config import get_settings; print("DB URL:", get_settings().database_url)

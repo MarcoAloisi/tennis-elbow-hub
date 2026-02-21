@@ -98,6 +98,42 @@ async def get_stats_history(
     return await stats_service.get_history(days)
 
 
+@router.get(
+    "/stats/monthly",
+    summary="Get monthly stats averages",
+    description="Get daily average statistics for the current month.",
+)
+@limiter.limit("60/minute")
+async def get_monthly_stats(request: Request) -> dict:
+    """Get monthly average statistics.
+
+    Returns:
+        Average daily stats for the current month.
+    """
+    from app.services.stats_service import get_stats_service
+
+    stats_service = get_stats_service()
+    return await stats_service.get_monthly_stats_async()
+
+
+@router.get(
+    "/stats/top-players",
+    summary="Get top players this month",
+    description="Get the top 5 players with the most matches this month.",
+)
+@limiter.limit("60/minute")
+async def get_top_players(request: Request) -> list[dict]:
+    """Get top players for the current month.
+
+    Returns:
+        List of players and their match counts.
+    """
+    from app.services.stats_service import get_stats_service
+
+    stats_service = get_stats_service()
+    return await stats_service.get_top_players_async(limit=5)
+
+
 class ConnectionManager:
     """Manages WebSocket connections for live score updates."""
 

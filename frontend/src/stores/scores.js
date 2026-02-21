@@ -27,6 +27,18 @@ export const useScoresStore = defineStore('scores', () => {
         vanilla: { total: 0, bo1: 0, bo3: 0, bo5: 0 }
     })
 
+    // Monthly average stats from backend API
+    const monthlyStats = ref({
+        date_range: null,
+        days_recorded: 0,
+        xkt: { avg_total: 0, avg_bo1: 0, avg_bo3: 0, avg_bo5: 0 },
+        wtsl: { avg_total: 0, avg_bo1: 0, avg_bo3: 0, avg_bo5: 0 },
+        vanilla: { avg_total: 0, avg_bo1: 0, avg_bo3: 0, avg_bo5: 0 }
+    })
+
+    // Top players for the month
+    const topPlayers = ref([])
+
     // Getters
     const filteredServers = computed(() => {
         let result = servers.value
@@ -115,6 +127,38 @@ export const useScoresStore = defineStore('scores', () => {
         }
     }
 
+    async function fetchMonthlyStats() {
+        try {
+            const url = apiUrl('/api/scores/stats/monthly')
+            const response = await fetch(url)
+
+            if (!response.ok) {
+                throw new Error(`HTTP error ${response.status}`)
+            }
+
+            const data = await response.json()
+            monthlyStats.value = data
+        } catch (e) {
+            console.error('Failed to fetch monthly stats:', e)
+        }
+    }
+
+    async function fetchTopPlayers() {
+        try {
+            const url = apiUrl('/api/scores/stats/top-players')
+            const response = await fetch(url)
+
+            if (!response.ok) {
+                throw new Error(`HTTP error ${response.status}`)
+            }
+
+            const data = await response.json()
+            topPlayers.value = data
+        } catch (e) {
+            console.error('Failed to fetch top players:', e)
+        }
+    }
+
     function updateFromWebSocket(data) {
         if (data && data.servers) {
             servers.value = data.servers
@@ -148,6 +192,8 @@ export const useScoresStore = defineStore('scores', () => {
         lastUpdated,
         filters,
         dailyStats,
+        monthlyStats,
+        topPlayers,
         // Getters
         filteredServers,
         serverCount,
@@ -157,6 +203,8 @@ export const useScoresStore = defineStore('scores', () => {
         // Actions
         fetchScores,
         fetchDailyStats,
+        fetchMonthlyStats,
+        fetchTopPlayers,
         updateFromWebSocket,
         setFilter,
         clearFilters

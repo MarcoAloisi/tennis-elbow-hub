@@ -4,11 +4,12 @@ Tracks finished matches (5+ games) and persists daily statistics.
 Stateless implementation relying on Database for concurrency safety.
 """
 
+import re
 from datetime import date, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 
 from app.core.config import get_settings
@@ -149,13 +150,32 @@ class StatsService:
         session_factory = get_session_factory()
         async with session_factory() as session:
             try:
-                # 1. Insert into finished_matches (Atomic Guard)
+                # 1. Clean the score and validate
+                # We want to strip out intermediate game scores (e.g. ' -- 40:15' or ' -- 0:0*')
+                # Examples: '6/4 5/4 -- 40:A*' -> '6/4 5/4', '0/0 -- 0:0' -> ''
+                clean_score = server.score
+                if " -- " in clean_score:
+                    clean_score = clean_score.split(" -- ")[0].strip()
+                
+                # Check if it's an obviously unstarted or blank score (like '...' or '0/0')
+                if not clean_score or clean_score == "..." or clean_score == "0/0":
+                    logger.warning(f"Ignoring finished match {server.match_id} due to invalid score: '{server.score}'")
+                    # We still return True to mark it 'processed/ignored' so we don't keep trying,
+                    # but we don't insert it or count it. Actually returning False is better so
+                    # we don't increment the API count either. But we don't want to retry it.
+                    # Returning True essentially drops it safely since it's removed from previous_matches.
+                    return False
+                
+                # Deduce winner from clean score
+                deduced_winner = self._determine_winner(server.match_name, clean_score)
+                
+                # 2. Insert into finished_matches (Atomic Guard)
                 match_record = FinishedMatch(
                     match_id=server.match_id,
                     date=date_obj,
                     match_name=server.match_name,
-                    score=server.score,
-                    winner=None
+                    score=clean_score,
+                    winner=deduced_winner
                 )
                 session.add(match_record)
                 await session.flush() # Check constraints immediately
@@ -211,6 +231,74 @@ class StatsService:
     async def save_to_db(self) -> None:
         """No-op for stateless service compatibility."""
         pass
+
+    def _determine_winner(self, match_name: str, clean_score: str) -> str | None:
+        """Deduce the winner based on match name and score string.
+        
+        Args:
+            match_name: Format 'P1 vs P2'
+            clean_score: Format '6/4 5/4'
+            
+        Returns:
+            The winning player name, or None if indistinguishable.
+        """
+        if not clean_score or " vs " not in match_name:
+            return None
+            
+        # Parse players
+        p1, p2 = match_name.split(" vs ", 1)
+        p1 = p1.strip()
+        p2 = p2.strip()
+        
+        # Parse score
+        # e.g. "6/4 5/4" -> ["6/4", "5/4"]
+        sets = clean_score.split()
+        
+        p1_sets_won = 0
+        p2_sets_won = 0
+        p1_last_games = 0
+        p2_last_games = 0
+        
+        for s in sets:
+            if "/" not in s: 
+                continue
+            
+            parts = s.split("/")
+            
+            # Clean non-digit chars (e.g. tiebreaks like "7/6(5)" -> 7, 6)
+            g1_str = "".join(c for c in parts[0] if c.isdigit())
+            g2_str = "".join(c for c in parts[1].split("(")[0] if c.isdigit())
+            
+            if not g1_str or not g2_str:
+                continue
+                
+            try:
+                g1 = int(g1_str)
+                g2 = int(g2_str)
+                
+                if g1 > g2:
+                    p1_sets_won += 1
+                elif g2 > g1:
+                    p2_sets_won += 1
+                    
+                p1_last_games = g1
+                p2_last_games = g2
+            except ValueError:
+                continue
+                
+        # Determine winner
+        if p1_sets_won > p2_sets_won:
+            return p1
+        elif p2_sets_won > p1_sets_won:
+            return p2
+        elif p1_sets_won == p2_sets_won:
+            # If tied, verify the games of the final incomplete/played set (if they quit, who was leading?)
+            if p1_last_games > p2_last_games:
+                return p1
+            elif p2_last_games > p1_last_games:
+                return p2
+                
+        return None
 
     def get_today_stats(self) -> dict[str, Any]:
         """Legacy sync method - used by API.
@@ -289,6 +377,109 @@ class StatsService:
                 return [r.to_dict() for r in records]
         except Exception as e:
             logger.error(f"Failed to get stats history: {e}")
+            return []
+
+    async def get_monthly_stats_async(self) -> dict[str, Any]:
+        """Get average stats for the current month."""
+        today = self._get_today()
+        # First day of the current month
+        start_of_month = date(today.year, today.month, 1)
+        
+        try:
+            session_factory = get_session_factory()
+            async with session_factory() as session:
+                result = await session.execute(
+                    select(DailyStats)
+                    .where(DailyStats.stats_date >= start_of_month)
+                    .where(DailyStats.stats_date <= today)
+                )
+                records = result.scalars().all()
+                
+                if not records:
+                    return {
+                        "date_range": f"{start_of_month.isoformat()} to {today.isoformat()}",
+                        "days_recorded": 0,
+                        "xkt": {"avg_total": 0, "avg_bo1": 0, "avg_bo3": 0, "avg_bo5": 0},
+                        "wtsl": {"avg_total": 0, "avg_bo1": 0, "avg_bo3": 0, "avg_bo5": 0},
+                        "vanilla": {"avg_total": 0, "avg_bo1": 0, "avg_bo3": 0, "avg_bo5": 0},
+                    }
+                
+                days_count = len(records)
+                
+                def avg(vals: list[int]) -> int:
+                    return sum(vals) // days_count
+                    
+                return {
+                    "date_range": f"{start_of_month.isoformat()} to {today.isoformat()}",
+                    "days_recorded": days_count,
+                    "xkt": {
+                        "avg_total": avg([r.xkt_total for r in records]),
+                        "avg_bo1": avg([r.xkt_bo1 for r in records]),
+                        "avg_bo3": avg([r.xkt_bo3 for r in records]),
+                        "avg_bo5": avg([r.xkt_bo5 for r in records]),
+                    },
+                    "wtsl": {
+                        "avg_total": avg([r.wtsl_total for r in records]),
+                        "avg_bo1": avg([r.wtsl_bo1 for r in records]),
+                        "avg_bo3": avg([r.wtsl_bo3 for r in records]),
+                        "avg_bo5": avg([r.wtsl_bo5 for r in records]),
+                    },
+                    "vanilla": {
+                        "avg_total": avg([r.vanilla_total for r in records]),
+                        "avg_bo1": avg([r.vanilla_bo1 for r in records]),
+                        "avg_bo3": avg([r.vanilla_bo3 for r in records]),
+                        "avg_bo5": avg([r.vanilla_bo5 for r in records]),
+                    },
+                }
+        except Exception as e:
+            logger.error(f"Failed to fetch monthly stats: {e}")
+            return {}
+
+    async def get_top_players_async(self, limit: int = 5) -> list[dict[str, Any]]:
+        """Get the top players with most matches in the current month."""
+        today = self._get_today()
+        start_of_month = date(today.year, today.month, 1)
+        
+        try:
+            session_factory = get_session_factory()
+            async with session_factory() as session:
+                # Optimized query: only fetch match names
+                result = await session.execute(
+                    select(FinishedMatch.match_name)
+                    .where(FinishedMatch.date >= start_of_month)
+                    .where(FinishedMatch.date <= today)
+                )
+                match_names = result.scalars().all()
+                
+                # Manual parsing: match_name is typically "Player1 vs Player2"
+                from collections import Counter
+                player_counts = Counter()
+                
+                for name in match_names:
+                    if not name:
+                        continue
+                    if " vs " in name:
+                        p1, p2 = name.split(" vs ", 1)
+                        p1, p2 = p1.strip(), p2.strip()
+                        if p1 and p1 != "Unknown" and p1 != "1210967164":
+                            player_counts[p1] += 1
+                        if p2 and p2 != "Unknown" and p2 != "1210967164":
+                            player_counts[p2] += 1
+                    else:
+                        # Sometimes match_name is just "Player1" or weird string
+                        name = name.strip()
+                        if name and name != "Unknown" and name != "1210967164":
+                            player_counts[name] += 1
+                
+                top_players = player_counts.most_common(limit)
+                
+                return [
+                    {"name": name, "matches": count}
+                    for name, count in top_players
+                ]
+                
+        except Exception as e:
+            logger.error(f"Failed to fetch top players: {e}")
             return []
 
 

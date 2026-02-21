@@ -67,8 +67,8 @@ class GameInfo(BaseModel):
         """Human-readable game mode."""
         mode_names = {
             PlayerConfig.SINGLES: "Singles",
-            PlayerConfig.COMPETITIVE_DOUBLES: "Competitive Doubles",
-            PlayerConfig.COOPERATIVE_DOUBLES: "Cooperative Doubles",
+            PlayerConfig.COMPETITIVE_DOUBLES: "Comp Doubles",
+            PlayerConfig.COOPERATIVE_DOUBLES: "Coop Doubles",
         }
         return mode_names.get(self.player_config, "Unknown")
 
