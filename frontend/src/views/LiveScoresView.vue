@@ -108,7 +108,7 @@ function formatTime(isoString) {
       <!-- Top 5 Players Card -->
       <div class="overview-card top-players-card">
         <div class="card-header">
-          <h3>Top most active players</h3>
+          <h3>Top most active players (This month)</h3>
         </div>
         <div class="card-content">
           <table class="simple-table" v-if="store.topPlayers.length > 0">
@@ -171,6 +171,15 @@ function formatTime(isoString) {
                 <td class="text-center">{{ store.monthlyStats.vanilla.avg_bo5 }}</td>
               </tr>
             </tbody>
+            <tfoot>
+              <tr class="totals-row">
+                <td class="mod-name text-right" style="color: var(--color-text-secondary); text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em;">Total Avg</td>
+                <td class="text-center font-bold" style="color: var(--color-brand-primary);">{{ store.monthlyStats.xkt.avg_total + store.monthlyStats.wtsl.avg_total + store.monthlyStats.vanilla.avg_total }}</td>
+                <td class="text-center font-bold">{{ store.monthlyStats.xkt.avg_bo1 + store.monthlyStats.wtsl.avg_bo1 + store.monthlyStats.vanilla.avg_bo1 }}</td>
+                <td class="text-center font-bold">{{ store.monthlyStats.xkt.avg_bo3 + store.monthlyStats.wtsl.avg_bo3 + store.monthlyStats.vanilla.avg_bo3 }}</td>
+                <td class="text-center font-bold">{{ store.monthlyStats.xkt.avg_bo5 + store.monthlyStats.wtsl.avg_bo5 + store.monthlyStats.vanilla.avg_bo5 }}</td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>
@@ -525,6 +534,11 @@ function formatTime(isoString) {
 
 .simple-table tbody tr:hover {
   background: var(--color-bg-hover);
+}
+
+.totals-row td {
+  border-top: 2px solid var(--color-border);
+  background: rgba(0, 0, 0, 0.04);
 }
 
 .text-right { text-align: right; }
