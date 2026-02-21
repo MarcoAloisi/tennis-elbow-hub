@@ -461,14 +461,14 @@ class StatsService:
                     if " vs " in name:
                         p1, p2 = name.split(" vs ", 1)
                         p1, p2 = p1.strip(), p2.strip()
-                        if p1 and p1 != "Unknown" and p1 != "1210967164":
+                        if p1 and p1 != "Unknown" and p1 != "1210967164" and not p1.startswith("[."):
                             player_counts[p1] += 1
-                        if p2 and p2 != "Unknown" and p2 != "1210967164":
+                        if p2 and p2 != "Unknown" and p2 != "1210967164" and not p2.startswith("[."):
                             player_counts[p2] += 1
                     else:
                         # Sometimes match_name is just "Player1" or weird string
                         name = name.strip()
-                        if name and name != "Unknown" and name != "1210967164":
+                        if name and name != "Unknown" and name != "1210967164" and not name.startswith("[."):
                             player_counts[name] += 1
                 
                 top_players = player_counts.most_common(limit)
