@@ -108,7 +108,7 @@ function formatTime(isoString) {
       <!-- Top 5 Players Card -->
       <div class="overview-card top-players-card">
         <div class="card-header">
-          <h3>Top most active players (This month)</h3>
+          <h3>Most active players (This month)</h3>
         </div>
         <div class="card-content">
           <table class="simple-table" v-if="store.topPlayers.length > 0">
