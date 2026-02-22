@@ -175,7 +175,9 @@ class StatsService:
                     date=date_obj,
                     match_name=server.match_name,
                     score=clean_score,
-                    winner=deduced_winner
+                    winner=deduced_winner,
+                    p1_elo=server.elo,
+                    p2_elo=server.other_elo
                 )
                 session.add(match_record)
                 await session.flush() # Check constraints immediately
@@ -443,19 +445,25 @@ class StatsService:
         try:
             session_factory = get_session_factory()
             async with session_factory() as session:
-                # Optimized query: only fetch match names
+                # Optimized query: fetch match names, elos, and order by creation asc to find latest elo
                 result = await session.execute(
-                    select(FinishedMatch.match_name)
+                    select(FinishedMatch.match_name, FinishedMatch.p1_elo, FinishedMatch.p2_elo)
                     .where(FinishedMatch.date >= start_of_month)
                     .where(FinishedMatch.date <= today)
+                    .order_by(FinishedMatch.created_at.asc())
                 )
-                match_names = result.scalars().all()
+                match_records = result.all()
                 
                 # Manual parsing: match_name is typically "Player1 vs Player2"
                 from collections import Counter
                 player_counts = Counter()
+                player_latest_elo = {}
                 
-                for name in match_names:
+                for row in match_records:
+                    name = row.match_name
+                    p1_elo = row.p1_elo
+                    p2_elo = row.p2_elo
+                    
                     if not name:
                         continue
                     if " vs " in name:
@@ -463,18 +471,24 @@ class StatsService:
                         p1, p2 = p1.strip(), p2.strip()
                         if p1 and p1 != "Unknown" and p1 != "1210967164" and not p1.startswith("[."):
                             player_counts[p1] += 1
+                            if p1_elo is not None and p1_elo > 0:
+                                player_latest_elo[p1] = p1_elo
                         if p2 and p2 != "Unknown" and p2 != "1210967164" and not p2.startswith("[."):
                             player_counts[p2] += 1
+                            if p2_elo is not None and p2_elo > 0:
+                                player_latest_elo[p2] = p2_elo
                     else:
                         # Sometimes match_name is just "Player1" or weird string
                         name = name.strip()
                         if name and name != "Unknown" and name != "1210967164" and not name.startswith("[."):
                             player_counts[name] += 1
+                            if p1_elo is not None and p1_elo > 0:
+                                player_latest_elo[name] = p1_elo
                 
                 top_players = player_counts.most_common(limit)
                 
                 return [
-                    {"name": name, "matches": count}
+                    {"name": name, "matches": count, "latest_elo": player_latest_elo.get(name)}
                     for name, count in top_players
                 ]
                 

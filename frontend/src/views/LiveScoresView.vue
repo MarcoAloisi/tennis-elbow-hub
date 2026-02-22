@@ -116,13 +116,15 @@ function formatTime(isoString) {
               <tr>
                 <th>Rank</th>
                 <th>Player</th>
-                <th class="text-right">Matches</th>
+                <th class="text-right">ELO</th>
+                <th style="text-align: right;">Matches</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="(player, index) in store.topPlayers" :key="player.name">
                 <td class="rank-col">#{{ index + 1 }}</td>
                 <td class="player-col">{{ player.name }}</td>
+                <td class="text-right font-bold" style="color: var(--color-brand-accent);">{{ player.latest_elo || '-' }}</td>
                 <td class="matches-col text-right">{{ player.matches }}</td>
               </tr>
             </tbody>
@@ -173,7 +175,7 @@ function formatTime(isoString) {
             </tbody>
             <tfoot>
               <tr class="totals-row">
-                <td class="mod-name text-right" style="color: var(--color-text-secondary); text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em;">Total Avg</td>
+                <td class="mod-name" style="color: var(--color-text-secondary); text-transform: uppercase;">Total Avg</td>
                 <td class="text-center font-bold" style="color: var(--color-brand-primary);">{{ store.monthlyStats.xkt.avg_total + store.monthlyStats.wtsl.avg_total + store.monthlyStats.vanilla.avg_total }}</td>
                 <td class="text-center font-bold">{{ store.monthlyStats.xkt.avg_bo1 + store.monthlyStats.wtsl.avg_bo1 + store.monthlyStats.vanilla.avg_bo1 }}</td>
                 <td class="text-center font-bold">{{ store.monthlyStats.xkt.avg_bo3 + store.monthlyStats.wtsl.avg_bo3 + store.monthlyStats.vanilla.avg_bo3 }}</td>

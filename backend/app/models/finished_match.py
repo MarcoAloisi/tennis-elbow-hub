@@ -6,7 +6,7 @@ and precise counting even across server restarts.
 
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, String, func
+from sqlalchemy import Date, DateTime, String, Integer, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -25,6 +25,8 @@ class FinishedMatch(Base):
     match_name: Mapped[str] = mapped_column(String)
     winner: Mapped[str | None] = mapped_column(String, nullable=True)
     score: Mapped[str | None] = mapped_column(String, nullable=True)
+    p1_elo: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    p2_elo: Mapped[int | None] = mapped_column(Integer, nullable=True)
     
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now()
