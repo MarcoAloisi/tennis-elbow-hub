@@ -1,16 +1,17 @@
 """Outfits API endpoints."""
 
+import math
 import uuid
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Header, UploadFile, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Header, Query, UploadFile, status
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from supabase import Client, create_client
 
 from app.api.deps import get_db
 from app.core.config import get_settings
-from app.models.outfit import Outfit, OutfitResponse
+from app.models.outfit import Outfit, OutfitResponse, PaginatedOutfitResponse
 
 router = APIRouter(prefix="/outfits", tags=["Outfits"])
 
@@ -58,17 +59,60 @@ def get_current_user(authorization: Annotated[str, Header()]) -> Any:
         )
 
 
-@router.get("", response_model=list[OutfitResponse])
+@router.get("", response_model=PaginatedOutfitResponse)
 async def get_outfits(
     db: AsyncSession = Depends(get_db),
     category: str | None = None,
+    search: str | None = None,
+    uploader: str | None = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=12, ge=1, le=50),
 ) -> Any:
-    """Get all outfits, optionally filtered by category."""
-    query = select(Outfit).order_by(Outfit.created_at.desc())
-    
+    """Get outfits with search, filter, and pagination."""
+    # Build base filter conditions
+    conditions = []
     if category and category.lower() != "all":
-        query = query.where(Outfit.category.ilike(category))
-        
+        conditions.append(Outfit.category.ilike(category))
+    if search:
+        conditions.append(Outfit.title.ilike(f"%{search}%"))
+    if uploader:
+        conditions.append(Outfit.uploader_name == uploader)
+
+    # Count total matching rows
+    count_query = select(func.count(Outfit.id))
+    for cond in conditions:
+        count_query = count_query.where(cond)
+    total = (await db.execute(count_query)).scalar_one()
+
+    # Fetch the page slice
+    query = select(Outfit).order_by(Outfit.created_at.desc())
+    for cond in conditions:
+        query = query.where(cond)
+    offset = (page - 1) * page_size
+    query = query.offset(offset).limit(page_size)
+    result = await db.execute(query)
+    items = result.scalars().all()
+
+    total_pages = max(1, math.ceil(total / page_size))
+    return PaginatedOutfitResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
+    )
+
+
+@router.get("/uploaders", response_model=list[str])
+async def get_uploaders(
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Get distinct uploader names for the author filter dropdown."""
+    query = (
+        select(Outfit.uploader_name)
+        .distinct()
+        .order_by(Outfit.uploader_name)
+    )
     result = await db.execute(query)
     return result.scalars().all()
 

@@ -43,3 +43,12 @@ class OutfitResponse(OutfitBase):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class PaginatedOutfitResponse(BaseModel):
+    """Paginated response for outfit listings."""
+    items: list[OutfitResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
