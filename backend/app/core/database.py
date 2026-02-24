@@ -79,10 +79,64 @@ def get_session_factory() -> async_sessionmaker[AsyncSession]:
 
 
 async def init_db() -> None:
-    """Initialize database tables."""
+    """Initialize database tables and seed default data."""
     engine = get_engine()
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    # Auto-seed default video guides if the guides table is empty
+    await _seed_default_guides()
+
+
+async def _seed_default_guides() -> None:
+    """Insert default video guides if none exist."""
+    from sqlalchemy import func, select
+
+    from app.models.guide import Guide, _slugify
+
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        count = (await session.execute(select(func.count(Guide.id)))).scalar_one()
+        if count > 0:
+            return  # Already have guides, skip seeding
+
+        default_guides = [
+            {
+                "title": "How to Play Online (XKT)",
+                "slug": "how-to-play-online-xkt",
+                "guide_type": "video",
+                "description": "Step-by-step guide to getting started with the XKT online tour.",
+                "youtube_url": "https://www.youtube.com/watch?v=Zzoqi-ik568",
+                "thumbnail_url": "https://img.youtube.com/vi/Zzoqi-ik568/maxresdefault.jpg",
+                "tags": "XKT",
+                "author_name": "Admin",
+            },
+            {
+                "title": "How to Play Online (WTSL)",
+                "slug": "how-to-play-online-wtsl",
+                "guide_type": "video",
+                "description": "Complete guide to joining and playing in the WTSL tour.",
+                "youtube_url": "https://www.youtube.com/watch?v=9N02QlHvm54",
+                "thumbnail_url": "https://img.youtube.com/vi/9N02QlHvm54/maxresdefault.jpg",
+                "tags": "WTSL",
+                "author_name": "Admin",
+            },
+            {
+                "title": "Gameplay Basics Guide",
+                "slug": "gameplay-basics-guide",
+                "guide_type": "video",
+                "description": "Learn the fundamentals of Tennis Elbow 4 gameplay.",
+                "youtube_url": "https://www.youtube.com/watch?v=4naVHUvScC4",
+                "thumbnail_url": "https://img.youtube.com/vi/4naVHUvScC4/maxresdefault.jpg",
+                "tags": "Gameplay",
+                "author_name": "Admin",
+            },
+        ]
+
+        for data in default_guides:
+            session.add(Guide(**data))
+
+        await session.commit()
 
 
 async def close_db() -> None:
