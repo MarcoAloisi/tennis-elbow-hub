@@ -10,7 +10,7 @@ export const useOutfitsStore = defineStore('outfits', () => {
     const pagination = ref({
         total: 0,
         page: 1,
-        pageSize: 12,
+        pageSize: 9,
         totalPages: 1
     })
 

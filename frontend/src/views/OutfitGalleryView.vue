@@ -52,7 +52,7 @@ const fetchCurrentPage = () => {
     uploader: selectedUploader.value,
     category: selectedCategory.value,
     page: outfitsStore.pagination.page,
-    pageSize: 12
+    pageSize: 9
   })
 }
 
@@ -76,7 +76,7 @@ watch(searchQuery, () => {
       uploader: selectedUploader.value,
       category: selectedCategory.value,
       page: 1,
-      pageSize: 12
+      pageSize: 9
     })
   }, 300)
 })
@@ -88,7 +88,7 @@ const setCategory = (cat) => {
     uploader: selectedUploader.value,
     category: cat,
     page: 1,
-    pageSize: 12
+    pageSize: 9
   })
 }
 
@@ -98,7 +98,7 @@ const onUploaderChange = () => {
     uploader: selectedUploader.value,
     category: selectedCategory.value,
     page: 1,
-    pageSize: 12
+    pageSize: 9
   })
 }
 
@@ -109,7 +109,7 @@ const goToPage = (page) => {
     uploader: selectedUploader.value,
     category: selectedCategory.value,
     page,
-    pageSize: 12
+    pageSize: 9
   })
 }
 
