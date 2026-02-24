@@ -117,7 +117,7 @@ function formatTime(isoString) {
                 <th>Rank</th>
                 <th>Player</th>
                 <th class="text-right">ELO</th>
-                <th style="text-align: right;">Matches</th>
+                <th class="text-right">Matches</th>
               </tr>
             </thead>
             <tbody>
@@ -543,8 +543,8 @@ function formatTime(isoString) {
   background: rgba(0, 0, 0, 0.04);
 }
 
-.text-right { text-align: right; }
-.text-center { text-align: center; }
+.text-right, .simple-table th.text-right { text-align: right; }
+.text-center, .simple-table th.text-center { text-align: center; }
 .text-muted { color: var(--color-text-muted); padding: var(--space-4) var(--space-5); }
 .font-bold { font-weight: 700; color: var(--color-brand-live); }
 

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useOutfitsStore } from '@/stores/outfits'
 import { useAuthStore } from '@/stores/auth'
 import OutfitCard from '@/components/outfits/OutfitCard.vue'
@@ -10,7 +10,12 @@ const authStore = useAuthStore()
 // State
 const isUploadModalOpen = ref(false)
 const selectedCategory = ref('All')
+const searchQuery = ref('')
+const selectedUploader = ref('')
 const categories = ['All', 'Male', 'Female']
+
+// Debounce timer for search
+let searchTimer = null
 
 // Form State
 const formModel = ref({
@@ -40,31 +45,108 @@ const handleEditOutfit = (outfit) => {
   uploadError.value = ''
 }
 
+// Fetch data helper
+const fetchCurrentPage = () => {
+  outfitsStore.fetchOutfits({
+    search: searchQuery.value,
+    uploader: selectedUploader.value,
+    category: selectedCategory.value,
+    page: outfitsStore.pagination.page,
+    pageSize: 12
+  })
+}
+
 onMounted(() => {
   outfitsStore.fetchOutfits()
+  outfitsStore.fetchUploaders()
+  window.addEventListener('paste', handlePaste)
 })
 
-const filteredOutfits = computed(() => {
-  if (selectedCategory.value === 'All') return outfitsStore.outfits
-  return outfitsStore.outfits.filter(o => o.category === selectedCategory.value)
+onUnmounted(() => {
+  window.removeEventListener('paste', handlePaste)
+  if (searchTimer) clearTimeout(searchTimer)
+})
+
+// Live search with debounce
+watch(searchQuery, () => {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    outfitsStore.fetchOutfits({
+      search: searchQuery.value,
+      uploader: selectedUploader.value,
+      category: selectedCategory.value,
+      page: 1,
+      pageSize: 12
+    })
+  }, 300)
 })
 
 const setCategory = (cat) => {
   selectedCategory.value = cat
-  outfitsStore.fetchOutfits(cat)
+  outfitsStore.fetchOutfits({
+    search: searchQuery.value,
+    uploader: selectedUploader.value,
+    category: cat,
+    page: 1,
+    pageSize: 12
+  })
 }
+
+const onUploaderChange = () => {
+  outfitsStore.fetchOutfits({
+    search: searchQuery.value,
+    uploader: selectedUploader.value,
+    category: selectedCategory.value,
+    page: 1,
+    pageSize: 12
+  })
+}
+
+const goToPage = (page) => {
+  if (page < 1 || page > outfitsStore.pagination.totalPages) return
+  outfitsStore.fetchOutfits({
+    search: searchQuery.value,
+    uploader: selectedUploader.value,
+    category: selectedCategory.value,
+    page,
+    pageSize: 12
+  })
+}
+
+// Pagination display helper — shows smart page range with ellipsis
+const pageNumbers = computed(() => {
+  const total = outfitsStore.pagination.totalPages
+  const current = outfitsStore.pagination.page
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1)
+  }
+  const pages = []
+  pages.push(1)
+  if (current > 3) pages.push('...')
+  const start = Math.max(2, current - 1)
+  const end = Math.min(total - 1, current + 1)
+  for (let i = start; i <= end; i++) pages.push(i)
+  if (current < total - 2) pages.push('...')
+  pages.push(total)
+  return pages
+})
+
+const showingRange = computed(() => {
+  const { page, pageSize, total } = outfitsStore.pagination
+  const from = (page - 1) * pageSize + 1
+  const to = Math.min(page * pageSize, total)
+  return { from, to, total }
+})
 
 const handleFileChange = (e) => {
   const file = e.dataTransfer ? e.dataTransfer.files[0] : e.target.files[0]
   if (file) {
-    // Validate it's an image
     if (!file.type.startsWith('image/')) {
       uploadError.value = 'Please upload a valid image file.'
       if (fileInput.value) fileInput.value.value = ''
       dragActive.value = false
       return
     }
-    // Limit size to 5MB
     if (file.size > 5 * 1024 * 1024) {
       uploadError.value = 'File size must be less than 5MB.'
       if (fileInput.value) fileInput.value.value = ''
@@ -78,7 +160,7 @@ const handleFileChange = (e) => {
 }
 
 const removeImage = (e) => {
-  e.stopPropagation() // Prevent opening the file dialog
+  e.stopPropagation()
   formModel.value.image = null
   if (fileInput.value) {
     fileInput.value.value = ''
@@ -86,40 +168,18 @@ const removeImage = (e) => {
 }
 
 const dragActive = ref(false)
-
-const onDragOver = (e) => {
-  dragActive.value = true
-}
-
-const onDragLeave = (e) => {
-  dragActive.value = false
-}
-
-const onDrop = (e) => {
-  handleFileChange(e)
-}
+const onDragOver = () => { dragActive.value = true }
+const onDragLeave = () => { dragActive.value = false }
+const onDrop = (e) => { handleFileChange(e) }
 
 const handlePaste = (e) => {
-  // Ignore paste if they are typing in an input text/textarea
   if (e.target.tagName === 'INPUT' && e.target.type !== 'file') return
   if (e.target.tagName === 'TEXTAREA') return
-
   if (e.clipboardData && e.clipboardData.files && e.clipboardData.files.length > 0) {
     e.preventDefault()
     handleFileChange({ target: { files: e.clipboardData.files } })
   }
 }
-
-onMounted(() => {
-  outfitsStore.fetchOutfits()
-  window.addEventListener('paste', handlePaste)
-})
-
-import { onUnmounted } from 'vue'
-
-onUnmounted(() => {
-  window.removeEventListener('paste', handlePaste)
-})
 
 const submitForm = async () => {
   uploadError.value = ''
@@ -152,6 +212,8 @@ const submitForm = async () => {
     uploadSuccess.value = true
     setTimeout(() => {
       closeUploadModal()
+      // Re-fetch current page to reflect changes
+      fetchCurrentPage()
     }, 1500)
     
   } catch (err) {
@@ -171,7 +233,6 @@ const closeUploadModal = () => {
   isUploadModalOpen.value = false
   dragActive.value = false
   editingOutfitId.value = null
-  // Reset form
   formModel.value = {
     title: '',
     outfit_code: '',
@@ -215,9 +276,31 @@ const closeUploadModal = () => {
       </div>
     </div>
 
+    <!-- Search & Author Filter Bar -->
+    <div class="search-filter-bar">
+      <div class="search-input-wrapper">
+        <span class="search-icon">🔍</span>
+        <input 
+          type="text" 
+          v-model="searchQuery" 
+          placeholder="Search outfits by name..." 
+          class="search-input"
+        />
+        <button v-if="searchQuery" class="clear-btn" @click="searchQuery = ''" title="Clear search">✕</button>
+      </div>
+      <div class="uploader-filter-wrapper">
+        <select v-model="selectedUploader" @change="onUploaderChange" class="uploader-select">
+          <option value="">All Authors</option>
+          <option v-for="name in outfitsStore.uploaders" :key="name" :value="name">
+            {{ name }}
+          </option>
+        </select>
+      </div>
+    </div>
+
     <!-- Gallery Grid -->
-    <div class="gallery-grid" v-if="filteredOutfits.length > 0">
-      <div v-for="outfit in filteredOutfits" :key="outfit.id" class="grid-item">
+    <div class="gallery-grid" v-if="outfitsStore.outfits.length > 0">
+      <div v-for="outfit in outfitsStore.outfits" :key="outfit.id" class="grid-item">
         <OutfitCard :outfit="outfit" @edit="handleEditOutfit" />
       </div>
     </div>
@@ -228,7 +311,44 @@ const closeUploadModal = () => {
       <div v-else class="no-results">
         <div class="icon">👕</div>
         <h3>No outfits found</h3>
-        <p>There are currently no outfits uploaded for this category.</p>
+        <p v-if="searchQuery || selectedUploader">Try adjusting your search or filters.</p>
+        <p v-else>There are currently no outfits uploaded for this category.</p>
+      </div>
+    </div>
+
+    <!-- Pagination -->
+    <div v-if="outfitsStore.pagination.totalPages > 1" class="pagination-container">
+      <span class="pagination-info">
+        Showing {{ showingRange.from }}–{{ showingRange.to }} of {{ showingRange.total }}
+      </span>
+      <div class="pagination-controls">
+        <button 
+          class="page-btn nav-btn" 
+          :disabled="outfitsStore.pagination.page <= 1"
+          @click="goToPage(outfitsStore.pagination.page - 1)"
+          title="Previous page"
+        >
+          ‹
+        </button>
+        <template v-for="(p, idx) in pageNumbers" :key="idx">
+          <span v-if="p === '...'" class="page-ellipsis">…</span>
+          <button 
+            v-else 
+            class="page-btn"
+            :class="{ active: p === outfitsStore.pagination.page }"
+            @click="goToPage(p)"
+          >
+            {{ p }}
+          </button>
+        </template>
+        <button 
+          class="page-btn nav-btn" 
+          :disabled="outfitsStore.pagination.page >= outfitsStore.pagination.totalPages"
+          @click="goToPage(outfitsStore.pagination.page + 1)"
+          title="Next page"
+        >
+          ›
+        </button>
       </div>
     </div>
 
@@ -364,7 +484,7 @@ const closeUploadModal = () => {
 .filters-container {
   display: flex;
   justify-content: center;
-  margin-bottom: var(--space-8);
+  margin-bottom: var(--space-4);
 }
 
 .category-tabs {
@@ -395,6 +515,99 @@ const closeUploadModal = () => {
 
 .tab-btn:hover:not(.active) {
   color: var(--color-text-primary);
+}
+
+/* Search & Filter Bar */
+.search-filter-bar {
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+  align-items: stretch;
+}
+
+.search-input-wrapper {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 14px;
+  font-size: var(--font-size-base);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.search-input {
+  width: 100%;
+  padding: 10px 36px 10px 40px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  font-size: var(--font-size-base);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--color-brand-primary);
+  box-shadow: 0 0 0 3px rgba(163, 230, 53, 0.15);
+}
+
+.search-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.clear-btn {
+  position: absolute;
+  right: 10px;
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  transition: all 0.15s ease;
+}
+
+.clear-btn:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+}
+
+.uploader-filter-wrapper {
+  flex-shrink: 0;
+  min-width: 180px;
+}
+
+.uploader-select {
+  width: 100%;
+  height: 100%;
+  padding: 10px 12px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  font-size: var(--font-size-base);
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239ca3af' d='M3 4.5L6 7.5L9 4.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+}
+
+.uploader-select:focus {
+  outline: none;
+  border-color: var(--color-brand-primary);
+  box-shadow: 0 0 0 3px rgba(163, 230, 53, 0.15);
 }
 
 /* Grid */
@@ -429,6 +642,80 @@ const closeUploadModal = () => {
 .no-results h3 {
   color: var(--color-text-primary);
   margin-bottom: var(--space-2);
+}
+
+/* Pagination */
+.pagination-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-8);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--color-border);
+}
+
+.pagination-info {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  font-family: var(--font-body);
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.page-btn {
+  min-width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-family: var(--font-heading);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.page-btn:hover:not(:disabled):not(.active) {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-brand-primary);
+}
+
+.page-btn.active {
+  background: var(--color-brand-primary);
+  color: var(--color-text-inverse);
+  border-color: var(--color-brand-primary);
+  box-shadow: 0 2px 8px rgba(163, 230, 53, 0.3);
+}
+
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.nav-btn {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+}
+
+.page-ellipsis {
+  min-width: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  user-select: none;
 }
 
 /* Modal */
@@ -549,20 +836,20 @@ input:focus, select:focus, textarea:focus {
 
 .drop-zone:hover, .drop-zone.is-dragover {
   border-color: var(--color-brand-primary);
-  background: rgba(163, 230, 53, 0.05); /* very light neon tint */
+  background: rgba(163, 230, 53, 0.05);
 }
 
 .drop-zone-content {
   text-align: center;
   color: var(--color-text-secondary);
-  pointer-events: none; /* Let clicks pass through to to the drop-zone */
+  pointer-events: none;
 }
 
 .file-name-container {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  pointer-events: auto; /* Allow clicking the remove button */
+  pointer-events: auto;
 }
 
 .file-name {
@@ -600,17 +887,6 @@ textarea {
 .hint {
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
-}
-
-.highlight-box {
-  background: rgba(239, 68, 68, 0.05); /* subtle red tint */
-  border: 1px dashed rgba(239, 68, 68, 0.3);
-  padding: var(--space-3);
-  border-radius: var(--radius-md);
-}
-
-.highlight-box label {
-  color: #ef4444; /* red-500 */
 }
 
 /* Alerts */
@@ -690,9 +966,19 @@ textarea {
 }
 
 @media (max-width: 640px) {
+  .search-filter-bar {
+    flex-direction: column;
+  }
+  .uploader-filter-wrapper {
+    min-width: unset;
+  }
   .form-row {
     flex-direction: column;
     gap: var(--space-4);
+  }
+  .pagination-controls {
+    flex-wrap: wrap;
+    justify-content: center;
   }
 }
 </style>

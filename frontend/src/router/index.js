@@ -104,6 +104,15 @@ const routes = [
         }
     },
     {
+        path: '/guides/:slug',
+        name: 'GuideDetail',
+        component: () => import('../views/GuideDetailView.vue'),
+        meta: {
+            title: 'Guide',
+            description: 'Read guide on Tennis Elbow Hub.'
+        }
+    },
+    {
         path: '/privacy-policy',
         name: 'PrivacyPolicy',
         component: PrivacyPolicyView,
