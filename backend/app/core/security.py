@@ -234,7 +234,44 @@ async def validate_image_upload(file: UploadFile, max_size_mb: int = 5) -> bytes
             )
         chunks.append(chunk)
 
-    return b"".join(chunks)
+    content = b"".join(chunks)
+
+    # Validate magic bytes to ensure file is a real image
+    if not _has_valid_image_magic_bytes(content):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File content does not match a valid image format.",
+        )
+
+    return content
+
+
+def _has_valid_image_magic_bytes(data: bytes) -> bool:
+    """Check if file content starts with known image magic bytes.
+
+    Args:
+        data: Raw file bytes.
+
+    Returns:
+        True if the file signature matches a known image format.
+    """
+    if len(data) < 12:
+        return False
+
+    # PNG: \x89PNG\r\n\x1a\n
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return True
+    # JPEG: \xff\xd8\xff
+    if data[:3] == b"\xff\xd8\xff":
+        return True
+    # GIF: GIF87a or GIF89a
+    if data[:6] in (b"GIF87a", b"GIF89a"):
+        return True
+    # WebP: RIFF....WEBP
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return True
+
+    return False
 
 
 def get_security_headers() -> dict[str, str]:
@@ -248,17 +285,17 @@ def get_security_headers() -> dict[str, str]:
     csp_directives = [
         "default-src 'self'",
         # Scripts: GTM, Analytics, AdSense, Tag Assistant
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://tagmanager.google.com https://www.google-analytics.com https://ssl.google-analytics.com https://pagead2.googlesyndication.com https://tagassistant.google.com",
+        "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://tagmanager.google.com https://www.google-analytics.com https://ssl.google-analytics.com https://pagead2.googlesyndication.com https://tagassistant.google.com https://fundingchoicesmessages.google.com",
         # Styles: Fonts, GTM
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://tagmanager.google.com",
-        # Images: GTM, Analytics, AdSense
-        "img-src 'self' data: https://www.googletagmanager.com https://ssl.gstatic.com https://www.google-analytics.com https://pagead2.googlesyndication.com https://img.youtube.com",
+        # Images: GTM, Analytics, AdSense, Google Ads
+        "img-src 'self' data: https://www.googletagmanager.com https://ssl.gstatic.com https://www.google-analytics.com https://pagead2.googlesyndication.com https://img.youtube.com https://www.google.com",
         # Fonts: Google Fonts
         "font-src 'self' data: https://fonts.gstatic.com",
-        # Connect: Analytics, GTM, Tag Assistant
-        "connect-src 'self' https://www.google-analytics.com https://www.googletagmanager.com https://tagassistant.google.com https://stats.g.doubleclick.net",
+        # Connect: Analytics, GTM, Tag Assistant, Google Ads
+        "connect-src 'self' https://www.google-analytics.com https://www.googletagmanager.com https://tagassistant.google.com https://stats.g.doubleclick.net https://www.google.com https://fundingchoicesmessages.google.com",
         # Frames: GTM (noscript), AdSense
-        "frame-src 'self' https://www.googletagmanager.com https://googleads.g.doubleclick.net https://tpc.googlesyndication.com https://www.youtube.com",
+        "frame-src 'self' https://www.googletagmanager.com https://googleads.g.doubleclick.net https://tpc.googlesyndication.com https://fundingchoicesmessages.google.com https://www.youtube.com",
         # Security Hardening
         "frame-ancestors 'none'",  # Prevent clickjacking
         "object-src 'none'",       # Block Flash/Java
@@ -268,7 +305,6 @@ def get_security_headers() -> dict[str, str]:
     return {
         "X-Content-Type-Options": "nosniff",
         "X-Frame-Options": "DENY",
-        "X-XSS-Protection": "1; mode=block",
         "Referrer-Policy": "strict-origin-when-cross-origin",
         "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
         "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",

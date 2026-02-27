@@ -5,7 +5,7 @@ import smtplib
 from email.mime.text import MIMEText
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.core.config import get_settings
 from app.core.limiter import limiter
@@ -20,6 +20,12 @@ class ContactRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     discord: str = Field(..., min_length=2, max_length=100)
     message: str = Field(..., min_length=10, max_length=2000)
+
+    @field_validator("name", "discord")
+    @classmethod
+    def no_newlines(cls, v: str) -> str:
+        """Strip newline characters to prevent email header injection."""
+        return v.replace("\r", "").replace("\n", "")
 
 
 @router.post("/send")

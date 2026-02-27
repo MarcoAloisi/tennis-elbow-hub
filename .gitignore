@@ -65,3 +65,9 @@ Thumbs.db
 
 # Uploads (local development)
 uploads/
+
+# SQLite databases
+stats.db
+
+# Agent
+.agent/
