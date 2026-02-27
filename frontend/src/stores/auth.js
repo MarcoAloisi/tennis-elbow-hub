@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { supabase } from '@/config/supabase'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -7,6 +7,9 @@ export const useAuthStore = defineStore('auth', () => {
     const session = ref(null)
     const loading = ref(true)
     const error = ref(null)
+
+    // Role-based access: check app_metadata.role (tamper-proof, set server-side only)
+    const isAdmin = computed(() => user.value?.app_metadata?.role === 'admin')
 
     // Initialize Auth state from Supabase
     const initAuth = async () => {
@@ -120,6 +123,7 @@ export const useAuthStore = defineStore('auth', () => {
         session,
         loading,
         error,
+        isAdmin,
         initAuth,
         register,
         login,

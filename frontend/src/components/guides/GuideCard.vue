@@ -82,7 +82,7 @@ function openGuide() {
     </div>
 
     <!-- Admin Actions -->
-    <div v-if="authStore.user" class="admin-actions" @click.stop>
+    <div v-if="authStore.isAdmin" class="admin-actions" @click.stop>
       <button class="action-btn edit-btn" @click="emit('edit', guide)" title="Edit guide">
         ✏️
       </button>

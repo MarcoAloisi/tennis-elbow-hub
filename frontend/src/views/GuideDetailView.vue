@@ -1,5 +1,6 @@
 <script setup>
 import { onMounted, computed, ref } from 'vue'
+import DOMPurify from 'dompurify'
 import { useRoute, useRouter } from 'vue-router'
 import { useGuidesStore } from '@/stores/guides'
 
@@ -40,6 +41,10 @@ const formattedDate = computed(() => {
     month: 'long',
     day: 'numeric'
   })
+})
+
+const sanitizedContent = computed(() => {
+  return DOMPurify.sanitize(guide.value?.content || '')
 })
 
 function goBack() {
@@ -119,7 +124,7 @@ function playVideo() {
       </header>
 
       <!-- Written content -->
-      <div v-if="!isVideo && guide.content" class="article-body" v-html="guide.content"></div>
+      <div v-if="!isVideo && guide.content" class="article-body" v-html="sanitizedContent"></div>
     </article>
   </div>
 </template>

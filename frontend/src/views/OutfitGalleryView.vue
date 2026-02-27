@@ -256,7 +256,7 @@ const closeUploadModal = () => {
       </div>
       
       <!-- Upload Button (Only for logged-in users) -->
-      <button v-if="authStore.user" class="btn-primary" @click="openUploadModal">
+      <button v-if="authStore.isAdmin" class="btn-primary" @click="openUploadModal">
         <span class="icon">➕</span> Upload Outfit
       </button>
     </header>
