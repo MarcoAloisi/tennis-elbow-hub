@@ -25,6 +25,94 @@
   <!-- Google AdSense Verification -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7154517961345659"
     crossorigin="anonymous"></script>
+
+  <!-- JSON-LD Structured Data: WebSite -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Tennis Elbow Hub",
+    "alternateName": "TE4 Hub",
+    "url": "https://tenniselbowhub.live",
+    "description": "The community hub for Tennis Elbow 4 players. Live scores, match analysis, online tours, and video guides.",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": "https://tenniselbowhub.live/live?q={search_term_string}",
+      "query-input": "required name=search_term_string"
+    }
+  }
+  </script>
+
+  <!-- JSON-LD Structured Data: Organization -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Tennis Elbow Hub",
+    "url": "https://tenniselbowhub.live",
+    "logo": "https://tenniselbowhub.live/logo_fav.svg",
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "email": "contact@tenniselbowhub.live",
+      "contactType": "customer support",
+      "url": "https://discord.com/invite/PY7hZXZcF6"
+    },
+    "sameAs": [
+      "https://discord.com/invite/PY7hZXZcF6"
+    ]
+  }
+  </script>
+
+  <!-- JSON-LD Structured Data: FAQPage -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "How does the Live Scores feature work?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Tennis Elbow Hub connects to the Tennis Elbow 4 server list and fetches match data in real time. When players create online matches, they appear on our scoreboard with live score updates, player ELO ratings, surface information, and match duration. The data refreshes every few seconds via WebSocket, so you always see the latest state."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How do I upload a match log for analysis?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "After playing online matches in Tennis Elbow 4, the game generates HTML match log files. Go to the Match Log Analysis tab, click the upload area, and select your match log file. The system will parse it and display detailed statistics including radar charts, win rates, and performance metrics for each match."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "What are the XKT and WTSL tours?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "XKT and WTSL are community-organized competitive tours for Tennis Elbow 4 online players. They feature scheduled tournaments, seasonal rankings, and structured competition. Visit the Online Tours tab to learn more about each tour's rules, schedules, and how to join."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Is Tennis Elbow Hub free to use?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes! Tennis Elbow Hub is completely free. All features — live scores, match analysis, tour information, and guides — are available to everyone. If you enjoy the site, you can support its development through the Ko-fi donation button."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Does Tennis Elbow Hub store my data?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Tennis Elbow Hub does not create user accounts or permanently store uploaded match logs. Your analysis data is processed in the browser session and is not saved on our servers after the session ends. We use Google Analytics for anonymous usage statistics."
+        }
+      }
+    ]
+  }
+  </script>
+
   <title>Tennis Elbow Hub</title>
 </head>
 

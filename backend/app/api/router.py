@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from app.api.endpoints import guides, live_scores, match_analysis, outfits, tour_logs
+from app.api.endpoints import contact, guides, live_scores, match_analysis, outfits, tour_logs
 
 # Create the main API router
 api_router = APIRouter(prefix="/api")
@@ -13,5 +13,6 @@ api_router.include_router(match_analysis.router)
 api_router.include_router(tour_logs.router)
 api_router.include_router(outfits.router)
 api_router.include_router(guides.router)
+api_router.include_router(contact.router)
 
 
