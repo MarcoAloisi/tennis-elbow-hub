@@ -4,59 +4,23 @@ import math
 import uuid
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Header, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from supabase import Client, create_client
 
-from app.api.deps import get_db
+from app.api.deps import get_db, get_supabase, require_admin
 from app.core.config import get_settings
+from app.core.logging import get_logger
+from app.core.security import validate_image_upload
 from app.models.outfit import Outfit, OutfitResponse, PaginatedOutfitResponse
 
+logger = get_logger("api.outfits")
 router = APIRouter(prefix="/outfits", tags=["Outfits"])
 
-# Initialize Supabase client lazily
-_supabase: Client | None = None
 
-
-def get_supabase() -> Client:
-    """Get or initialize Supabase client."""
-    global _supabase
-    if _supabase is None:
-        settings = get_settings()
-        if not settings.supabase_url or not settings.supabase_key:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Supabase configuration is missing",
-            )
-        _supabase = create_client(settings.supabase_url, settings.supabase_key)
-    return _supabase
-
-
-def get_current_user(authorization: Annotated[str, Header()]) -> Any:
-    """Verify the JWT token and return the Supabase user."""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing or invalid Authorization header",
-        )
-    
-    token = authorization.split(" ")[1]
-    supabase = get_supabase()
-    
-    try:
-        user_response = supabase.auth.get_user(token)
-        if not user_response or not user_response.user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid or expired token",
-            )
-        return user_response.user
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Authentication failed: {str(e)}",
-        )
+def _escape_like(value: str) -> str:
+    """Escape special LIKE/ILIKE pattern characters."""
+    return value.replace("%", r"\%").replace("_", r"\_")
 
 
 @router.get("", response_model=PaginatedOutfitResponse)
@@ -74,7 +38,7 @@ async def get_outfits(
     if category and category.lower() != "all":
         conditions.append(Outfit.category.ilike(category))
     if search:
-        conditions.append(Outfit.title.ilike(f"%{search}%"))
+        conditions.append(Outfit.title.ilike(f"%{_escape_like(search)}%"))
     if uploader:
         conditions.append(Outfit.uploader_name == uploader)
 
@@ -124,21 +88,19 @@ async def create_outfit(
     category: Annotated[str, Form(...)],
     uploader_name: Annotated[str, Form(...)],
     image: Annotated[UploadFile, File(...)],
-    current_user: Annotated[Any, Depends(get_current_user)],
+    current_user: Annotated[Any, Depends(require_admin)],
     db: AsyncSession = Depends(get_db),
 ) -> Any:
-    """Create a new outfit code (Authenticated users)."""
+    """Create a new outfit code (Admin only)."""
     
-    # 1. Upload image to Supabase Storage
+    # 1. Validate & upload image to Supabase Storage
     try:
+        file_content = await validate_image_upload(image)
         supabase = get_supabase()
         
         # Generate unique filename
         ext = image.filename.split(".")[-1] if image.filename and "." in image.filename else "png"
         filename = f"{uuid.uuid4()}.{ext}"
-        
-        # Read file content
-        file_content = await image.read()
         
         # Upload
         res = supabase.storage.from_("outfits").upload(
@@ -150,10 +112,13 @@ async def create_outfit(
         # Get public URL
         public_url = supabase.storage.from_("outfits").get_public_url(filename)
         
-    except Exception as e:
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Failed to upload outfit image")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to upload image: {str(e)}"
+            detail="Failed to upload image. Please try again.",
         )
         
     # 2. Save metadata to Database
@@ -170,12 +135,12 @@ async def create_outfit(
         await db.refresh(db_outfit)
         return db_outfit
         
-    except Exception as e:
-        # Note: In a robust system, we would attempt to rollback/delete the image from Supabase here
+    except Exception:
         await db.rollback()
+        logger.exception("Failed to save outfit record")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to save outfit record: {str(e)}"
+            detail="Failed to save outfit. Please try again.",
         )
 
 
@@ -186,11 +151,11 @@ async def update_outfit(
     outfit_code: Annotated[str, Form(...)],
     category: Annotated[str, Form(...)],
     uploader_name: Annotated[str, Form(...)],
-    current_user: Annotated[Any, Depends(get_current_user)],
+    current_user: Annotated[Any, Depends(require_admin)],
     image: Annotated[UploadFile | None, File(...)] = None,
     db: AsyncSession = Depends(get_db),
 ) -> Any:
-    """Update an existing outfit (Authenticated users)."""
+    """Update an existing outfit (Admin only)."""
     
     # 1. Get outfit from DB
     result = await db.execute(select(Outfit).where(Outfit.id == outfit_id))
@@ -204,31 +169,30 @@ async def update_outfit(
         
     public_url = outfit.image_url
     
-    # 2. If a new image is provided, upload it (keeping the old one in storage per spec)
-    if image is not None and image.size > 0:
+    # 2. If a new image is provided, validate & upload it
+    if image is not None and image.size and image.size > 0:
         try:
+            file_content = await validate_image_upload(image)
             supabase = get_supabase()
             
-            # Generate unique filename for new image
             ext = image.filename.split(".")[-1] if image.filename and "." in image.filename else "png"
             filename = f"{uuid.uuid4()}.{ext}"
             
-            file_content = await image.read()
-            
-            # Upload new image
             supabase.storage.from_("outfits").upload(
                 file=file_content,
                 path=filename,
                 file_options={"content-type": image.content_type or "image/png"}
             )
             
-            # Get new public URL
             public_url = supabase.storage.from_("outfits").get_public_url(filename)
                 
-        except Exception as e:
+        except HTTPException:
+            raise
+        except Exception:
+            logger.exception("Failed to upload new outfit image")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to upload new image: {str(e)}"
+                detail="Failed to upload image. Please try again.",
             )
             
     # 3. Update metadata in Database
@@ -243,21 +207,22 @@ async def update_outfit(
         await db.refresh(outfit)
         return outfit
         
-    except Exception as e:
+    except Exception:
         await db.rollback()
+        logger.exception("Failed to update outfit record")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update outfit record: {str(e)}"
+            detail="Failed to update outfit. Please try again.",
         )
 
 
 @router.delete("/{outfit_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_outfit(
     outfit_id: int,
-    current_user: Annotated[Any, Depends(get_current_user)],
+    current_user: Annotated[Any, Depends(require_admin)],
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    """Delete an outfit (Authenticated users)."""
+    """Delete an outfit (Admin only)."""
     
     # Get outfit from DB
     result = await db.execute(select(Outfit).where(Outfit.id == outfit_id))
@@ -272,13 +237,10 @@ async def delete_outfit(
     # Delete image from Supabase Storage
     try:
         supabase = get_supabase()
-        # Extract filename from URL
-        # e.g., https://xyz.supabase.co/storage/v1/object/public/outfits/uuid.png -> uuid.png
         filename = outfit.image_url.split("/")[-1]
         supabase.storage.from_("outfits").remove([filename])
-    except Exception as e:
-        # We'll log the error but still proceed with deleting the DB record
-        print(f"Warning: Failed to delete image from Supabase: {str(e)}")
+    except Exception:
+        logger.warning("Failed to delete outfit image from Supabase storage", exc_info=True)
         
     # Delete DB record
     await db.delete(outfit)

@@ -4,10 +4,11 @@ import logging
 import smtplib
 from email.mime.text import MIMEText
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.core.config import get_settings
+from app.core.limiter import limiter
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/contact", tags=["contact"])
@@ -22,7 +23,8 @@ class ContactRequest(BaseModel):
 
 
 @router.post("/send")
-async def send_contact_message(payload: ContactRequest) -> dict[str, str]:
+@limiter.limit("3/minute")
+async def send_contact_message(request: Request, payload: ContactRequest) -> dict[str, str]:
     """Receive a contact form submission and forward it via email."""
     settings = get_settings()
     recipient = settings.contact_email

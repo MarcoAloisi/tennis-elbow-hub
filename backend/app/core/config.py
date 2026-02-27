@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     # Application
     app_name: str = "Tennis Elbow Hub"
     app_env: str = "development"
-    debug: bool = True
+    debug: bool = False
 
     # API Server
     api_host: str = "0.0.0.0"

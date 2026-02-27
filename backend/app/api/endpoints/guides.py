@@ -1,6 +1,7 @@
 """Guides API endpoints."""
 
 import math
+import re
 import uuid
 from typing import Annotated, Any
 
@@ -10,17 +11,17 @@ from fastapi import (
     File,
     Form,
     HTTPException,
-    Header,
     Query,
     UploadFile,
     status,
 )
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from supabase import Client, create_client
 
-from app.api.deps import get_db
+from app.api.deps import get_db, get_supabase, require_admin
 from app.core.config import get_settings
+from app.core.logging import get_logger
+from app.core.security import validate_image_upload
 from app.models.guide import (
     Guide,
     GuideListItem,
@@ -29,52 +30,15 @@ from app.models.guide import (
     _slugify,
 )
 
+logger = get_logger("api.guides")
 router = APIRouter(prefix="/guides", tags=["Guides"])
-
-# Initialize Supabase client lazily
-_supabase: Client | None = None
 
 BUCKET_NAME = "guide-thumbnails"
 
 
-def get_supabase() -> Client:
-    """Get or initialize Supabase client."""
-    global _supabase
-    if _supabase is None:
-        settings = get_settings()
-        if not settings.supabase_url or not settings.supabase_key:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Supabase configuration is missing",
-            )
-        _supabase = create_client(settings.supabase_url, settings.supabase_key)
-    return _supabase
-
-
-def get_current_user(authorization: Annotated[str, Header()]) -> Any:
-    """Verify the JWT token and return the Supabase user."""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing or invalid Authorization header",
-        )
-
-    token = authorization.split(" ")[1]
-    supabase = get_supabase()
-
-    try:
-        user_response = supabase.auth.get_user(token)
-        if not user_response or not user_response.user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid or expired token",
-            )
-        return user_response.user
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Authentication failed: {str(e)}",
-        )
+def _escape_like(value: str) -> str:
+    """Escape special LIKE/ILIKE pattern characters."""
+    return value.replace("%", r"\%").replace("_", r"\_")
 
 
 async def _generate_unique_slug(db: AsyncSession, title: str, exclude_id: int | None = None) -> str:
@@ -110,11 +74,11 @@ async def get_guides(
     conditions = []
 
     if tag and tag.lower() != "all":
-        conditions.append(Guide.tags.ilike(f"%{tag}%"))
+        conditions.append(Guide.tags.ilike(f"%{_escape_like(tag)}%"))
     if guide_type:
         conditions.append(Guide.guide_type == guide_type)
     if search:
-        conditions.append(Guide.title.ilike(f"%{search}%"))
+        conditions.append(Guide.title.ilike(f"%{_escape_like(search)}%"))
 
     # Total count
     count_query = select(func.count(Guide.id))
@@ -186,7 +150,7 @@ async def create_guide(
     title: Annotated[str, Form(...)],
     guide_type: Annotated[str, Form(...)],
     author_name: Annotated[str, Form(...)],
-    current_user: Annotated[Any, Depends(get_current_user)],
+    current_user: Annotated[Any, Depends(require_admin)],
     description: str = Form(default=""),
     tags: str = Form(default=""),
     content: str = Form(default=""),
@@ -194,16 +158,16 @@ async def create_guide(
     thumbnail: UploadFile | None = File(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
-    """Create a new guide (authenticated users)."""
+    """Create a new guide (Admin only)."""
     thumbnail_url: str | None = None
 
     # Upload thumbnail to Supabase Storage if provided
     if thumbnail is not None and thumbnail.size and thumbnail.size > 0:
         try:
+            file_content = await validate_image_upload(thumbnail)
             supabase = get_supabase()
             ext = thumbnail.filename.split(".")[-1] if thumbnail.filename and "." in thumbnail.filename else "png"
             filename = f"{uuid.uuid4()}.{ext}"
-            file_content = await thumbnail.read()
 
             supabase.storage.from_(BUCKET_NAME).upload(
                 file=file_content,
@@ -211,10 +175,13 @@ async def create_guide(
                 file_options={"content-type": thumbnail.content_type or "image/png"},
             )
             thumbnail_url = supabase.storage.from_(BUCKET_NAME).get_public_url(filename)
-        except Exception as e:
+        except HTTPException:
+            raise
+        except Exception:
+            logger.exception("Failed to upload guide thumbnail")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to upload thumbnail: {str(e)}",
+                detail="Failed to upload thumbnail. Please try again.",
             )
 
     # For video guides without a custom thumbnail, auto-generate from YouTube
@@ -241,11 +208,12 @@ async def create_guide(
         await db.commit()
         await db.refresh(db_guide)
         return db_guide
-    except Exception as e:
+    except Exception:
         await db.rollback()
+        logger.exception("Failed to save guide")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to save guide: {str(e)}",
+            detail="Failed to save guide. Please try again.",
         )
 
 
@@ -255,7 +223,7 @@ async def update_guide(
     title: Annotated[str, Form(...)],
     guide_type: Annotated[str, Form(...)],
     author_name: Annotated[str, Form(...)],
-    current_user: Annotated[Any, Depends(get_current_user)],
+    current_user: Annotated[Any, Depends(require_admin)],
     description: str = Form(default=""),
     tags: str = Form(default=""),
     content: str = Form(default=""),
@@ -263,7 +231,7 @@ async def update_guide(
     thumbnail: UploadFile | None = File(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
-    """Update an existing guide (authenticated users)."""
+    """Update an existing guide (Admin only)."""
     result = await db.execute(select(Guide).where(Guide.id == guide_id))
     guide = result.scalar_one_or_none()
 
@@ -277,10 +245,10 @@ async def update_guide(
     new_thumbnail_url = guide.thumbnail_url
     if thumbnail is not None and thumbnail.size and thumbnail.size > 0:
         try:
+            file_content = await validate_image_upload(thumbnail)
             supabase = get_supabase()
             ext = thumbnail.filename.split(".")[-1] if thumbnail.filename and "." in thumbnail.filename else "png"
             filename = f"{uuid.uuid4()}.{ext}"
-            file_content = await thumbnail.read()
 
             supabase.storage.from_(BUCKET_NAME).upload(
                 file=file_content,
@@ -288,10 +256,13 @@ async def update_guide(
                 file_options={"content-type": thumbnail.content_type or "image/png"},
             )
             new_thumbnail_url = supabase.storage.from_(BUCKET_NAME).get_public_url(filename)
-        except Exception as e:
+        except HTTPException:
+            raise
+        except Exception:
+            logger.exception("Failed to upload new guide thumbnail")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to upload new thumbnail: {str(e)}",
+                detail="Failed to upload thumbnail. Please try again.",
             )
 
     # Regenerate slug if title changed
@@ -313,21 +284,22 @@ async def update_guide(
         await db.commit()
         await db.refresh(guide)
         return guide
-    except Exception as e:
+    except Exception:
         await db.rollback()
+        logger.exception("Failed to update guide")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update guide: {str(e)}",
+            detail="Failed to update guide. Please try again.",
         )
 
 
 @router.delete("/{guide_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_guide(
     guide_id: int,
-    current_user: Annotated[Any, Depends(get_current_user)],
+    current_user: Annotated[Any, Depends(require_admin)],
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    """Delete a guide (authenticated users)."""
+    """Delete a guide (Admin only)."""
     result = await db.execute(select(Guide).where(Guide.id == guide_id))
     guide = result.scalar_one_or_none()
 
@@ -343,8 +315,8 @@ async def delete_guide(
             supabase = get_supabase()
             filename = guide.thumbnail_url.split("/")[-1]
             supabase.storage.from_(BUCKET_NAME).remove([filename])
-        except Exception as e:
-            print(f"Warning: Failed to delete thumbnail from Supabase: {str(e)}")
+        except Exception:
+            logger.warning("Failed to delete guide thumbnail from Supabase", exc_info=True)
 
     await db.delete(guide)
     await db.commit()
@@ -355,8 +327,6 @@ async def delete_guide(
 
 def _extract_youtube_id(url: str) -> str | None:
     """Extract YouTube video ID from various URL formats."""
-    import re
-
     patterns = [
         r"(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/embed/)([a-zA-Z0-9_-]{11})",
     ]

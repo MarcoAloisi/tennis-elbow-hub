@@ -74,7 +74,7 @@ const formattedDate = computed(() => {
         <span class="date">{{ formattedDate }}</span>
       </div>
       
-      <div v-if="authStore.user" class="admin-actions">
+      <div v-if="authStore.isAdmin" class="admin-actions">
         <button class="btn-edit" @click="emit('edit', outfit)" title="Edit Outfit">
           ✏️ Edit
         </button>
