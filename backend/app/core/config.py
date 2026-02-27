@@ -77,6 +77,14 @@ class Settings(BaseSettings):
     # File Upload
     max_upload_size_mb: int = 3
 
+    # Contact / SMTP
+    contact_email: str = "contact@tenniselbowhub.live"
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""
+
     @property
     def max_upload_size_bytes(self) -> int:
         """Get maximum upload size in bytes."""

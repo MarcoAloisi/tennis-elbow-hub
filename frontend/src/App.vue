@@ -5,6 +5,7 @@ import { useAuthStore } from './stores/auth'
 import ThemeToggle from './components/common/ThemeToggle.vue'
 import AdSidebar from './components/common/AdSidebar.vue'
 import KofiWidget from './components/common/KofiWidget.vue'
+import CookieConsent from './components/common/CookieConsent.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -15,7 +16,7 @@ onMounted(() => {
 })
 
 const showAds = computed(() => {
-  const noAdRoutes = ['/', '/privacy-policy']
+  const noAdRoutes = ['/', '/privacy-policy', '/terms-of-service', '/contact']
   return !noAdRoutes.includes(route.path)
 })
 
@@ -113,6 +114,9 @@ const handleUpdateName = async () => {
       </aside>
     </div>
     
+    <!-- Cookie Consent Banner -->
+    <CookieConsent />
+
     <!-- Ko-fi Widget -->
     <!-- REPLACE 'tenniselbowhub' WITH YOUR ACTUAL KO-FI USERNAME -->
     <KofiWidget username="marcolinote4" />
@@ -124,6 +128,10 @@ const handleUpdateName = async () => {
         <RouterLink to="/">About</RouterLink>
         <span class="footer-sep">·</span>
         <RouterLink to="/privacy-policy">Privacy Policy</RouterLink>
+        <span class="footer-sep">·</span>
+        <RouterLink to="/terms-of-service">Terms of Service</RouterLink>
+        <span class="footer-sep">·</span>
+        <RouterLink to="/contact">Contact</RouterLink>
       </div>
     </footer>
   </div>

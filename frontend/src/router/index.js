@@ -6,6 +6,8 @@ import OnlineToursView from '../views/OnlineToursView.vue'
 import GuidesView from '../views/GuidesView.vue'
 import AboutView from '../views/AboutView.vue'
 import PrivacyPolicyView from '../views/PrivacyPolicyView.vue'
+import TermsOfServiceView from '../views/TermsOfServiceView.vue'
+import ContactView from '../views/ContactView.vue'
 import OutfitGalleryView from '../views/OutfitGalleryView.vue'
 import LoginView from '../views/LoginView.vue'
 
@@ -119,6 +121,24 @@ const routes = [
         meta: {
             title: 'Privacy Policy',
             description: 'Tennis Elbow Hub privacy policy. Information about cookies, analytics, and data collection.'
+        }
+    },
+    {
+        path: '/terms-of-service',
+        name: 'TermsOfService',
+        component: TermsOfServiceView,
+        meta: {
+            title: 'Terms of Service',
+            description: 'Tennis Elbow Hub terms of service. Usage rules, intellectual property, and legal information.'
+        }
+    },
+    {
+        path: '/contact',
+        name: 'Contact',
+        component: ContactView,
+        meta: {
+            title: 'Contact',
+            description: 'Contact Tennis Elbow Hub. Send us a message with your name, Discord tag, and feedback.'
         }
     }
 ]
