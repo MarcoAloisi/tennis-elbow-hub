@@ -3,13 +3,14 @@
 Provides endpoints for uploading and analyzing match log HTML files.
 """
 
-from fastapi import APIRouter, Request, UploadFile
+from fastapi import APIRouter, Request, UploadFile, Body
 
 from app.core.limiter import limiter
 from app.core.logging import get_logger
 from app.core.security import sanitize_filename, validate_upload_file
 from app.models.match_stats import MatchAnalysisResponse
 from app.services.analyzer import process_uploaded_file
+from app.services.ai_service import analyze_match
 
 logger = get_logger("api.match_analysis")
 router = APIRouter(prefix="/analysis", tags=["Match Analysis"])
@@ -160,3 +161,30 @@ async def get_sample_analysis() -> MatchAnalysisResponse:
         ),
         filename="sample_match.html",
     )
+
+
+@router.post(
+    "/ai-insights",
+    summary="Get AI coaching analysis for a match",
+    description="Send match data to get AI-powered tennis coaching insights.",
+)
+@limiter.limit("3/minute")
+async def get_ai_insights(request: Request, match_data: dict = Body(...)) -> dict:
+    """Get AI analysis for a specific match.
+
+    Args:
+        match_data: Dictionary containing match info and player stats.
+
+    Returns:
+        AI-generated coaching analysis.
+    """
+    try:
+        analysis = await analyze_match(match_data)
+        return {"success": True, "analysis": analysis}
+    except ValueError as e:
+        logger.warning(f"AI analysis config error: {e}")
+        return {"success": False, "error": str(e)}
+    except Exception as e:
+        logger.error(f"AI analysis failed: {e}")
+        return {"success": False, "error": "AI analysis failed. Please try again later."}
+

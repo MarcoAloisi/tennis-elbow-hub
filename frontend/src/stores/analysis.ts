@@ -103,7 +103,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
 
     const allPlayerNames = computed(() => {
         if (!matches.value.length) return []
-        const counts = {}
+        const counts: Record<string, number> = {}
         matches.value.forEach(m => {
             // Only count valid matches (not unfinished)
             if (m.info && isMatchValid(m.info)) {
@@ -121,7 +121,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
 
         // Fallback Auto-Detect (same as before)
         if (!matches.value.length) return 'Player'
-        const names = {}
+        const names: Record<string, number> = {}
         matches.value.forEach(m => {
             if (m.info) {
                 names[m.info.player1_name] = (names[m.info.player1_name] || 0) + 1
@@ -333,7 +333,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
         result.sort((a, b) => {
             const dateA = a.info?.date ? new Date(a.info.date) : new Date(0)
             const dateB = b.info?.date ? new Date(b.info.date) : new Date(0)
-            return sortDesc.value ? dateB - dateA : dateA - dateB
+            return sortDesc.value ? dateB.getTime() - dateA.getTime() : dateA.getTime() - dateB.getTime()
         })
 
         return result
@@ -380,7 +380,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
 
         // Initialize collections for Median/Avg calculation
         // We act like we are collecting for "Main Player" vs "Opponent"
-        const collections = {
+        const collections: Record<string, any> = {
             p1: {},
             p2: {}
         }
@@ -612,8 +612,8 @@ export const useAnalysisStore = defineStore('analysis', () => {
         })
 
         // --- Aggregation Helper ---
-        const computeFinals = (metrics) => {
-            const result = {}
+        const computeFinals = (metrics: Record<string, any>) => {
+            const result: Record<string, any> = {}
             const isMedian = statsMode.value === 'median'
 
             const getVal = (key) => {
@@ -857,6 +857,143 @@ export const useAnalysisStore = defineStore('analysis', () => {
         }
     }
 
+    function clearError() {
+        error.value = null
+    }
+
+    // Time-series data for Performance Overview charts
+    const matchTimeSeries = computed(() => {
+        const list = filteredMatches.value
+        if (!list.length) return null
+
+        // Sort chronologically (ascending by date)
+        const sorted = [...list].sort((a, b) => {
+            const dateA = a.info?.date ? new Date(a.info.date) : new Date(0)
+            const dateB = b.info?.date ? new Date(b.info.date) : new Date(0)
+            return dateA.getTime() - dateB.getTime()
+        })
+
+        const currentIdentity = userAliases.value.length > 0 ? userAliases.value : [mainPlayerName.value]
+
+        const dates: string[] = []
+        const opponents: string[] = []
+        const rawDates: (Date | null)[] = []
+        const stats: Record<string, number[]> = {
+            elo_cumulative: [],
+            elo_change: [],
+            win_pct_rolling: [],
+            first_serve_pct: [],
+            aces: [],
+            double_faults: [],
+            winners: [],
+            unforced_errors: [],
+            forced_errors: [],
+            avg_rally_length: [],
+            avg_first_serve_kmh: [],
+            avg_second_serve_kmh: [],
+            fastest_serve_kmh: [],
+            first_serve_won_pct: [],
+            second_serve_won_pct: [],
+            short_rally_won_pct: [],
+            medium_rally_won_pct: [],
+            long_rally_won_pct: [],
+            break_points_won_pct: [],
+            return_points_won_pct: [],
+            net_points_won_pct: [],
+            total_points_won_pct: [],
+            set_points_saved: [],
+            match_points_saved: []
+        }
+
+        let cumulativeWins = 0
+        let cumulativeMatches = 0
+
+        sorted.forEach(m => {
+            if (!m.info) return
+
+            let userP: any, oppP: any
+            let isUserP1 = true
+
+            if (currentIdentity.includes(m.info.player1_name)) {
+                isUserP1 = true
+                userP = m.player1
+                oppP = m.player2
+            } else if (currentIdentity.includes(m.info.player2_name)) {
+                isUserP1 = false
+                userP = m.player2
+                oppP = m.player1
+            } else {
+                isUserP1 = true
+                userP = m.player1
+                oppP = m.player2
+            }
+
+            if (!userP) return
+
+            // Date label + raw date for time filtering
+            const rawDate = m.info.date ? new Date(m.info.date) : null
+            const dateStr = rawDate
+                ? rawDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                : 'N/A'
+            dates.push(dateStr)
+            opponents.push(isUserP1 ? m.info.player2_name : m.info.player1_name)
+            rawDates.push(rawDate)
+
+            // ELO tracking — use actual ELO value from match, not running total
+            const userElo = isUserP1 ? m.info.player1_elo : m.info.player2_elo
+            const userEloDiff = isUserP1 ? m.info.player1_elo_diff : m.info.player2_elo_diff
+            // Fallback to general.elo from player stats
+            const eloFromStats = userP.general?.elo
+            const finalElo = userElo ?? eloFromStats ?? 0
+            stats.elo_cumulative.push(finalElo)
+            stats.elo_change.push(userEloDiff ?? 0)
+
+            // Win tracking — player1 is always the winner in the data model
+            cumulativeMatches++
+            if (isUserP1) cumulativeWins++
+            stats.win_pct_rolling.push(cumulativeMatches > 0 ? (cumulativeWins / cumulativeMatches) * 100 : 0)
+
+            // Helper
+            const safePct = (n: number, d: number) => d > 0 ? (n / d) * 100 : 0
+            const safeVal = (v: any) => parseFloat(v || 0)
+
+            // Serve stats
+            stats.first_serve_pct.push(safePct(userP.serve?.first_serve_in, userP.serve?.first_serve_total))
+            stats.aces.push(safeVal(userP.serve?.aces))
+            stats.double_faults.push(safeVal(userP.serve?.double_faults))
+            stats.avg_first_serve_kmh.push(safeVal(userP.serve?.avg_first_serve_kmh))
+            stats.avg_second_serve_kmh.push(safeVal(userP.serve?.avg_second_serve_kmh))
+            stats.fastest_serve_kmh.push(safeVal(userP.serve?.fastest_serve_kmh))
+
+            // Serve points
+            stats.first_serve_won_pct.push(safePct(userP.points?.points_on_first_serve_won, userP.points?.points_on_first_serve_total))
+            stats.second_serve_won_pct.push(safePct(userP.points?.points_on_second_serve_won, userP.points?.points_on_second_serve_total))
+
+            // Rally stats
+            stats.avg_rally_length.push(safeVal(userP.rally?.avg_rally_length))
+            stats.short_rally_won_pct.push(safePct(userP.rally?.short_rallies_won, userP.rally?.short_rallies_total))
+            stats.medium_rally_won_pct.push(safePct(userP.rally?.normal_rallies_won, userP.rally?.normal_rallies_total))
+            stats.long_rally_won_pct.push(safePct(userP.rally?.long_rallies_won, userP.rally?.long_rallies_total))
+
+            // Points
+            stats.winners.push(safeVal(userP.points?.winners))
+            stats.unforced_errors.push(safeVal(userP.points?.unforced_errors))
+            stats.forced_errors.push(safeVal(userP.points?.forced_errors))
+            stats.net_points_won_pct.push(safePct(userP.points?.net_points_won, userP.points?.net_points_total))
+            stats.return_points_won_pct.push(safePct(userP.points?.return_points_won, userP.points?.return_points_total))
+
+            const totalPlayed = (userP.points?.total_points_won || 0) + (oppP?.points?.total_points_won || 0)
+            stats.total_points_won_pct.push(safePct(userP.points?.total_points_won, totalPlayed))
+
+            // Breaks
+            stats.break_points_won_pct.push(safePct(userP.break_points?.break_points_won, userP.break_points?.break_points_total))
+            stats.set_points_saved.push(safeVal(userP.break_points?.set_points_saved))
+            stats.match_points_saved.push(safeVal(userP.break_points?.match_points_saved))
+        })
+
+        return { dates, opponents, rawDates, stats }
+    })
+
     return {
         // State
         matches,
@@ -878,6 +1015,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
         matchInfo,
         filteredMatches,
         aggregateStats,
+        matchTimeSeries,
         availableOpponents,
         mainPlayerName,
         filters,
@@ -888,6 +1026,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
         clearAnalysis,
         selectMatch,
         setFilter,
-        clearFilters
+        clearFilters,
+        clearError
     }
 })

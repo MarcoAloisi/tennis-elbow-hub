@@ -1,9 +1,9 @@
-<script setup>
+<script setup lang="ts">
 defineProps({
   size: {
     type: String,
     default: 'md',
-    validator: (v) => ['sm', 'md', 'lg'].includes(v)
+    validator: (v: string) => ['sm', 'md', 'lg'].includes(v)
   }
 })
 </script>

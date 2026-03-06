@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 /**
  * WTSL Tour Logs View
  * Main view for tour logs with subtabs, filters, and data display
@@ -9,6 +9,7 @@ import { useTourLogsStore } from '@/stores/tourLogs'
 import TourLogsTable from '@/components/tourlogs/TourLogsTable.vue'
 import StatsLeaders from '@/components/tourlogs/StatsLeaders.vue'
 import PlayerStatsGrid from '@/components/tourlogs/PlayerStatsGrid.vue'
+import { Table, Medal, ChartColumn, TriangleAlert } from 'lucide-vue-next'
 
 const store = useTourLogsStore()
 const showPlayerDropdown = ref(false)
@@ -24,9 +25,9 @@ onMounted(() => {
 
 // Subtab configuration
 const tabs = [
-    { id: 'data', label: 'Match Data', icon: '📋' },
-    { id: 'leaders', label: 'Stats Leaders', icon: '⭐' },
-    { id: 'playerstats', label: 'Player Stats', icon: '📊' },
+    { id: 'data', label: 'Match Data', icon: Table },
+    { id: 'leaders', label: 'Stats Leaders', icon: Medal },
+    { id: 'playerstats', label: 'Player Stats', icon: ChartColumn },
 ]
 
 // Debounced player filter update
@@ -85,7 +86,7 @@ function onPlayerInputBlur() {
 
         <!-- Error State -->
         <div v-else-if="store.error" class="error-container">
-            <span class="error-icon">⚠️</span>
+            <span class="error-icon"><TriangleAlert :size="32" class="error-icon-color" /></span>
             <p>{{ store.error }}</p>
             <button @click="store.fetchData()" class="btn btn-primary">Retry</button>
         </div>
@@ -125,7 +126,7 @@ function onPlayerInputBlur() {
                     <label class="filter-label">Tournament</label>
                     <select v-model="store.filters.tournament" class="filter-select">
                         <option value="">All Tournaments</option>
-                        <option v-for="t in store.uniqueTournaments" :key="t" :value="t">
+                        <option v-for="t in store.uniqueTournaments" :key="(t as string)" :value="t">
                             {{ t }}
                         </option>
                     </select>
@@ -151,10 +152,10 @@ function onPlayerInputBlur() {
                 <button 
                     v-for="tab in tabs" 
                     :key="tab.id"
-                    :class="['subtab-btn', { active: store.activeTab === tab.id }]"
+                    :class="['subtab-btn', 'tab-' + tab.id, { active: store.activeTab === tab.id }]"
                     @click="store.activeTab = tab.id"
                 >
-                    <span class="tab-icon">{{ tab.icon }}</span>
+                    <span class="tab-icon-wrapper"><component :is="tab.icon" :size="16" stroke-width="2.5" /></span>
                     <span class="tab-label">{{ tab.label }}</span>
                 </button>
             </div>
@@ -252,8 +253,11 @@ function onPlayerInputBlur() {
 }
 
 .error-icon {
-    font-size: 2rem;
     margin-bottom: var(--space-4);
+}
+
+.error-icon-color {
+    color: var(--color-error);
 }
 
 /* Filters */
@@ -386,8 +390,22 @@ function onPlayerInputBlur() {
     margin-bottom: -2px;
 }
 
-.tab-icon {
-    font-size: 1.1rem;
+.tab-icon-wrapper {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    transition: all var(--transition-fast);
+}
+
+.tab-data .tab-icon-wrapper { color: #60a5fa; }
+.tab-leaders .tab-icon-wrapper { color: #f59e0b; }
+.tab-playerstats .tab-icon-wrapper { color: #a855f7; }
+
+.subtab-btn.active .tab-icon-wrapper {
+    color: currentColor; 
 }
 
 /* Buttons */

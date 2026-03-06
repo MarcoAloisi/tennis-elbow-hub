@@ -85,6 +85,10 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_from: str = ""
 
+    # OpenRouter AI
+    openrouter_api_key: str = ""
+    openrouter_model: str = "openai/gpt-oss-120b"
+
     @property
     def max_upload_size_bytes(self) -> int:
         """Get maximum upload size in bytes."""

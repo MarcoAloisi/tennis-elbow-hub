@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
@@ -6,6 +6,8 @@ import Link from '@tiptap/extension-link'
 import Image from '@tiptap/extension-image'
 import { useAuthStore } from '@/stores/auth'
 import { useGuidesStore } from '@/stores/guides'
+import { apiUrl } from '@/config/api'
+import { CircleHelp } from 'lucide-vue-next'
 
 const props = defineProps({
   visible: Boolean,
@@ -34,6 +36,8 @@ const dragActive = ref(false)
 const uploadError = ref('')
 const uploadSuccess = ref(false)
 const isSubmitting = ref(false)
+const isUploadingImage = ref(false)
+const showFormattingHelp = ref(false)
 
 // Tag dropdown state
 const showTagDropdown = ref(false)
@@ -82,19 +86,105 @@ function removeTag(tag) {
   formModel.value.tags = current.join(',')
 }
 
-// TipTap editor
+// ─── Image Upload Helper ─────────────────────────────────
+async function uploadImageToServer(file: File): Promise<string | null> {
+  const token = authStore.session?.access_token
+  if (!token) {
+    uploadError.value = 'You must be logged in to upload images.'
+    return null
+  }
+
+  // Client-side guards
+  if (!file.type.startsWith('image/')) {
+    uploadError.value = 'Only image files can be inserted.'
+    return null
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    uploadError.value = 'Image must be under 5 MB.'
+    return null
+  }
+
+  isUploadingImage.value = true
+  uploadError.value = ''
+
+  try {
+    const formData = new FormData()
+    formData.append('image', file)
+
+    const response = await fetch(apiUrl('/api/guides/images'), {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ detail: 'Upload failed' }))
+      throw new Error(err.detail || 'Upload failed')
+    }
+
+    const data = await response.json()
+    return data.url as string
+  } catch (err: any) {
+    uploadError.value = err.message || 'Failed to upload image.'
+    return null
+  } finally {
+    isUploadingImage.value = false
+  }
+}
+
+// ─── TipTap Editor ───────────────────────────────────────
 const editor = useEditor({
   extensions: [
     StarterKit,
     Link.configure({ openOnClick: false }),
-    Image.configure({ inline: true })
+    Image.configure({ inline: true }),
   ],
   content: '',
   editorProps: {
     attributes: {
       class: 'tiptap-editor-content',
-    }
-  }
+    },
+
+    // Intercept pasted images from clipboard
+    handlePaste(_view, event) {
+      const items = event.clipboardData?.items
+      if (!items) return false
+
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          event.preventDefault()
+          const file = item.getAsFile()
+          if (file) {
+            uploadImageToServer(file).then((url) => {
+              if (url && editor.value) {
+                editor.value.chain().focus().setImage({ src: url }).run()
+              }
+            })
+          }
+          return true
+        }
+      }
+      return false
+    },
+
+    // Intercept dropped image files
+    handleDrop(_view, event) {
+      const files = event.dataTransfer?.files
+      if (!files?.length) return false
+
+      const file = files[0]
+      if (file.type.startsWith('image/')) {
+        event.preventDefault()
+        uploadImageToServer(file).then((url) => {
+          if (url && editor.value) {
+            editor.value.chain().focus().setImage({ src: url }).run()
+          }
+        })
+        return true
+      }
+      return false
+    },
+  },
 })
 
 // Populate form when editing
@@ -353,7 +443,50 @@ async function submitForm() {
 
         <!-- TipTap Editor (Written only) -->
         <div v-if="!isVideo" class="form-group">
-          <label>Content</label>
+          <div class="content-label-row">
+            <label>Content</label>
+            <button type="button" class="help-toggle" @click="showFormattingHelp = !showFormattingHelp" title="Formatting guide">
+              <CircleHelp :size="16" /> Formatting Guide
+            </button>
+          </div>
+
+          <!-- Formatting Help Tooltip -->
+          <Transition name="help-fade">
+            <div v-if="showFormattingHelp" class="formatting-help">
+              <div class="help-header">
+                <strong>✨ Formatting Guide</strong>
+                <button type="button" class="help-close" @click="showFormattingHelp = false">✕</button>
+              </div>
+              <div class="help-grid">
+                <div class="help-section">
+                  <h4>📝 Text</h4>
+                  <ul>
+                    <li><strong>B</strong> — Bold</li>
+                    <li><em>I</em> — Italic</li>
+                    <li><strong>H2 / H3</strong> — Headings</li>
+                    <li><strong>•</strong> / <strong>1.</strong> — Lists</li>
+                    <li><strong>❝</strong> — Blockquote</li>
+                    <li><strong>&lt;/&gt;</strong> — Code block</li>
+                  </ul>
+                </div>
+                <div class="help-section">
+                  <h4>🖼️ Images</h4>
+                  <ul>
+                    <li><strong>Paste</strong> — Ctrl+V / Cmd+V a copied image</li>
+                    <li><strong>Drag & Drop</strong> — Drop an image file into the editor</li>
+                    <li><strong>🖼️ button</strong> — Insert by URL</li>
+                  </ul>
+                </div>
+                <div class="help-section">
+                  <h4>🔗 Links</h4>
+                  <ul>
+                    <li>Select text → click <strong>🔗</strong> → enter URL</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </Transition>
+
           <div class="editor-toolbar">
             <button type="button" @click="editor?.chain().focus().toggleBold().run()" :class="{ 'is-active': editor?.isActive('bold') }" title="Bold">
               <strong>B</strong>
@@ -376,7 +509,7 @@ async function submitForm() {
             <button type="button" @click="setLink" :class="{ 'is-active': editor?.isActive('link') }" title="Link">
               🔗
             </button>
-            <button type="button" @click="addImage" title="Image">
+            <button type="button" @click="addImage" title="Insert image by URL">
               🖼️
             </button>
             <button type="button" @click="editor?.chain().focus().toggleBlockquote().run()" :class="{ 'is-active': editor?.isActive('blockquote') }" title="Quote">
@@ -386,6 +519,13 @@ async function submitForm() {
               &lt;/&gt;
             </button>
           </div>
+
+          <!-- Upload indicator -->
+          <div v-if="isUploadingImage" class="upload-indicator">
+            <div class="upload-spinner"></div>
+            <span>Uploading image…</span>
+          </div>
+
           <div class="editor-container">
             <EditorContent :editor="editor" />
           </div>
@@ -668,6 +808,135 @@ input:focus, textarea:focus, select:focus {
   z-index: 10;
 }
 
+/* Content label row */
+.content-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.help-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.help-toggle:hover {
+  color: var(--color-brand-primary);
+  border-color: var(--color-brand-primary);
+  background: rgba(163, 230, 53, 0.06);
+}
+
+/* Formatting Help Popup */
+.formatting-help {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  margin-bottom: var(--space-2);
+}
+
+.help-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-3);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.help-close {
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 2px 4px;
+}
+
+.help-close:hover {
+  color: var(--color-text-primary);
+}
+
+.help-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-4);
+}
+
+.help-section h4 {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  margin: 0 0 var(--space-2) 0;
+  color: var(--color-text-primary);
+}
+
+.help-section ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.help-section li {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  padding: 2px 0;
+  line-height: 1.5;
+}
+
+/* Help fade transition */
+.help-fade-enter-active,
+.help-fade-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.help-fade-enter-from,
+.help-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+/* Upload indicator */
+.upload-indicator {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 8px 14px;
+  background: rgba(163, 230, 53, 0.08);
+  border: 1px solid rgba(163, 230, 53, 0.2);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-brand-primary);
+  animation: pulse-bg 1.5s ease-in-out infinite;
+}
+
+.upload-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(163, 230, 53, 0.3);
+  border-top-color: var(--color-brand-primary);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse-bg {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
 /* Editor */
 .editor-toolbar {
   display: flex;
@@ -813,7 +1082,7 @@ input:focus, textarea:focus, select:focus {
 .remove-image-btn {
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #ef4444;
+  color: var(--color-error);
   border-radius: var(--radius-sm);
   cursor: pointer;
   padding: 2px 6px;
@@ -830,13 +1099,13 @@ input:focus, textarea:focus, select:focus {
 .error-alert {
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #ef4444;
+  color: var(--color-error);
 }
 
 .success-alert {
   background: rgba(34, 197, 94, 0.1);
   border: 1px solid rgba(34, 197, 94, 0.3);
-  color: #22c55e;
+  color: var(--color-success);
 }
 
 /* Actions */

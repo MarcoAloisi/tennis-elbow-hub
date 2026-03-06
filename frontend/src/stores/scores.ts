@@ -5,13 +5,21 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { apiUrl } from '@/config/api'
 
+export interface ScoreFilters {
+    surface: string | null
+    startedOnly: boolean
+    minElo: number | null
+    maxElo: number | null
+    searchQuery: string
+}
+
 export const useScoresStore = defineStore('scores', () => {
     // State
-    const servers = ref([])
-    const isLoading = ref(false)
-    const error = ref(null)
-    const lastUpdated = ref(null)
-    const filters = ref({
+    const servers = ref<any[]>([])
+    const isLoading = ref<boolean>(false)
+    const error = ref<string | null>(null)
+    const lastUpdated = ref<string | null>(null)
+    const filters = ref<ScoreFilters>({
         surface: null,
         startedOnly: false,
         minElo: null,
@@ -20,7 +28,7 @@ export const useScoresStore = defineStore('scores', () => {
     })
 
     // Daily stats from backend API (finished matches only)
-    const dailyStats = ref({
+    const dailyStats = ref<any>({
         date: null,
         xkt: { total: 0, bo1: 0, bo3: 0, bo5: 0 },
         wtsl: { total: 0, bo1: 0, bo3: 0, bo5: 0 },
@@ -28,7 +36,7 @@ export const useScoresStore = defineStore('scores', () => {
     })
 
     // Monthly average stats from backend API
-    const monthlyStats = ref({
+    const monthlyStats = ref<any>({
         date_range: null,
         days_recorded: 0,
         xkt: { avg_total: 0, avg_bo1: 0, avg_bo3: 0, avg_bo5: 0 },
@@ -37,7 +45,7 @@ export const useScoresStore = defineStore('scores', () => {
     })
 
     // Top players for the month
-    const topPlayers = ref([])
+    const topPlayers = ref<any[]>([])
 
     // Getters
     const filteredServers = computed(() => {
@@ -53,7 +61,7 @@ export const useScoresStore = defineStore('scores', () => {
 
         if (filters.value.surface) {
             result = result.filter(s =>
-                s.surface_name.toLowerCase().includes(filters.value.surface.toLowerCase())
+                s.surface_name.toLowerCase().includes(filters.value.surface!.toLowerCase())
             )
         }
 
@@ -62,11 +70,11 @@ export const useScoresStore = defineStore('scores', () => {
         }
 
         if (filters.value.minElo !== null) {
-            result = result.filter(s => s.elo >= filters.value.minElo)
+            result = result.filter(s => s.elo >= filters.value.minElo!)
         }
 
         if (filters.value.maxElo !== null) {
-            result = result.filter(s => s.elo <= filters.value.maxElo)
+            result = result.filter(s => s.elo <= filters.value.maxElo!)
         }
 
         return result
@@ -90,10 +98,11 @@ export const useScoresStore = defineStore('scores', () => {
             const params = new URLSearchParams()
             if (filters.value.surface) params.append('surface', filters.value.surface)
             if (filters.value.startedOnly) params.append('started_only', 'true')
-            if (filters.value.minElo) params.append('min_elo', filters.value.minElo)
-            if (filters.value.maxElo) params.append('max_elo', filters.value.maxElo)
+            if (filters.value.minElo) params.append('min_elo', String(filters.value.minElo))
+            if (filters.value.maxElo) params.append('max_elo', String(filters.value.maxElo))
 
-            const url = apiUrl(`/api/scores${params.toString() ? '?' + params.toString() : ''}`)
+            const qs = params.toString()
+            const url = apiUrl(`/api/scores${qs ? '?' + qs : ''}`)
             const response = await fetch(url)
 
             if (!response.ok) {
@@ -103,7 +112,7 @@ export const useScoresStore = defineStore('scores', () => {
             const data = await response.json()
             servers.value = data.servers || []
             lastUpdated.value = new Date().toISOString()
-        } catch (e) {
+        } catch (e: any) {
             error.value = e.message
             console.error('Failed to fetch scores:', e)
         } finally {
@@ -127,9 +136,9 @@ export const useScoresStore = defineStore('scores', () => {
         }
     }
 
-    async function fetchMonthlyStats() {
+    async function fetchMonthlyStats(timeRange: string = 'this_month') {
         try {
-            const url = apiUrl('/api/scores/stats/monthly')
+            const url = apiUrl(`/api/scores/stats/monthly?time_range=${timeRange}`)
             const response = await fetch(url)
 
             if (!response.ok) {
@@ -143,9 +152,9 @@ export const useScoresStore = defineStore('scores', () => {
         }
     }
 
-    async function fetchTopPlayers() {
+    async function fetchTopPlayers(timeRange: string = 'this_month') {
         try {
-            const url = apiUrl('/api/scores/stats/top-players')
+            const url = apiUrl(`/api/scores/stats/top-players?time_range=${timeRange}`)
             const response = await fetch(url)
 
             if (!response.ok) {
@@ -159,7 +168,7 @@ export const useScoresStore = defineStore('scores', () => {
         }
     }
 
-    function updateFromWebSocket(data) {
+    function updateFromWebSocket(data: any) {
         if (data && data.servers) {
             servers.value = data.servers
             lastUpdated.value = data.timestamp || new Date().toISOString()
@@ -167,7 +176,7 @@ export const useScoresStore = defineStore('scores', () => {
         }
     }
 
-    function setFilter(key, value) {
+    function setFilter<K extends keyof ScoreFilters>(key: K, value: ScoreFilters[K]) {
         filters.value[key] = value
     }
 
@@ -179,6 +188,10 @@ export const useScoresStore = defineStore('scores', () => {
             maxElo: null,
             searchQuery: ''
         }
+    }
+
+    function clearError() {
+        error.value = null
     }
 
     // Expose stats as alias to dailyStats for template compatibility
@@ -207,7 +220,7 @@ export const useScoresStore = defineStore('scores', () => {
         fetchTopPlayers,
         updateFromWebSocket,
         setFilter,
-        clearFilters
+        clearFilters,
+        clearError
     }
 })
-

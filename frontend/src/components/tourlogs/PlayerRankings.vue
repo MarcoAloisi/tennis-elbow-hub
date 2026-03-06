@@ -1,14 +1,11 @@
-<script setup>
+<script setup lang="ts">
 /**
  * Player Rankings Component
  * Shows player win% and ELO rankings
  */
-const props = defineProps({
-    rankings: {
-        type: Array,
-        required: true
-    }
-})
+const props = defineProps<{
+    rankings: any[]
+}>()
 
 // Get medal for top 3
 function getMedal(index) {
@@ -170,19 +167,19 @@ function getWinPctClass(winPct) {
 }
 
 .win-excellent {
-    color: #22c55e;
+    color: var(--color-success);
 }
 
 .win-good {
-    color: #84cc16;
+    color: var(--color-win);
 }
 
 .win-average {
-    color: #f59e0b;
+    color: var(--color-loss);
 }
 
 .win-low {
-    color: #ef4444;
+    color: var(--color-error);
 }
 
 .record, .matches {

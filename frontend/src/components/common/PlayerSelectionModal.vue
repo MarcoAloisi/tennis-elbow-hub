@@ -1,24 +1,22 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 
-const props = defineProps({
-  players: {
-    type: Array, // Array of { name: 'Name', count: 10 }
-    required: true
-  },
-  isOpen: {
-    type: Boolean,
-    required: true
-  },
-  initialSelected: {
-    type: Array,
-    default: () => []
-  }
+interface Player {
+  name: string;
+  count: number;
+}
+
+const props = withDefaults(defineProps<{
+  players: Player[];
+  isOpen: boolean;
+  initialSelected?: string[];
+}>(), {
+  initialSelected: () => []
 })
 
 const emit = defineEmits(['confirm', 'cancel'])
 
-const selectedPlayers = ref([])
+const selectedPlayers = ref<string[]>([])
 
 // Initialize selection when modal opens
 watch(() => props.isOpen, (newVal) => {
@@ -27,7 +25,7 @@ watch(() => props.isOpen, (newVal) => {
   }
 })
 
-function togglePlayer(name) {
+function togglePlayer(name: string) {
   if (selectedPlayers.value.includes(name)) {
     selectedPlayers.value = selectedPlayers.value.filter(p => p !== name)
   } else {

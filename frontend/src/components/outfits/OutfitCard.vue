@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useOutfitsStore } from '@/stores/outfits'
@@ -242,7 +242,7 @@ const formattedDate = computed(() => {
 }
 
 .btn-copy.copied {
-  background-color: rgba(34, 197, 94, 0.1);
+  background-color: var(--color-success-light);
   border-color: var(--color-brand-live);
   color: var(--color-brand-live);
 }
@@ -257,7 +257,7 @@ const formattedDate = computed(() => {
 .btn-edit {
   background: transparent;
   color: var(--color-brand-primary);
-  border: 1px solid rgba(163, 230, 53, 0.3);
+  border: 1px solid var(--color-accent-light);
   padding: 4px 12px;
   border-radius: var(--radius-sm);
   font-family: var(--font-heading);
@@ -271,14 +271,14 @@ const formattedDate = computed(() => {
 }
 
 .btn-edit:hover {
-  background: rgba(163, 230, 53, 0.1);
+  background: var(--color-accent-light);
   border-color: var(--color-brand-primary);
 }
 
 .btn-delete {
   background: transparent;
-  color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: var(--color-error);
+  border: 1px solid var(--color-error-border);
   padding: 4px 12px;
   border-radius: var(--radius-sm);
   font-family: var(--font-heading);
@@ -292,8 +292,8 @@ const formattedDate = computed(() => {
 }
 
 .btn-delete:hover:not(:disabled) {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: #ef4444;
+  background: var(--color-error-light);
+  border-color: var(--color-error);
 }
 
 .btn-delete:disabled {

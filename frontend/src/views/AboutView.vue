@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { RouterLink } from 'vue-router'
 </script>
 
@@ -232,13 +232,13 @@ import { RouterLink } from 'vue-router'
 
 .btn-primary {
   background: var(--color-accent);
-  color: #fff;
-  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+  color: var(--color-text-inverse);
+  box-shadow: 0 2px 8px var(--color-accent-light);
 }
 
 .btn-primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(79, 70, 229, 0.4);
+  box-shadow: 0 4px 16px var(--color-accent-light);
 }
 
 .btn-secondary {

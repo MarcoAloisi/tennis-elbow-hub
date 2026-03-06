@@ -1,9 +1,9 @@
-<script setup>
+<script setup lang="ts">
 defineProps({
   type: {
     type: String,
     default: 'error',
-    validator: (v) => ['error', 'warning', 'info', 'success'].includes(v)
+    validator: (v: string) => ['error', 'warning', 'info', 'success'].includes(v)
   },
   message: {
     type: String,

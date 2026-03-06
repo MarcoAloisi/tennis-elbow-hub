@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
 
 const props = defineProps({
@@ -375,11 +375,11 @@ function getPercentClass(player, stat) {
 
 /* Percentage Color Classes */
 .pct-danger {
-    color: #dc2626 !important;
+    color: var(--color-pct-danger) !important;
 }
 
 .pct-warning {
-    color: #f97316 !important;
+    color: var(--color-pct-warning) !important;
 }
 
 .pct-neutral {
@@ -387,7 +387,7 @@ function getPercentClass(player, stat) {
 }
 
 .pct-good {
-    color: #22c55e !important;
+    color: var(--color-pct-good) !important;
 }
 
 .pct-excellent {
@@ -395,6 +395,6 @@ function getPercentClass(player, stat) {
 }
 
 [data-theme="dark"] .pct-excellent {
-    color: #D4FF5F !important;
+    color: var(--color-pct-excellent) !important;
 }
 </style>

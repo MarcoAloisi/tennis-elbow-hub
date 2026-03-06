@@ -1,5 +1,6 @@
-<script setup>
+<script setup lang="ts">
 import { useTheme } from '@/composables/useTheme'
+import { Sun, Moon } from 'lucide-vue-next'
 
 const { theme, toggleTheme } = useTheme()
 </script>
@@ -12,8 +13,8 @@ const { theme, toggleTheme } = useTheme()
     aria-label="Toggle theme"
   >
     <span class="theme-icon" :class="{ 'is-dark': theme === 'dark' }">
-      <span class="sun">☀️</span>
-      <span class="moon">🌙</span>
+      <Sun class="sun icon-sun" :size="20" />
+      <Moon class="moon icon-moon" :size="20" />
     </span>
   </button>
 </template>
@@ -81,5 +82,13 @@ const { theme, toggleTheme } = useTheme()
 .theme-icon.is-dark .moon {
   opacity: 1;
   transform: translate(-50%, -50%) rotate(0deg);
+}
+
+.icon-sun {
+  color: #f59e0b;
+}
+
+.icon-moon {
+  color: #60a5fa;
 }
 </style>

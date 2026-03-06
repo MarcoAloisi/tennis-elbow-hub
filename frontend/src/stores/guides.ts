@@ -3,11 +3,11 @@ import { ref } from 'vue'
 import { apiUrl } from '@/config/api'
 
 export const useGuidesStore = defineStore('guides', () => {
-    const guides = ref([])
-    const currentGuide = ref(null)
-    const tags = ref([])
-    const loading = ref(false)
-    const error = ref(null)
+    const guides = ref<any[]>([])
+    const currentGuide = ref<any | null>(null)
+    const tags = ref<string[]>([])
+    const loading = ref<boolean>(false)
+    const error = ref<string | null>(null)
     const pagination = ref({
         total: 0,
         page: 1,
@@ -15,7 +15,15 @@ export const useGuidesStore = defineStore('guides', () => {
         totalPages: 1
     })
 
-    async function fetchGuides({ tag = '', type = '', search = '', page = 1, pageSize = 12 } = {}) {
+    interface FetchGuidesParams {
+        tag?: string;
+        type?: string;
+        search?: string;
+        page?: number;
+        pageSize?: number;
+    }
+
+    async function fetchGuides({ tag = '', type = '', search = '', page = 1, pageSize = 12 }: FetchGuidesParams = {}) {
         loading.value = true
         error.value = null
         try {
@@ -38,7 +46,7 @@ export const useGuidesStore = defineStore('guides', () => {
                 pageSize: data.page_size,
                 totalPages: data.total_pages
             }
-        } catch (err) {
+        } catch (err: any) {
             error.value = err.message
             console.error('Failed to fetch guides:', err)
         } finally {
@@ -46,7 +54,7 @@ export const useGuidesStore = defineStore('guides', () => {
         }
     }
 
-    async function fetchGuide(slug) {
+    async function fetchGuide(slug: string) {
         loading.value = true
         error.value = null
         currentGuide.value = null
@@ -56,7 +64,7 @@ export const useGuidesStore = defineStore('guides', () => {
                 throw new Error(`Error fetching guide: ${response.statusText}`)
             }
             currentGuide.value = await response.json()
-        } catch (err) {
+        } catch (err: any) {
             error.value = err.message
             console.error('Failed to fetch guide:', err)
         } finally {
@@ -76,7 +84,7 @@ export const useGuidesStore = defineStore('guides', () => {
         }
     }
 
-    async function createGuide(formData, token) {
+    async function createGuide(formData: FormData, token: string) {
         loading.value = true
         error.value = null
         try {
@@ -96,7 +104,7 @@ export const useGuidesStore = defineStore('guides', () => {
             const newGuide = await response.json()
             await fetchTags()
             return newGuide
-        } catch (err) {
+        } catch (err: any) {
             error.value = err.message
             console.error('Failed to create guide:', err)
             throw err
@@ -105,7 +113,7 @@ export const useGuidesStore = defineStore('guides', () => {
         }
     }
 
-    async function updateGuide(guideId, formData, token) {
+    async function updateGuide(guideId: number | string, formData: FormData, token: string) {
         loading.value = true
         error.value = null
         try {
@@ -123,13 +131,13 @@ export const useGuidesStore = defineStore('guides', () => {
             }
 
             const updatedGuide = await response.json()
-            const index = guides.value.findIndex(g => g.id === guideId)
+            const index = guides.value.findIndex((g: any) => g.id === guideId)
             if (index !== -1) {
                 guides.value[index] = updatedGuide
             }
             await fetchTags()
             return updatedGuide
-        } catch (err) {
+        } catch (err: any) {
             error.value = err.message
             console.error('Failed to update guide:', err)
             throw err
@@ -138,7 +146,7 @@ export const useGuidesStore = defineStore('guides', () => {
         }
     }
 
-    async function deleteGuide(guideId, token) {
+    async function deleteGuide(guideId: number | string, token: string) {
         try {
             const response = await fetch(apiUrl(`/api/guides/${guideId}`), {
                 method: 'DELETE',
@@ -152,12 +160,16 @@ export const useGuidesStore = defineStore('guides', () => {
                 throw new Error(errData.detail || `Error deleting guide: ${response.statusText}`)
             }
 
-            guides.value = guides.value.filter(g => g.id !== guideId)
+            guides.value = guides.value.filter((g: any) => g.id !== guideId)
             pagination.value.total = Math.max(0, pagination.value.total - 1)
         } catch (err) {
             console.error('Failed to delete guide:', err)
             throw err
         }
+    }
+
+    function clearError() {
+        error.value = null
     }
 
     return {
@@ -172,6 +184,7 @@ export const useGuidesStore = defineStore('guides', () => {
         fetchTags,
         createGuide,
         updateGuide,
-        deleteGuide
+        deleteGuide,
+        clearError
     }
 })

@@ -3,10 +3,10 @@ import { ref } from 'vue'
 import { apiUrl } from '@/config/api'
 
 export const useOutfitsStore = defineStore('outfits', () => {
-    const outfits = ref([])
-    const uploaders = ref([])
-    const loading = ref(false)
-    const error = ref(null)
+    const outfits = ref<any[]>([])
+    const uploaders = ref<string[]>([])
+    const loading = ref<boolean>(false)
+    const error = ref<string | null>(null)
     const pagination = ref({
         total: 0,
         page: 1,
@@ -14,7 +14,15 @@ export const useOutfitsStore = defineStore('outfits', () => {
         totalPages: 1
     })
 
-    async function fetchOutfits({ search = '', uploader = '', category = 'All', page = 1, pageSize = 12 } = {}) {
+    interface FetchOutfitsParams {
+        search?: string;
+        uploader?: string;
+        category?: string;
+        page?: number;
+        pageSize?: number;
+    }
+
+    async function fetchOutfits({ search = '', uploader = '', category = 'All', page = 1, pageSize = 12 }: FetchOutfitsParams = {}) {
         loading.value = true
         error.value = null
         try {
@@ -39,7 +47,7 @@ export const useOutfitsStore = defineStore('outfits', () => {
                 pageSize: data.page_size,
                 totalPages: data.total_pages
             }
-        } catch (err) {
+        } catch (err: any) {
             error.value = err.message
             console.error('Failed to fetch outfits:', err)
         } finally {
@@ -59,7 +67,7 @@ export const useOutfitsStore = defineStore('outfits', () => {
         }
     }
 
-    async function createOutfit(formData, token) {
+    async function createOutfit(formData: FormData, token: string) {
         loading.value = true
         error.value = null
         try {
@@ -81,7 +89,7 @@ export const useOutfitsStore = defineStore('outfits', () => {
             // Also refresh uploaders in case this is a new uploader
             await fetchUploaders()
             return newOutfit
-        } catch (err) {
+        } catch (err: any) {
             error.value = err.message
             console.error('Failed to create outfit:', err)
             throw err
@@ -90,7 +98,7 @@ export const useOutfitsStore = defineStore('outfits', () => {
         }
     }
 
-    async function updateOutfit(outfitId, formData, token) {
+    async function updateOutfit(outfitId: number | string, formData: FormData, token: string) {
         loading.value = true
         error.value = null
         try {
@@ -109,13 +117,13 @@ export const useOutfitsStore = defineStore('outfits', () => {
 
             const updatedOutfit = await response.json()
             // Update locally for immediate UI feedback
-            const index = outfits.value.findIndex(o => o.id === outfitId)
+            const index = outfits.value.findIndex((o: any) => o.id === outfitId)
             if (index !== -1) {
                 outfits.value[index] = updatedOutfit
             }
             await fetchUploaders()
             return updatedOutfit
-        } catch (err) {
+        } catch (err: any) {
             error.value = err.message
             console.error('Failed to update outfit:', err)
             throw err
@@ -124,7 +132,7 @@ export const useOutfitsStore = defineStore('outfits', () => {
         }
     }
 
-    async function deleteOutfit(outfitId, token) {
+    async function deleteOutfit(outfitId: number | string, token: string) {
         try {
             const response = await fetch(apiUrl(`/api/outfits/${outfitId}`), {
                 method: 'DELETE',
@@ -138,12 +146,16 @@ export const useOutfitsStore = defineStore('outfits', () => {
                 throw new Error(errData.detail || `Error deleting outfit: ${response.statusText}`)
             }
 
-            outfits.value = outfits.value.filter(o => o.id !== outfitId)
+            outfits.value = outfits.value.filter((o: any) => o.id !== outfitId)
             pagination.value.total = Math.max(0, pagination.value.total - 1)
         } catch (err) {
             console.error('Failed to delete outfit:', err)
             throw err
         }
+    }
+
+    function clearError() {
+        error.value = null
     }
 
     return {
@@ -156,6 +168,7 @@ export const useOutfitsStore = defineStore('outfits', () => {
         fetchUploaders,
         createOutfit,
         updateOutfit,
-        deleteOutfit
+        deleteOutfit,
+        clearError
     }
 })

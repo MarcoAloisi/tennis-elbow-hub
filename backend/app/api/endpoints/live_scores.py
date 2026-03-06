@@ -101,29 +101,35 @@ async def get_stats_history(
 @router.get(
     "/stats/monthly",
     summary="Get monthly stats averages",
-    description="Get daily average statistics for the current month.",
+    description="Get daily average statistics for the specified time range.",
 )
 @limiter.limit("60/minute")
-async def get_monthly_stats(request: Request) -> dict:
+async def get_monthly_stats(
+    request: Request,
+    time_range: Annotated[str, Query(description="Time range filter (this_month, last_month, year)")] = "this_month",
+) -> dict:
     """Get monthly average statistics.
 
     Returns:
-        Average daily stats for the current month.
+        Average daily stats for the specified time range.
     """
     from app.services.stats_service import get_stats_service
 
     stats_service = get_stats_service()
-    return await stats_service.get_monthly_stats_async()
+    return await stats_service.get_monthly_stats_async(time_range=time_range)
 
 
 @router.get(
     "/stats/top-players",
-    summary="Get top players this month",
-    description="Get the top 5 players with the most matches this month.",
+    summary="Get top players by time range",
+    description="Get the top players with the most matches in the specified time range.",
 )
 @limiter.limit("60/minute")
-async def get_top_players(request: Request) -> list[dict]:
-    """Get top players for the current month.
+async def get_top_players(
+    request: Request,
+    time_range: Annotated[str, Query(description="Time range filter (this_month, last_month, year)")] = "this_month",
+) -> list[dict]:
+    """Get top players for the specified time range.
 
     Returns:
         List of players and their match counts.
@@ -131,7 +137,7 @@ async def get_top_players(request: Request) -> list[dict]:
     from app.services.stats_service import get_stats_service
 
     stats_service = get_stats_service()
-    return await stats_service.get_top_players_async(limit=5)
+    return await stats_service.get_top_players_async(limit=5, time_range=time_range)
 
 
 class ConnectionManager:

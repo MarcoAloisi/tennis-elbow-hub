@@ -1,14 +1,11 @@
-<script setup>
+<script setup lang="ts">
 /**
  * Stats Leaders Component
  * Shows average stats per player for each stat category
  */
-const props = defineProps({
-    leaders: {
-        type: Array,
-        required: true
-    }
-})
+const props = defineProps<{
+    leaders: any[]
+}>()
 
 // Stat categories for display
 const statCategories = [

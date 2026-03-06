@@ -1,8 +1,12 @@
-<script setup>
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+<script setup lang="ts">
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useOutfitsStore } from '@/stores/outfits'
 import { useAuthStore } from '@/stores/auth'
 import OutfitCard from '@/components/outfits/OutfitCard.vue'
+import { useDebouncedSearch } from '@/composables/useDebouncedSearch'
+import { usePagination } from '@/composables/usePagination'
+import { useModalAccessibility } from '@/composables/useModalAccessibility'
+import { Plus, Search, Shirt } from 'lucide-vue-next'
 
 const outfitsStore = useOutfitsStore()
 const authStore = useAuthStore()
@@ -10,12 +14,8 @@ const authStore = useAuthStore()
 // State
 const isUploadModalOpen = ref(false)
 const selectedCategory = ref('All')
-const searchQuery = ref('')
 const selectedUploader = ref('')
 const categories = ['All', 'Male', 'Female']
-
-// Debounce timer for search
-let searchTimer = null
 
 // Form State
 const formModel = ref({
@@ -38,14 +38,14 @@ const handleEditOutfit = (outfit) => {
     outfit_code: outfit.outfit_code,
     category: outfit.category,
     uploader_name: outfit.uploader_name,
-    image: null // Optional during edit
+    image: null
   }
   isUploadModalOpen.value = true
   uploadSuccess.value = false
   uploadError.value = ''
 }
 
-// Fetch data helper
+// Fetch helpers
 const fetchCurrentPage = () => {
   outfitsStore.fetchOutfits({
     search: searchQuery.value,
@@ -53,6 +53,17 @@ const fetchCurrentPage = () => {
     category: selectedCategory.value,
     page: outfitsStore.pagination.page,
     pageSize: 9
+  })
+}
+
+function fetchFiltered(overrides = {}) {
+  outfitsStore.fetchOutfits({
+    search: searchQuery.value,
+    uploader: selectedUploader.value,
+    category: selectedCategory.value,
+    page: 1,
+    pageSize: 9,
+    ...overrides
   })
 }
 
@@ -64,78 +75,34 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('paste', handlePaste)
-  if (searchTimer) clearTimeout(searchTimer)
 })
 
-// Live search with debounce
-watch(searchQuery, () => {
-  if (searchTimer) clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => {
-    outfitsStore.fetchOutfits({
-      search: searchQuery.value,
-      uploader: selectedUploader.value,
-      category: selectedCategory.value,
-      page: 1,
-      pageSize: 9
-    })
-  }, 300)
+// Live search with debounce (replaces manual setTimeout pattern)
+const { searchQuery } = useDebouncedSearch((query) => {
+  fetchFiltered({ search: query })
 })
 
 const setCategory = (cat) => {
   selectedCategory.value = cat
-  outfitsStore.fetchOutfits({
-    search: searchQuery.value,
-    uploader: selectedUploader.value,
-    category: cat,
-    page: 1,
-    pageSize: 9
-  })
+  fetchFiltered({ category: cat })
 }
 
 const onUploaderChange = () => {
-  outfitsStore.fetchOutfits({
-    search: searchQuery.value,
-    uploader: selectedUploader.value,
-    category: selectedCategory.value,
-    page: 1,
-    pageSize: 9
-  })
+  fetchFiltered({ uploader: selectedUploader.value })
 }
 
-const goToPage = (page) => {
-  if (page < 1 || page > outfitsStore.pagination.totalPages) return
-  outfitsStore.fetchOutfits({
-    search: searchQuery.value,
-    uploader: selectedUploader.value,
-    category: selectedCategory.value,
-    page,
-    pageSize: 9
-  })
-}
-
-// Pagination display helper — shows smart page range with ellipsis
-const pageNumbers = computed(() => {
-  const total = outfitsStore.pagination.totalPages
-  const current = outfitsStore.pagination.page
-  if (total <= 7) {
-    return Array.from({ length: total }, (_, i) => i + 1)
-  }
-  const pages = []
-  pages.push(1)
-  if (current > 3) pages.push('...')
-  const start = Math.max(2, current - 1)
-  const end = Math.min(total - 1, current + 1)
-  for (let i = start; i <= end; i++) pages.push(i)
-  if (current < total - 2) pages.push('...')
-  pages.push(total)
-  return pages
+// Pagination (replaces manual pageNumbers + goToPage + showingRange)
+const { pageNumbers, showingRange, goToPage } = usePagination({
+  currentPage: () => outfitsStore.pagination.page,
+  totalPages: () => outfitsStore.pagination.totalPages,
+  totalItems: () => outfitsStore.pagination.total || 0,
+  pageSize: 9,
+  onPageChange: (page) => fetchFiltered({ page })
 })
 
-const showingRange = computed(() => {
-  const { page, pageSize, total } = outfitsStore.pagination
-  const from = (page - 1) * pageSize + 1
-  const to = Math.min(page * pageSize, total)
-  return { from, to, total }
+// Focus trap + Escape for upload modal
+useModalAccessibility(isUploadModalOpen, {
+  onClose: () => { closeUploadModal() }
 })
 
 const handleFileChange = (e) => {
@@ -257,7 +224,7 @@ const closeUploadModal = () => {
       
       <!-- Upload Button (Only for logged-in users) -->
       <button v-if="authStore.isAdmin" class="btn-primary" @click="openUploadModal">
-        <span class="icon">➕</span> Upload Outfit
+        <span class="icon"><Plus :size="16" stroke-width="2.5" /></span> Upload Outfit
       </button>
     </header>
 
@@ -278,15 +245,15 @@ const closeUploadModal = () => {
 
     <!-- Search & Author Filter Bar -->
     <div class="search-filter-bar">
-      <div class="search-input-wrapper">
-        <span class="search-icon">🔍</span>
+      <div class="search-bar-wrapper">
+        <span class="search-bar-icon"><Search :size="18" /></span>
         <input 
           type="text" 
           v-model="searchQuery" 
           placeholder="Search outfits by name..." 
-          class="search-input"
+          class="search-bar-input"
         />
-        <button v-if="searchQuery" class="clear-btn" @click="searchQuery = ''" title="Clear search">✕</button>
+        <button v-if="searchQuery" class="search-bar-clear" @click="searchQuery = ''" title="Clear search" aria-label="Clear search">✕</button>
       </div>
       <div class="uploader-filter-wrapper">
         <select v-model="selectedUploader" @change="onUploaderChange" class="uploader-select">
@@ -306,10 +273,12 @@ const closeUploadModal = () => {
     </div>
     
     <!-- Empty State / Loading -->
-    <div v-else class="empty-state">
-      <div v-if="outfitsStore.loading" class="loading-spinner"></div>
+    <div v-else class="empty-state-dashed">
+      <div v-if="outfitsStore.loading" class="loading-spinner-lg"></div>
       <div v-else class="no-results">
-        <div class="icon">👕</div>
+        <div class="empty-icon-wrapper">
+          <Shirt class="empty-icon" :size="64" :stroke-width="1.5" />
+        </div>
         <h3>No outfits found</h3>
         <p v-if="searchQuery || selectedUploader">Try adjusting your search or filters.</p>
         <p v-else>There are currently no outfits uploaded for this category.</p>
@@ -327,6 +296,7 @@ const closeUploadModal = () => {
           :disabled="outfitsStore.pagination.page <= 1"
           @click="goToPage(outfitsStore.pagination.page - 1)"
           title="Previous page"
+          aria-label="Previous page"
         >
           ‹
         </button>
@@ -346,6 +316,7 @@ const closeUploadModal = () => {
           :disabled="outfitsStore.pagination.page >= outfitsStore.pagination.totalPages"
           @click="goToPage(outfitsStore.pagination.page + 1)"
           title="Next page"
+          aria-label="Next page"
         >
           ›
         </button>
@@ -353,11 +324,11 @@ const closeUploadModal = () => {
     </div>
 
     <!-- Upload Modal -->
-    <div v-if="isUploadModalOpen" class="modal-overlay" @click.self="closeUploadModal">
+    <div v-if="isUploadModalOpen" class="modal-overlay" @click.self="closeUploadModal" role="dialog" aria-modal="true" aria-label="Upload outfit">
       <div class="modal-content">
         <div class="modal-header">
           <h2>{{ editingOutfitId ? 'Edit Outfit' : 'Upload New Outfit' }}</h2>
-          <button class="btn-close" @click="closeUploadModal">✕</button>
+          <button class="btn-close" @click="closeUploadModal" aria-label="Close modal">✕</button>
         </div>
         
         <form @submit.prevent="submitForm" class="upload-form">
@@ -525,59 +496,23 @@ const closeUploadModal = () => {
   align-items: stretch;
 }
 
-.search-input-wrapper {
-  flex: 1;
+.search-bar-wrapper {
   position: relative;
-  display: flex;
-  align-items: center;
+  flex: 1;
 }
 
-.search-icon {
+.search-bar-icon {
   position: absolute;
-  left: 14px;
-  font-size: var(--font-size-base);
+  top: 50%;
+  left: 12px;
+  transform: translateY(-50%);
+  color: var(--color-text-muted);
   pointer-events: none;
-  z-index: 1;
 }
 
-.search-input {
+.search-bar-input {
   width: 100%;
-  padding: 10px 36px 10px 40px;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  color: var(--color-text-primary);
-  border-radius: var(--radius-md);
-  font-family: var(--font-body);
-  font-size: var(--font-size-base);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.search-input:focus {
-  outline: none;
-  border-color: var(--color-brand-primary);
-  box-shadow: 0 0 0 3px rgba(163, 230, 53, 0.15);
-}
-
-.search-input::placeholder {
-  color: var(--color-text-muted);
-}
-
-.clear-btn {
-  position: absolute;
-  right: 10px;
-  background: transparent;
-  border: none;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  font-size: var(--font-size-sm);
-  padding: 4px 6px;
-  border-radius: var(--radius-sm);
-  transition: all 0.15s ease;
-}
-
-.clear-btn:hover {
-  color: var(--color-text-primary);
-  background: var(--color-bg-hover);
+  padding-left: 40px;
 }
 
 .uploader-filter-wrapper {
@@ -607,7 +542,7 @@ const closeUploadModal = () => {
 .uploader-select:focus {
   outline: none;
   border-color: var(--color-brand-primary);
-  box-shadow: 0 0 0 3px rgba(163, 230, 53, 0.15);
+  box-shadow: var(--color-accent-focus);
 }
 
 /* Grid */
@@ -617,108 +552,26 @@ const closeUploadModal = () => {
   gap: var(--space-6);
 }
 
-/* Empty State */
-.empty-state {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 400px;
-  background: var(--color-bg-secondary);
-  border-radius: var(--radius-lg);
-  border: 1px dashed var(--color-border);
-}
-
-.no-results {
-  text-align: center;
-  color: var(--color-text-secondary);
-}
-
-.no-results .icon {
-  font-size: 3rem;
-  margin-bottom: var(--space-4);
-  opacity: 0.5;
-}
-
-.no-results h3 {
-  color: var(--color-text-primary);
-  margin-bottom: var(--space-2);
-}
-
-/* Pagination */
-.pagination-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-3);
-  margin-top: var(--space-8);
-  padding-top: var(--space-6);
-  border-top: 1px solid var(--color-border);
-}
-
-.pagination-info {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-  font-family: var(--font-body);
-}
-
-.pagination-controls {
+.empty-icon-wrapper {
   display: flex;
   align-items: center;
-  gap: 4px;
-}
-
-.page-btn {
-  min-width: 36px;
-  height: 36px;
-  display: inline-flex;
-  align-items: center;
   justify-content: center;
-  padding: 0 8px;
-  background: var(--color-bg-secondary);
-  color: var(--color-text-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  font-family: var(--font-heading);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: rgba(236, 72, 153, 0.1); /* Pink matching the nav icon */
+  color: #ec4899;
+  margin: 0 auto var(--space-6);
+  box-shadow: 0 0 20px rgba(236, 72, 153, 0.2);
 }
 
-.page-btn:hover:not(:disabled):not(.active) {
-  background: var(--color-bg-hover);
-  color: var(--color-text-primary);
-  border-color: var(--color-brand-primary);
+[data-theme="dark"] .empty-icon-wrapper {
+  color: #f472b6;
+  background: rgba(244, 114, 182, 0.1);
+  box-shadow: 0 0 20px rgba(244, 114, 182, 0.15);
 }
 
-.page-btn.active {
-  background: var(--color-brand-primary);
-  color: var(--color-text-inverse);
-  border-color: var(--color-brand-primary);
-  box-shadow: 0 2px 8px rgba(163, 230, 53, 0.3);
-}
-
-.page-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.nav-btn {
-  font-size: var(--font-size-lg);
-  font-weight: 700;
-}
-
-.page-ellipsis {
-  min-width: 28px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-  user-select: none;
-}
-
-/* Modal */
+/* Modal — uses global .modal-overlay from components.css */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -730,7 +583,7 @@ const closeUploadModal = () => {
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
+  z-index: var(--z-modal);
   padding: var(--space-4);
 }
 
@@ -836,7 +689,7 @@ input:focus, select:focus, textarea:focus {
 
 .drop-zone:hover, .drop-zone.is-dragover {
   border-color: var(--color-brand-primary);
-  background: rgba(163, 230, 53, 0.05);
+  background: var(--color-accent-light);
 }
 
 .drop-zone-content {
@@ -860,8 +713,8 @@ input:focus, select:focus, textarea:focus {
 }
 
 .remove-image-btn {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  background: var(--color-error-light);
+  color: var(--color-error);
   border: none;
   border-radius: 50%;
   width: 20px;
@@ -875,7 +728,7 @@ input:focus, select:focus, textarea:focus {
 }
 
 .remove-image-btn:hover {
-  background: rgba(239, 68, 68, 0.2);
+  background: var(--color-error-hover);
   transform: scale(1.1);
 }
 
@@ -898,15 +751,15 @@ textarea {
 }
 
 .error-alert {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  background: var(--color-error-light);
+  color: var(--color-error);
+  border: 1px solid var(--color-error-border);
 }
 
 .success-alert {
-  background: rgba(34, 197, 94, 0.1);
-  color: #22c55e;
-  border: 1px solid rgba(34, 197, 94, 0.2);
+  background: var(--color-success-light);
+  color: var(--color-success);
+  border: 1px solid var(--color-success-border);
 }
 
 .form-actions {
@@ -918,35 +771,7 @@ textarea {
   border-top: 1px solid var(--color-border);
 }
 
-/* Buttons */
-.btn-primary {
-  background: var(--color-brand-primary);
-  color: var(--color-text-inverse);
-  border: none;
-  padding: 10px 24px;
-  border-radius: var(--radius-md);
-  font-family: var(--font-heading);
-  font-weight: 600;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  transition: background-color 0.2s, transform 0.1s;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: var(--color-brand-primary-hover);
-  color: var(--color-bg-primary);
-}
-
-.btn-primary:active:not(:disabled) {
-  transform: scale(0.98);
-}
-
-.btn-primary:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
+/* Buttons — uses global .btn-primary from components.css */
 
 .btn-cancel {
   background: transparent;

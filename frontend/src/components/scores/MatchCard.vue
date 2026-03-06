@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import tournaments from '@/data/tournaments.json'
 
@@ -351,7 +351,6 @@ const isOnlineMode = computed(() => {
 .match-card:hover {
   border-color: var(--color-brand-primary);
   box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
 }
 
 .match-card.is-live {
@@ -398,7 +397,7 @@ const isOnlineMode = computed(() => {
 .live-dot-pulse {
   width: 8px;
   height: 8px;
-  background-color: white;
+  background-color: var(--color-surface);
   border-radius: 50%;
   animation: pulse 1.5s infinite ease-in-out; /* Improved pulse */
 }
@@ -473,7 +472,7 @@ const isOnlineMode = computed(() => {
   font-size: 8px;
   font-weight: bold;
   color: var(--color-accent);
-  background: rgba(99, 102, 241, 0.1);
+  background: var(--color-accent-light);
   padding: 1px 3px;
   border-radius: 2px;
   text-transform: uppercase;
@@ -583,13 +582,13 @@ const isOnlineMode = computed(() => {
 
 .mod-tag {
   color: var(--color-text-primary);
-  background-color: rgba(99, 102, 241, 0.05); /* Light Indigo tint */
+  background-color: var(--color-bg-secondary);
 }
 
 .sets-tag {
   color: var(--color-accent);
-  background-color: rgba(99, 102, 241, 0.1);
-  margin-left: auto; /* Push to right */
+  background-color: var(--color-accent-light);
+  margin-left: auto;
 }
 
 .badge-tournament {
@@ -598,9 +597,8 @@ const isOnlineMode = computed(() => {
   font-family: var(--font-heading);
   font-weight: 600;
   font-size: 0.75rem;
-  font-size: 0.75rem;
   letter-spacing: 0.02em;
-  max-width: 180px; /* Restored constraint to prevent grid blowout */
+  max-width: 180px;
   overflow: hidden; 
   white-space: nowrap;
   flex-shrink: 1; 

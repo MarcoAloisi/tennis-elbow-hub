@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue'
 
 const props = defineProps({
@@ -52,7 +52,7 @@ function clearFilters() {
       <input 
         type="checkbox"
         :checked="filters.startedOnly"
-        @change="updateFilter('startedOnly', $event.target.checked)"
+        @change="updateFilter('startedOnly', ($event.target as HTMLInputElement).checked)"
       />
       <span>Live only</span>
     </label>

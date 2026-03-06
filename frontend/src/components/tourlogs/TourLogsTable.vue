@@ -1,16 +1,13 @@
-<script setup>
+<script setup lang="ts">
 /**
  * Tour Logs Data Table Component
  * Displays filterable match statistics table with sortable columns
  */
 import { ref, computed } from 'vue'
 
-const props = defineProps({
-    data: {
-        type: Array,
-        required: true
-    }
-})
+const props = defineProps<{
+    data: any[]
+}>()
 
 // Sorting state
 const sortKey = ref('date')
@@ -154,11 +151,10 @@ function getSortIndicator(key) {
                 <tbody>
                     <tr v-for="(row, index) in sortedData" :key="index">
                         <td v-for="col in columns" :key="col.key" 
-                            :class="{
-                                'player-cell': col.key === 'player',
-                                'opponent-cell': col.key === 'opponent',
-                                [getEloDiffClass(row.elo, row.opponentElo)]: col.key === 'elo'
-                            }">
+                            :class="[
+                                { 'player-cell': col.key === 'player', 'opponent-cell': col.key === 'opponent' },
+                                col.key === 'elo' ? getEloDiffClass(row.elo, row.opponentElo) : ''
+                            ]">
                             {{ formatValue(row[col.key], col.format) }}
                         </td>
                     </tr>
@@ -262,12 +258,12 @@ function getSortIndicator(key) {
 }
 
 .elo-higher {
-    color: #22c55e;
+    color: var(--color-success);
     font-weight: 600;
 }
 
 .elo-lower {
-    color: #ef4444;
+    color: var(--color-error);
 }
 
 .empty-row {

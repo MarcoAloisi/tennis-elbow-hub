@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { computed, ref, onMounted } from 'vue'
 import { Radar, Bar } from 'vue-chartjs'
 import {
@@ -43,7 +43,7 @@ const props = defineProps({
   chartType: {
     type: String,
     default: 'radar',
-    validator: (v) => ['radar', 'bar'].includes(v)
+    validator: (v: string) => ['radar', 'bar'].includes(v)
   }
 })
 
@@ -265,7 +265,7 @@ const barData = computed(() => {
   }
 })
 
-const radarOptions = {
+const radarOptions: any = {
   responsive: true,
   maintainAspectRatio: true,
   plugins: {
@@ -284,7 +284,7 @@ const radarOptions = {
   }
 }
 
-const barOptions = {
+const barOptions: any = {
   responsive: true,
   maintainAspectRatio: true,
   plugins: {
@@ -481,7 +481,7 @@ const barOptions = {
 
 .chart-btn.active {
   background: var(--color-accent);
-  color: white;
+  color: var(--color-text-inverse);
   border-color: var(--color-accent);
 }
 </style>
