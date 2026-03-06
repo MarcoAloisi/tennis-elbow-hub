@@ -1,18 +1,19 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { supabase } from '@/config/supabase'
+import type { User, Session } from '@supabase/supabase-js'
 
 export const useAuthStore = defineStore('auth', () => {
-    const user = ref(null)
-    const session = ref(null)
-    const loading = ref(true)
-    const error = ref(null)
+    const user = ref<User | null>(null)
+    const session = ref<Session | null>(null)
+    const loading = ref<boolean>(true)
+    const error = ref<string | null>(null)
 
     // Role-based access: check app_metadata.role (tamper-proof, set server-side only)
     const isAdmin = computed(() => user.value?.app_metadata?.role === 'admin')
 
     // Initialize Auth state from Supabase
-    const initAuth = async () => {
+    const initAuth = async (): Promise<void> => {
         loading.value = true
         try {
             // Get initial session
@@ -30,7 +31,7 @@ export const useAuthStore = defineStore('auth', () => {
                 session.value = currentSession
                 user.value = currentSession?.user || null
             })
-        } catch (err) {
+        } catch (err: any) {
             console.error('Error initializing auth:', err.message)
             error.value = err.message
         } finally {
@@ -38,7 +39,7 @@ export const useAuthStore = defineStore('auth', () => {
         }
     }
 
-    const register = async (email, password, displayName) => {
+    const register = async (email: string, password: string, displayName: string) => {
         loading.value = true
         error.value = null
         try {
@@ -53,7 +54,7 @@ export const useAuthStore = defineStore('auth', () => {
             })
             if (signUpError) throw signUpError
             return data
-        } catch (err) {
+        } catch (err: any) {
             error.value = err.message
             throw err
         } finally {
@@ -61,7 +62,7 @@ export const useAuthStore = defineStore('auth', () => {
         }
     }
 
-    const login = async (email, password) => {
+    const login = async (email: string, password: string) => {
         loading.value = true
         error.value = null
         try {
@@ -71,7 +72,7 @@ export const useAuthStore = defineStore('auth', () => {
             })
             if (signInError) throw signInError
             return data
-        } catch (err) {
+        } catch (err: any) {
             error.value = err.message
             throw err
         } finally {
@@ -79,7 +80,7 @@ export const useAuthStore = defineStore('auth', () => {
         }
     }
 
-    const logout = async () => {
+    const logout = async (): Promise<void> => {
         loading.value = true
         error.value = null
         try {
@@ -88,7 +89,7 @@ export const useAuthStore = defineStore('auth', () => {
 
             user.value = null
             session.value = null
-        } catch (err) {
+        } catch (err: any) {
             error.value = err.message
             throw err
         } finally {
@@ -96,7 +97,7 @@ export const useAuthStore = defineStore('auth', () => {
         }
     }
 
-    const updateDisplayName = async (newName) => {
+    const updateDisplayName = async (newName: string) => {
         loading.value = true
         error.value = null
         try {
@@ -109,13 +110,17 @@ export const useAuthStore = defineStore('auth', () => {
                 user.value = data.user
             }
             return data
-        } catch (err) {
+        } catch (err: any) {
             error.value = err.message
             console.error('Failed to update display name:', err)
             throw err
         } finally {
             loading.value = false
         }
+    }
+
+    function clearError(): void {
+        error.value = null
     }
 
     return {
@@ -128,6 +133,7 @@ export const useAuthStore = defineStore('auth', () => {
         register,
         login,
         logout,
-        updateDisplayName
+        updateDisplayName,
+        clearError
     }
 })

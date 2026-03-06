@@ -1,17 +1,19 @@
-import { createRouter, createWebHistory } from 'vue-router'
-import LiveScoresView from '../views/LiveScoresView.vue'
-import MatchAnalysisView from '../views/MatchAnalysisView.vue'
-import WTSLTourLogsView from '../views/WTSLTourLogsView.vue'
-import OnlineToursView from '../views/OnlineToursView.vue'
-import GuidesView from '../views/GuidesView.vue'
+import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import AboutView from '../views/AboutView.vue'
-import PrivacyPolicyView from '../views/PrivacyPolicyView.vue'
-import TermsOfServiceView from '../views/TermsOfServiceView.vue'
-import ContactView from '../views/ContactView.vue'
-import OutfitGalleryView from '../views/OutfitGalleryView.vue'
-import LoginView from '../views/LoginView.vue'
 
-const routes = [
+// Lazy-loaded views — only downloaded when the route is navigated to
+const LiveScoresView = () => import('../views/LiveScoresView.vue')
+const MatchAnalysisView = () => import('../views/MatchAnalysisView.vue')
+const WTSLTourLogsView = () => import('../views/WTSLTourLogsView.vue')
+const OnlineToursView = () => import('../views/OnlineToursView.vue')
+const GuidesView = () => import('../views/GuidesView.vue')
+const PrivacyPolicyView = () => import('../views/PrivacyPolicyView.vue')
+const TermsOfServiceView = () => import('../views/TermsOfServiceView.vue')
+const ContactView = () => import('../views/ContactView.vue')
+const OutfitGalleryView = () => import('../views/OutfitGalleryView.vue')
+const LoginView = () => import('../views/LoginView.vue')
+
+const routes: RouteRecordRaw[] = [
     {
         path: '/',
         name: 'Home',
@@ -157,10 +159,15 @@ router.beforeEach((to, from, next) => {
 
     const descriptionMeta = document.querySelector('meta[name="description"]')
     if (descriptionMeta && to.meta.description) {
-        descriptionMeta.setAttribute('content', to.meta.description)
+        descriptionMeta.setAttribute('content', to.meta.description as string)
     }
 
     next()
+})
+
+router.afterEach(() => {
+    // Force scroll to top after route change to fix footer link bug
+    window.scrollTo({ top: 0, behavior: 'instant' })
 })
 
 export default router

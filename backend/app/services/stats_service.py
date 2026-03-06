@@ -5,7 +5,7 @@ Stateless implementation relying on Database for concurrency safety.
 """
 
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -381,25 +381,37 @@ class StatsService:
             logger.error(f"Failed to get stats history: {e}")
             return []
 
-    async def get_monthly_stats_async(self) -> dict[str, Any]:
-        """Get average stats for the current month."""
+    async def get_monthly_stats_async(self, time_range: str = "this_month") -> dict[str, Any]:
+        """Get average stats for the specified time range."""
         today = self._get_today()
-        # First day of the current month
-        start_of_month = date(today.year, today.month, 1)
+        
+        if time_range == "last_month":
+            # first day of this month
+            first_day_this_month = date(today.year, today.month, 1)
+            # last day of last month
+            end_date = first_day_this_month - timedelta(days=1)
+            # first day of last month
+            start_date = date(end_date.year, end_date.month, 1)
+        elif time_range == "year":
+            start_date = date(today.year, 1, 1)
+            end_date = today
+        else: # "this_month"
+            start_date = date(today.year, today.month, 1)
+            end_date = today
         
         try:
             session_factory = get_session_factory()
             async with session_factory() as session:
                 result = await session.execute(
                     select(DailyStats)
-                    .where(DailyStats.stats_date >= start_of_month)
-                    .where(DailyStats.stats_date <= today)
+                    .where(DailyStats.stats_date >= start_date)
+                    .where(DailyStats.stats_date <= end_date)
                 )
                 records = result.scalars().all()
                 
                 if not records:
                     return {
-                        "date_range": f"{start_of_month.isoformat()} to {today.isoformat()}",
+                        "date_range": f"{start_date.isoformat()} to {end_date.isoformat()}",
                         "days_recorded": 0,
                         "xkt": {"avg_total": 0, "avg_bo1": 0, "avg_bo3": 0, "avg_bo5": 0},
                         "wtsl": {"avg_total": 0, "avg_bo1": 0, "avg_bo3": 0, "avg_bo5": 0},
@@ -412,7 +424,7 @@ class StatsService:
                     return sum(vals) // days_count
                     
                 return {
-                    "date_range": f"{start_of_month.isoformat()} to {today.isoformat()}",
+                    "date_range": f"{start_date.isoformat()} to {end_date.isoformat()}",
                     "days_recorded": days_count,
                     "xkt": {
                         "avg_total": avg([r.xkt_total for r in records]),
@@ -437,10 +449,20 @@ class StatsService:
             logger.error(f"Failed to fetch monthly stats: {e}")
             return {}
 
-    async def get_top_players_async(self, limit: int = 5) -> list[dict[str, Any]]:
-        """Get the top players with most matches in the current month."""
+    async def get_top_players_async(self, limit: int = 5, time_range: str = "this_month") -> list[dict[str, Any]]:
+        """Get the top players with most matches in the specified time range."""
         today = self._get_today()
-        start_of_month = date(today.year, today.month, 1)
+        
+        if time_range == "last_month":
+            first_day_this_month = date(today.year, today.month, 1)
+            end_date = first_day_this_month - timedelta(days=1)
+            start_date = date(end_date.year, end_date.month, 1)
+        elif time_range == "year":
+            start_date = date(today.year, 1, 1)
+            end_date = today
+        else: # "this_month"
+            start_date = date(today.year, today.month, 1)
+            end_date = today
         
         try:
             session_factory = get_session_factory()
@@ -448,8 +470,8 @@ class StatsService:
                 # Optimized query: fetch match names, elos, and order by creation asc to find latest elo
                 result = await session.execute(
                     select(FinishedMatch.match_name, FinishedMatch.p1_elo, FinishedMatch.p2_elo)
-                    .where(FinishedMatch.date >= start_of_month)
-                    .where(FinishedMatch.date <= today)
+                    .where(FinishedMatch.date >= start_date)
+                    .where(FinishedMatch.date <= end_date)
                     .order_by(FinishedMatch.created_at.asc())
                 )
                 match_records = result.all()

@@ -161,7 +161,7 @@ export const useTourLogsStore = defineStore('tourLogs', () => {
     // Stats leaders - average stats per player
     // Aggregates data from ALL rows where the player appears in the 'player' column
     const statsLeaders = computed(() => {
-        const playerStats = {} // keyed by normalized name
+        const playerStats: Record<string, any> = {} // keyed by normalized name
 
         // Use filteredData so we can see leaders for specific tournaments/dates if desired
         // Or should we use global data? Usually leaders are global, but filtering is nice.
@@ -363,6 +363,10 @@ export const useTourLogsStore = defineStore('tourLogs', () => {
         }
     }
 
+    function clearError() {
+        error.value = null
+    }
+
     // Get the latest match date from the data (for "last updated" display)
     const latestMatchDate = computed(() => {
         if (!data.value.length) return null
@@ -404,5 +408,6 @@ export const useTourLogsStore = defineStore('tourLogs', () => {
         selectPlayer,
         setPlayerFilter,
         resetFilters,
+        clearError,
     }
 })

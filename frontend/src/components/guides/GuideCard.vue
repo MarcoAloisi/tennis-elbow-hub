@@ -1,7 +1,8 @@
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { Video, BookOpen, Pencil, Trash2 } from 'lucide-vue-next'
 
 const props = defineProps({
   guide: {
@@ -48,12 +49,15 @@ function openGuide() {
     <div class="guide-thumbnail">
       <img v-if="thumbnailUrl" :src="thumbnailUrl" :alt="guide.title" class="thumbnail-img" />
       <div v-else class="thumbnail-placeholder">
-        <span>{{ isVideo ? '📹' : '📖' }}</span>
+        <Video v-if="isVideo" :size="48" class="placeholder-icon" />
+        <BookOpen v-else :size="48" class="placeholder-icon" />
       </div>
 
       <!-- Type Badge -->
       <span class="type-badge" :class="guide.guide_type">
-        {{ isVideo ? '📹 Video' : '📖 Article' }}
+        <Video v-if="isVideo" :size="14" class="inline-icon" />
+        <BookOpen v-else :size="14" class="inline-icon" />
+        {{ isVideo ? 'Video' : 'Article' }}
       </span>
 
       <!-- Play icon overlay for video guides -->
@@ -83,11 +87,11 @@ function openGuide() {
 
     <!-- Admin Actions -->
     <div v-if="authStore.isAdmin" class="admin-actions" @click.stop>
-      <button class="action-btn edit-btn" @click="emit('edit', guide)" title="Edit guide">
-        ✏️
+      <button class="action-btn edit-btn" @click="emit('edit', guide)" title="Edit guide" aria-label="Edit guide">
+        <Pencil :size="16" />
       </button>
-      <button class="action-btn delete-btn" @click="emit('delete', guide)" title="Delete guide">
-        🗑️
+      <button class="action-btn delete-btn" @click="emit('delete', guide)" title="Delete guide" aria-label="Delete guide">
+        <Trash2 :size="16" />
       </button>
     </div>
   </div>
@@ -134,7 +138,11 @@ function openGuide() {
   align-items: center;
   justify-content: center;
   background: var(--color-bg-secondary);
-  font-size: 3rem;
+}
+
+.placeholder-icon {
+  color: var(--color-text-muted);
+  opacity: 0.5;
 }
 
 /* Type Badge */
@@ -142,6 +150,9 @@ function openGuide() {
   position: absolute;
   top: 10px;
   right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
   padding: 4px 10px;
   border-radius: var(--radius-full);
   font-size: var(--font-size-xs);
@@ -152,12 +163,12 @@ function openGuide() {
 
 .type-badge.video {
   background: rgba(99, 102, 241, 0.85);
-  color: white;
+  color: var(--color-text-inverse);
 }
 
 .type-badge.written {
   background: rgba(16, 185, 129, 0.85);
-  color: white;
+  color: var(--color-text-inverse);
 }
 
 /* Play overlay for video cards */
@@ -221,17 +232,17 @@ function openGuide() {
 
 .tag-pill.xkt {
   background: rgba(99, 102, 241, 0.15);
-  color: #6366f1;
+  color: var(--color-tag-xkt);
 }
 
 .tag-pill.wtsl {
   background: rgba(34, 197, 94, 0.15);
-  color: #22c55e;
+  color: var(--color-tag-wtsl);
 }
 
 .tag-pill.gameplay {
   background: rgba(249, 115, 22, 0.15);
-  color: #f97316;
+  color: var(--color-tag-gameplay);
 }
 
 /* Default tag style for custom tags */
@@ -302,7 +313,7 @@ function openGuide() {
 
 .edit-btn {
   background: rgba(59, 130, 246, 0.85);
-  color: white;
+  color: var(--color-text-inverse);
 }
 
 .edit-btn:hover {
@@ -312,7 +323,7 @@ function openGuide() {
 
 .delete-btn {
   background: rgba(239, 68, 68, 0.85);
-  color: white;
+  color: var(--color-text-inverse);
 }
 
 .delete-btn:hover {

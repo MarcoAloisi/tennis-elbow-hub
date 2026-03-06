@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -164,9 +164,9 @@ input:disabled {
 }
 
 .error-alert {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  background: var(--color-error-light);
+  color: var(--color-error);
+  border: 1px solid var(--color-error-border);
   padding: var(--space-3);
   border-radius: var(--radius-sm);
   font-size: var(--font-size-sm);
@@ -175,7 +175,7 @@ input:disabled {
 
 .btn-primary {
   background: var(--color-brand-primary);
-  color: var(--color-bg-primary); /* Dark text on neon bg */
+  color: var(--color-text-inverse);
   border: none;
   padding: 12px 24px;
   border-radius: var(--radius-md);
@@ -188,8 +188,9 @@ input:disabled {
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--color-brand-accent);
+  filter: brightness(1.1);
   transform: translateY(-1px);
+  box-shadow: var(--shadow-glow);
 }
 
 .btn-primary:disabled {

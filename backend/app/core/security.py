@@ -289,11 +289,11 @@ def get_security_headers() -> dict[str, str]:
         # Styles: Fonts, GTM
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://tagmanager.google.com",
         # Images: GTM, Analytics, AdSense, Google Ads
-        "img-src 'self' data: https://www.googletagmanager.com https://ssl.gstatic.com https://www.google-analytics.com https://pagead2.googlesyndication.com https://img.youtube.com https://www.google.com",
+        "img-src 'self' data: https://*.supabase.co https://www.googletagmanager.com https://ssl.gstatic.com https://www.google-analytics.com https://pagead2.googlesyndication.com https://img.youtube.com https://www.google.com",
         # Fonts: Google Fonts
         "font-src 'self' data: https://fonts.gstatic.com",
         # Connect: Analytics, GTM, Tag Assistant, Google Ads
-        "connect-src 'self' https://www.google-analytics.com https://www.googletagmanager.com https://tagassistant.google.com https://stats.g.doubleclick.net https://www.google.com https://fundingchoicesmessages.google.com",
+        "connect-src 'self' https://www.google-analytics.com https://region1.google-analytics.com https://www.googletagmanager.com https://tagassistant.google.com https://stats.g.doubleclick.net https://www.google.com https://fundingchoicesmessages.google.com",
         # Frames: GTM (noscript), AdSense
         "frame-src 'self' https://www.googletagmanager.com https://googleads.g.doubleclick.net https://tpc.googlesyndication.com https://fundingchoicesmessages.google.com https://www.youtube.com",
         # Security Hardening

@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue'
 import { apiUrl } from '../config/api'
 
@@ -199,7 +199,7 @@ h1 {
 }
 
 .required {
-  color: #ef4444;
+  color: var(--color-error);
 }
 
 .form-group input,
@@ -218,7 +218,7 @@ h1 {
 .form-group input:focus,
 .form-group textarea:focus {
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+  box-shadow: 0 0 0 3px var(--color-accent-light);
 }
 
 .form-group input::placeholder,
@@ -237,7 +237,7 @@ h1 {
 }
 
 .field-hint.char-warn {
-  color: #ef4444;
+  color: var(--color-error);
 }
 
 /* Buttons */
@@ -248,7 +248,7 @@ h1 {
   gap: var(--space-2);
   padding: var(--space-3) var(--space-6);
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-text-inverse);
   border: none;
   border-radius: var(--radius-lg);
   font-size: var(--font-size-base);
@@ -260,7 +260,7 @@ h1 {
 
 .btn-submit:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(79, 70, 229, 0.3);
+  box-shadow: 0 4px 16px var(--color-accent-light);
 }
 
 .btn-submit:disabled {
@@ -270,13 +270,14 @@ h1 {
 
 .btn-submit.loading {
   opacity: 0.8;
+  pointer-events: none;
 }
 
 .spinner {
   width: 16px;
   height: 16px;
   border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #fff;
+  border-top-color: var(--color-text-inverse);
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
 }
@@ -290,7 +291,7 @@ h1 {
   align-items: center;
   padding: var(--space-3) var(--space-6);
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-text-inverse);
   border: none;
   border-radius: var(--radius-lg);
   font-size: var(--font-size-sm);
@@ -301,7 +302,7 @@ h1 {
 
 .btn-primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(79, 70, 229, 0.3);
+  box-shadow: 0 4px 16px var(--color-accent-light);
 }
 
 /* Success */
@@ -330,12 +331,12 @@ h1 {
 
 /* Error */
 .error-msg {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: var(--color-error-light);
+  border: 1px solid var(--color-error-border);
   border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
   font-size: var(--font-size-sm);
-  color: #ef4444;
+  color: var(--color-error);
 }
 
 @media (max-width: 768px) {

@@ -1,9 +1,10 @@
-<script setup>
+<script setup lang="ts">
 /**
  * Player Stats Grid Component
  * Displays player statistics or tour averages in a grid format
  */
 import { computed } from 'vue'
+import { ChartColumn } from 'lucide-vue-next'
 
 const props = defineProps({
     stats: {
@@ -188,7 +189,9 @@ const matchCount = computed(() => {
 
     <!-- Empty State -->
     <div v-else class="empty-state">
-        <div class="empty-icon">📊</div>
+        <div class="empty-icon-wrapper">
+          <ChartColumn class="empty-icon" :size="48" :stroke-width="1.5" />
+        </div>
         <p>No statistics available</p>
         <span class="empty-hint">Upload tour log data to see player statistics</span>
     </div>
@@ -295,14 +298,14 @@ const matchCount = computed(() => {
 }
 
 /* Percentage Colors */
-.pct-danger { color: #dc2626 !important; }
-.pct-warning { color: #f97316 !important; }
+.pct-danger { color: var(--color-pct-danger) !important; }
+.pct-warning { color: var(--color-pct-warning) !important; }
 .pct-neutral { color: var(--color-text-primary) !important; }
-.pct-good { color: #22c55e !important; }
+.pct-good { color: var(--color-pct-good) !important; }
 .pct-excellent { color: var(--color-brand-primary) !important; }
 
 [data-theme="dark"] .pct-excellent {
-    color: #D4FF5F !important;
+    color: var(--color-pct-excellent) !important;
 }
 
 /* Empty State */
@@ -316,10 +319,23 @@ const matchCount = computed(() => {
     color: var(--color-text-muted);
 }
 
-.empty-icon {
-    font-size: 3rem;
-    margin-bottom: var(--space-4);
-    opacity: 0.5;
+.empty-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(168, 85, 247, 0.1); 
+  color: #a855f7;
+  margin: 0 auto var(--space-4);
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.2);
+}
+
+[data-theme="dark"] .empty-icon-wrapper {
+  color: #c084fc;
+  background: rgba(192, 132, 252, 0.1);
+  box-shadow: 0 0 20px rgba(192, 132, 252, 0.15);
 }
 
 .empty-state p {

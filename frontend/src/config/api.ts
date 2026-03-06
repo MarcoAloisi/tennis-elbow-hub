@@ -2,27 +2,29 @@
  * API configuration for production/development
  */
 
+declare const __API_URL__: string | undefined;
+
 // API base URL - uses environment variable in production, proxy in development
-export const API_BASE_URL = typeof __API_URL__ !== 'undefined' && __API_URL__
+export const API_BASE_URL: string = typeof __API_URL__ !== 'undefined' && !!__API_URL__
     ? __API_URL__
     : ''
 
 // WebSocket URL
-export const WS_BASE_URL = API_BASE_URL
+export const WS_BASE_URL: string = API_BASE_URL
     ? API_BASE_URL.replace('https://', 'wss://').replace('http://', 'ws://')
     : ''
 
 /**
  * Build full API URL
  */
-export function apiUrl(path) {
+export function apiUrl(path: string): string {
     return `${API_BASE_URL}${path}`
 }
 
 /**
  * Build full WebSocket URL
  */
-export function wsUrl(path) {
+export function wsUrl(path: string): string {
     if (WS_BASE_URL) {
         return `${WS_BASE_URL}${path}`
     }

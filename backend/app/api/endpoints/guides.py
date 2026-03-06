@@ -34,6 +34,7 @@ logger = get_logger("api.guides")
 router = APIRouter(prefix="/guides", tags=["Guides"])
 
 BUCKET_NAME = "guide-thumbnails"
+IMAGE_BUCKET_NAME = "guide-images"
 
 
 def _escape_like(value: str) -> str:
@@ -56,6 +57,58 @@ async def _generate_unique_slug(db: AsyncSession, title: str, exclude_id: int | 
             return slug
         slug = f"{base_slug}-{counter}"
         counter += 1
+
+
+# ─── Image Upload Endpoint ───────────────────────────────────────────
+
+
+@router.post("/images", status_code=status.HTTP_201_CREATED)
+async def upload_guide_image(
+    image: Annotated[UploadFile, File(...)],
+    current_user: Annotated[Any, Depends(require_admin)],
+) -> dict[str, str]:
+    """Upload an image for use in guide content (Admin only).
+
+    Validates the file and stores it in the ``guide-images`` Supabase
+    bucket.  Returns the public URL so the frontend can insert it into
+    the TipTap editor.
+    """
+    try:
+        file_content = await validate_image_upload(image)
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Image validation failed")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid image file.",
+        )
+
+    ext = (
+        image.filename.split(".")[-1]
+        if image.filename and "." in image.filename
+        else "png"
+    )
+    filename = f"{uuid.uuid4()}.{ext}"
+
+    try:
+        supabase = get_supabase()
+        supabase.storage.from_(IMAGE_BUCKET_NAME).upload(
+            file=file_content,
+            path=filename,
+            file_options={"content-type": image.content_type or "image/png"},
+        )
+        url = supabase.storage.from_(IMAGE_BUCKET_NAME).get_public_url(filename)
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Failed to upload guide image to storage")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to upload image. Please try again.",
+        )
+
+    return {"url": url}
 
 
 # ─── Public Endpoints ────────────────────────────────────────────────

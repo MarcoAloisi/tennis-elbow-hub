@@ -29,5 +29,5 @@ class FinishedMatch(Base):
     p2_elo: Mapped[int | None] = mapped_column(Integer, nullable=True)
     
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now()
+        DateTime, server_default=func.now(), index=True
     )

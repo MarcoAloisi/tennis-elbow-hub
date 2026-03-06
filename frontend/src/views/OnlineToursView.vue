@@ -1,8 +1,9 @@
-<script setup>
+<script setup lang="ts">
 import { computed, onMounted, watch } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
 import tourData from '@/data/onlineTours.json'
 import { useTourLogsStore } from '@/stores/tourLogs'
+import { ChartNoAxesCombined, Gamepad2, Film, MousePointerClick, Globe, Video } from 'lucide-vue-next'
 
 const route = useRoute()
 const tourLogsStore = useTourLogsStore()
@@ -144,7 +145,12 @@ watch(currentTourKey, (newKey) => {
                   :alt="link.label" 
                   class="link-icon-img" 
                 />
-                <span v-else class="link-icon">{{ link.icon }}</span>
+                <span v-else class="link-icon-wrapper" :class="'mod-' + link.icon">
+                  <Gamepad2 v-if="link.icon === '🎮'" :size="24" stroke-width="2.5" />
+                  <Globe v-else-if="link.icon === '🌐'" :size="24" stroke-width="2.5" />
+                  <Video v-else-if="link.icon === '📺'" :size="24" stroke-width="2.5" />
+                  <MousePointerClick v-else :size="24" stroke-width="2.5" />
+                </span>
                 <span class="link-label">{{ link.label }}</span>
                 <span class="link-arrow">→</span>
               </a>
@@ -158,7 +164,7 @@ watch(currentTourKey, (newKey) => {
               to="/tour-logs" 
               class="link-card tour-logs-highlight"
             >
-              <span class="link-icon">📊</span>
+              <span class="link-icon-wrapper mod-stats"><ChartNoAxesCombined :size="24" stroke-width="2.5" /></span>
               <div class="tour-logs-content">
                 <span class="link-label">Tour Logs & Player Stats</span>
                 <span class="link-sublabel">View match history and detailed statistics</span>
@@ -175,7 +181,7 @@ watch(currentTourKey, (newKey) => {
             :to="`/guides?filter=${currentTourKey}`" 
             class="guide-link"
           >
-            <span class="guide-icon">🎬</span>
+            <span class="guide-icon-wrapper"><Film :size="28" stroke-width="2.5" /></span>
             <div class="guide-content">
               <span class="guide-title">Watch Setup Guide</span>
               <span class="guide-subtitle">Learn how to play {{ currentTour.name }} online</span>
@@ -414,7 +420,7 @@ watch(currentTourKey, (newKey) => {
   top: 0;
   right: 0;
   background: linear-gradient(135deg, #5865F2, #7289da);
-  color: white;
+  color: var(--color-text-inverse);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
   padding: var(--space-1) var(--space-3);
@@ -456,7 +462,7 @@ watch(currentTourKey, (newKey) => {
 .discord-logo-arrow {
   width: 40px;
   height: 40px;
-  color: #5865F2;
+  color: var(--color-discord);
   flex-shrink: 0;
   transition: transform var(--transition-fast);
 }
@@ -489,9 +495,20 @@ watch(currentTourKey, (newKey) => {
   transform: translateX(4px);
 }
 
-.link-icon {
-  font-size: 1.5rem;
+.link-icon-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  transition: all var(--transition-fast);
 }
+
+.mod-🎮 { color: #f59e0b; background: rgba(245, 158, 11, 0.1); }
+.mod-🌐 { color: #3b82f6; background: rgba(59, 130, 246, 0.1); }
+.mod-📺 { color: #ef4444; background: rgba(239, 68, 68, 0.1); }
+.mod-stats { color: #22c55e; background: rgba(34, 197, 94, 0.1); }
 
 .link-icon-img {
   width: 24px;
@@ -596,8 +613,16 @@ watch(currentTourKey, (newKey) => {
   transform: translateX(4px);
 }
 
-.guide-icon {
-  font-size: 2rem;
+.guide-icon-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  color: #a855f7;
+  background: rgba(168, 85, 247, 0.15);
+  box-shadow: 0 0 15px rgba(168, 85, 247, 0.2);
 }
 
 .guide-content {

@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 // Static Terms of Service page
 </script>
 

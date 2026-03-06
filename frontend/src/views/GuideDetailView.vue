@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { onMounted, computed, ref } from 'vue'
 import DOMPurify from 'dompurify'
 import { useRoute, useRouter } from 'vue-router'
@@ -9,9 +9,10 @@ const router = useRouter()
 const guidesStore = useGuidesStore()
 
 const isVideoPlaying = ref(false)
+const expandedImage = ref<string | null>(null)
 
 onMounted(() => {
-  guidesStore.fetchGuide(route.params.slug)
+  guidesStore.fetchGuide(route.params.slug as string)
 })
 
 const guide = computed(() => guidesStore.currentGuide)
@@ -53,6 +54,17 @@ function goBack() {
 
 function playVideo() {
   isVideoPlaying.value = true
+}
+
+function handleArticleClick(e: MouseEvent) {
+  const target = e.target as HTMLElement
+  if (target.tagName === 'IMG') {
+    expandedImage.value = (target as HTMLImageElement).src
+  }
+}
+
+function closeExpanded() {
+  expandedImage.value = null
 }
 </script>
 
@@ -124,8 +136,16 @@ function playVideo() {
       </header>
 
       <!-- Written content -->
-      <div v-if="!isVideo && guide.content" class="article-body" v-html="sanitizedContent"></div>
+      <div v-if="!isVideo && guide.content" class="article-body" v-html="sanitizedContent" @click="handleArticleClick"></div>
     </article>
+
+    <!-- Image Lightbox -->
+    <Transition name="lightbox-fade">
+      <div v-if="expandedImage" class="lightbox-overlay" @click="closeExpanded">
+        <button class="lightbox-close" @click="closeExpanded" aria-label="Close expanded image">✕</button>
+        <img :src="expandedImage" class="lightbox-img" alt="Expanded view" @click.stop />
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -297,9 +317,9 @@ function playVideo() {
   letter-spacing: 0.5px;
 }
 
-.tag-pill.xkt { background: rgba(99, 102, 241, 0.15); color: #6366f1; }
-.tag-pill.wtsl { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
-.tag-pill.gameplay { background: rgba(249, 115, 22, 0.15); color: #f97316; }
+.tag-pill.xkt { background: var(--color-tag-xkt-bg); color: var(--color-tag-xkt); }
+.tag-pill.wtsl { background: var(--color-tag-wtsl-bg); color: var(--color-tag-wtsl); }
+.tag-pill.gameplay { background: var(--color-tag-gameplay-bg); color: var(--color-tag-gameplay); }
 .tag-pill:not(.xkt):not(.wtsl):not(.gameplay) {
   background: rgba(163, 230, 53, 0.15);
   color: var(--color-brand-primary);
@@ -312,8 +332,8 @@ function playVideo() {
   font-weight: var(--font-weight-bold);
 }
 
-.type-badge.video { background: rgba(99, 102, 241, 0.15); color: #6366f1; }
-.type-badge.written { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+.type-badge.video { background: var(--color-tag-video-bg); color: var(--color-tag-video); }
+.type-badge.written { background: var(--color-tag-written-bg); color: var(--color-tag-written); }
 
 .article-title {
   font-family: var(--font-heading);
@@ -386,6 +406,19 @@ function playVideo() {
   border-radius: var(--radius-lg);
   margin: 1.5em 0;
   box-shadow: var(--shadow-md);
+  cursor: zoom-in;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  animation: img-fade-in 0.4s ease;
+}
+
+.article-body :deep(img:hover) {
+  transform: scale(1.01);
+  box-shadow: var(--shadow-lg);
+}
+
+@keyframes img-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .article-body :deep(ul),
@@ -441,5 +474,60 @@ function playVideo() {
   .article-meta {
     flex-wrap: wrap;
   }
+}
+
+/* Lightbox */
+.lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--space-6);
+  cursor: zoom-out;
+}
+
+.lightbox-img {
+  max-width: 90vw;
+  max-height: 85vh;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+  object-fit: contain;
+}
+
+.lightbox-close {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-size: 1.25rem;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease;
+}
+
+.lightbox-close:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.lightbox-fade-enter-active,
+.lightbox-fade-leave-active {
+  transition: opacity 0.25s ease;
+}
+
+.lightbox-fade-enter-from,
+.lightbox-fade-leave-to {
+  opacity: 0;
 }
 </style>

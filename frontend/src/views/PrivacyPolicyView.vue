@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 // Static privacy policy page — no dynamic data needed
 </script>
 

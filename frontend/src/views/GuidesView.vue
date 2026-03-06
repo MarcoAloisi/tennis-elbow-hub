@@ -1,9 +1,13 @@
-<script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
 import { useGuidesStore } from '@/stores/guides'
 import { useAuthStore } from '@/stores/auth'
 import GuideCard from '@/components/guides/GuideCard.vue'
 import GuideFormModal from '@/components/guides/GuideFormModal.vue'
+import { useDebouncedSearch } from '@/composables/useDebouncedSearch'
+import { usePagination } from '@/composables/usePagination'
+import { useModalAccessibility } from '@/composables/useModalAccessibility'
+import { Plus, Search, Video, BookOpen, BookMarked } from 'lucide-vue-next'
 
 const guidesStore = useGuidesStore()
 const authStore = useAuthStore()
@@ -11,12 +15,9 @@ const authStore = useAuthStore()
 // State
 const selectedTag = ref('All')
 const selectedType = ref('')
-const searchQuery = ref('')
 const isFormOpen = ref(false)
 const editingGuide = ref(null)
 const deleteConfirm = ref(null)
-
-let searchTimer = null
 
 // Computed filter tags: "All" + tags from API
 const filterTags = computed(() => {
@@ -34,75 +35,50 @@ function fetchCurrentPage() {
   })
 }
 
+function fetchFiltered(overrides = {}) {
+  guidesStore.fetchGuides({
+    tag: selectedTag.value,
+    type: selectedType.value,
+    search: searchQuery.value,
+    page: 1,
+    pageSize: 12,
+    ...overrides
+  })
+}
+
 onMounted(() => {
   guidesStore.fetchGuides()
   guidesStore.fetchTags()
 })
 
-onUnmounted(() => {
-  if (searchTimer) clearTimeout(searchTimer)
-})
-
-// Live search with debounce
-watch(searchQuery, () => {
-  if (searchTimer) clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => {
-    guidesStore.fetchGuides({
-      tag: selectedTag.value,
-      type: selectedType.value,
-      search: searchQuery.value,
-      page: 1,
-      pageSize: 12
-    })
-  }, 300)
+// Live search with debounce (replaces manual setTimeout pattern)
+const { searchQuery } = useDebouncedSearch((query) => {
+  fetchFiltered({ search: query })
 })
 
 function setTag(tag) {
   selectedTag.value = tag
-  guidesStore.fetchGuides({
-    tag,
-    type: selectedType.value,
-    search: searchQuery.value,
-    page: 1,
-    pageSize: 12
-  })
+  fetchFiltered({ tag })
 }
 
 function setType(type) {
   selectedType.value = type
-  guidesStore.fetchGuides({
-    tag: selectedTag.value,
-    type,
-    search: searchQuery.value,
-    page: 1,
-    pageSize: 12
-  })
+  fetchFiltered({ type })
 }
 
-function goToPage(page) {
-  if (page < 1 || page > guidesStore.pagination.totalPages) return
-  guidesStore.fetchGuides({
-    tag: selectedTag.value,
-    type: selectedType.value,
-    search: searchQuery.value,
-    page,
-    pageSize: 12
-  })
-}
+// Pagination (replaces manual pageNumbers + goToPage)
+const { pageNumbers, goToPage } = usePagination({
+  currentPage: () => guidesStore.pagination.page,
+  totalPages: () => guidesStore.pagination.totalPages,
+  totalItems: () => guidesStore.pagination.total || 0,
+  pageSize: 12,
+  onPageChange: (page) => fetchFiltered({ page })
+})
 
-// Pagination display
-const pageNumbers = computed(() => {
-  const total = guidesStore.pagination.totalPages
-  const current = guidesStore.pagination.page
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
-  const pages = [1]
-  if (current > 3) pages.push('...')
-  const start = Math.max(2, current - 1)
-  const end = Math.min(total - 1, current + 1)
-  for (let i = start; i <= end; i++) pages.push(i)
-  if (current < total - 2) pages.push('...')
-  pages.push(total)
-  return pages
+// Focus trap + Escape for delete modal
+const deleteModalOpen = computed(() => !!deleteConfirm.value)
+useModalAccessibility(deleteModalOpen, {
+  onClose: () => { deleteConfirm.value = null }
 })
 
 // Admin actions
@@ -147,7 +123,7 @@ function onFormSaved() {
         <p class="subtitle">Tutorials and articles to help you master Tennis Elbow 4.</p>
       </div>
       <button v-if="authStore.isAdmin" class="btn-primary" @click="openAddForm">
-        <span class="icon">➕</span> Add Guide
+        <span class="icon"><Plus :size="16" stroke-width="2.5" /></span> Add Guide
       </button>
     </header>
 
@@ -170,19 +146,23 @@ function onFormSaved() {
       <div class="filter-row">
         <div class="type-filter">
           <button class="type-btn" :class="{ active: selectedType === '' }" @click="setType('')">All</button>
-          <button class="type-btn" :class="{ active: selectedType === 'video' }" @click="setType('video')">📹 Video</button>
-          <button class="type-btn" :class="{ active: selectedType === 'written' }" @click="setType('written')">📖 Article</button>
+          <button class="type-btn mod-video" :class="{ active: selectedType === 'video' }" @click="setType('video')">
+            Video
+          </button>
+          <button class="type-btn mod-article" :class="{ active: selectedType === 'written' }" @click="setType('written')">
+            Article
+          </button>
         </div>
 
-        <div class="search-wrapper">
-          <span class="search-icon">🔍</span>
+        <div class="search-bar-wrapper">
+          <span class="search-bar-icon"><Search :size="18" /></span>
           <input
             type="text"
             v-model="searchQuery"
             placeholder="Search guides..."
-            class="search-input"
+            class="search-bar-input"
           />
-          <button v-if="searchQuery" class="clear-btn" @click="searchQuery = ''" title="Clear search">✕</button>
+          <button v-if="searchQuery" class="search-bar-clear" @click="searchQuery = ''" title="Clear search" aria-label="Clear search">✕</button>
         </div>
       </div>
     </div>
@@ -199,10 +179,12 @@ function onFormSaved() {
     </div>
 
     <!-- Empty / Loading State -->
-    <div v-else class="empty-state">
-      <div v-if="guidesStore.loading" class="loading-spinner"></div>
+    <div v-else class="empty-state-dashed">
+      <div v-if="guidesStore.loading" class="loading-spinner-lg"></div>
       <div v-else class="no-results">
-        <div class="empty-icon">📚</div>
+        <div class="empty-icon-wrapper">
+          <BookMarked class="empty-icon" :size="48" :stroke-width="1.5" />
+        </div>
         <h3>No guides found</h3>
         <p v-if="searchQuery || selectedTag !== 'All' || selectedType">Try adjusting your search or filters.</p>
         <p v-else>No guides available yet.</p>
@@ -217,6 +199,7 @@ function onFormSaved() {
           :disabled="guidesStore.pagination.page <= 1"
           @click="goToPage(guidesStore.pagination.page - 1)"
           title="Previous page"
+          aria-label="Previous page"
         >
           ‹
         </button>
@@ -236,6 +219,7 @@ function onFormSaved() {
           :disabled="guidesStore.pagination.page >= guidesStore.pagination.totalPages"
           @click="goToPage(guidesStore.pagination.page + 1)"
           title="Next page"
+          aria-label="Next page"
         >
           ›
         </button>
@@ -251,7 +235,7 @@ function onFormSaved() {
     />
 
     <!-- Delete Confirmation Modal -->
-    <div v-if="deleteConfirm" class="modal-overlay" @click.self="deleteConfirm = null">
+    <div v-if="deleteConfirm" class="modal-overlay" @click.self="deleteConfirm = null" role="dialog" aria-modal="true" aria-label="Delete guide confirmation">
       <div class="delete-modal">
         <h3>Delete Guide</h3>
         <p>Are you sure you want to delete <strong>"{{ deleteConfirm.title }}"</strong>? This action cannot be undone.</p>
@@ -295,26 +279,7 @@ function onFormSaved() {
   margin: 0;
 }
 
-.btn-primary {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 10px 20px;
-  background: var(--color-brand-primary);
-  border: none;
-  border-radius: var(--radius-md);
-  color: var(--color-text-inverse);
-  cursor: pointer;
-  font-family: var(--font-heading);
-  font-weight: 600;
-  font-size: var(--font-size-sm);
-  transition: all 0.2s ease;
-}
-
-.btn-primary:hover {
-  filter: brightness(1.1);
-  box-shadow: 0 2px 8px rgba(163, 230, 53, 0.3);
-}
+/* Buttons — uses global .btn-primary from components.css */
 
 /* Filters */
 .filters-section {
@@ -392,60 +357,50 @@ function onFormSaved() {
   color: var(--color-text-primary);
 }
 
-.search-wrapper {
-  flex: 1;
-  min-width: 200px;
+.mod-video:not(.active) .btn-icon-left {
+  color: #ef4444; /* red */
+}
+.mod-article:not(.active) .btn-icon-left {
+  color: #3b82f6; /* blue */
+}
+
+/* Search Bar styling */
+.search-bar-wrapper {
   position: relative;
+  flex: 1;
+}
+
+.search-bar-icon {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  transform: translateY(-50%);
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.search-bar-input {
+  width: 100%;
+  padding-left: 40px;
+}
+
+.empty-icon-wrapper {
   display: flex;
   align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(34, 197, 94, 0.1); 
+  color: #22c55e;
+  margin: 0 auto var(--space-4);
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.2);
 }
 
-.search-icon {
-  position: absolute;
-  left: 14px;
-  font-size: var(--font-size-base);
-  pointer-events: none;
-  z-index: 1;
-}
-
-.search-input {
-  width: 100%;
-  padding: 10px 36px 10px 40px;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  color: var(--color-text-primary);
-  border-radius: var(--radius-md);
-  font-family: var(--font-body);
-  font-size: var(--font-size-base);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.search-input:focus {
-  outline: none;
-  border-color: var(--color-brand-primary);
-  box-shadow: 0 0 0 3px rgba(163, 230, 53, 0.15);
-}
-
-.search-input::placeholder {
-  color: var(--color-text-muted);
-}
-
-.clear-btn {
-  position: absolute;
-  right: 10px;
-  background: transparent;
-  border: none;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  font-size: var(--font-size-sm);
-  padding: 4px 6px;
-  border-radius: var(--radius-sm);
-  transition: all 0.15s ease;
-}
-
-.clear-btn:hover {
-  color: var(--color-text-primary);
-  background: var(--color-bg-hover);
+[data-theme="dark"] .empty-icon-wrapper {
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.1);
+  box-shadow: 0 0 20px rgba(74, 222, 128, 0.15);
 }
 
 /* Grid */
@@ -455,112 +410,11 @@ function onFormSaved() {
   gap: var(--space-6);
 }
 
-/* Empty State */
-.empty-state {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 300px;
-  background: var(--color-bg-secondary);
-  border-radius: var(--radius-lg);
-  border: 1px dashed var(--color-border);
-}
 
-.loading-spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid var(--color-border);
-  border-top-color: var(--color-brand-primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
+/* Pagination — uses global classes from components.css */
 
-.no-results {
-  text-align: center;
-  color: var(--color-text-secondary);
-}
-
-.empty-icon {
-  font-size: 3rem;
-  margin-bottom: var(--space-4);
-  opacity: 0.5;
-}
-
-.no-results h3 {
-  color: var(--color-text-primary);
-  margin-bottom: var(--space-2);
-}
-
-/* Pagination */
-.pagination-container {
-  display: flex;
-  justify-content: center;
-  margin-top: var(--space-8);
-  padding-top: var(--space-6);
-  border-top: 1px solid var(--color-border);
-}
-
-.pagination-controls {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.page-btn {
-  min-width: 36px;
-  height: 36px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 8px;
-  background: var(--color-bg-secondary);
-  color: var(--color-text-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  font-family: var(--font-heading);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.page-btn:hover:not(:disabled):not(.active) {
-  background: var(--color-bg-hover);
-  color: var(--color-text-primary);
-  border-color: var(--color-brand-primary);
-}
-
-.page-btn.active {
-  background: var(--color-brand-primary);
-  color: var(--color-text-inverse);
-  border-color: var(--color-brand-primary);
-}
-
-.page-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.nav-btn {
-  font-size: var(--font-size-lg);
-  font-weight: 700;
-}
-
-.page-ellipsis {
-  min-width: 28px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-  user-select: none;
-}
-
-/* Delete confirmation modal */
+/* Delete confirmation modal — uses global .modal-overlay from components.css */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -572,7 +426,7 @@ function onFormSaved() {
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
+  z-index: var(--z-modal);
   padding: var(--space-4);
 }
 
@@ -619,17 +473,17 @@ function onFormSaved() {
 
 .btn-danger {
   padding: 8px 16px;
-  background: #ef4444;
+  background: var(--color-error);
   border: none;
   border-radius: var(--radius-md);
-  color: white;
+  color: var(--color-text-inverse);
   cursor: pointer;
   font-weight: 600;
   transition: all 0.2s ease;
 }
 
 .btn-danger:hover {
-  background: #dc2626;
+  filter: brightness(0.9);
 }
 
 /* Responsive */

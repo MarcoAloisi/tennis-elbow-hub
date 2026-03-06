@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { onMounted, watch } from 'vue'
 import { useScoresStore } from '@/stores/scores'
 import { useWebSocket } from '@/composables/useWebSocket'
@@ -7,6 +7,8 @@ import MatchCard from '@/components/scores/MatchCard.vue'
 import FilterBar from '@/components/scores/FilterBar.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import ErrorAlert from '@/components/common/ErrorAlert.vue'
+import MonthlyOverview from '@/components/scores/MonthlyOverview.vue'
+import { Activity } from 'lucide-vue-next'
 
 const store = useScoresStore()
 
@@ -35,13 +37,13 @@ function handleRefresh() {
   store.fetchTopPlayers()
 }
 
-function handleFilterUpdate(newFilters) {
+function handleFilterUpdate(newFilters: any) {
   Object.keys(newFilters).forEach(key => {
-    store.setFilter(key, newFilters[key])
+    store.setFilter(key as any, newFilters[key])
   })
 }
 
-function formatTime(isoString) {
+function formatTime(isoString: string) {
   if (!isoString) return ''
   const date = new Date(isoString)
   return date.toLocaleTimeString()
@@ -103,90 +105,7 @@ function formatTime(isoString) {
     </div>
 
     <!-- Monthly Stats & Top Players Section -->
-    <div class="monthly-overview-section" v-if="store.monthlyStats.days_recorded > 0 || store.topPlayers.length > 0">
-      
-      <!-- Top 5 Players Card -->
-      <div class="overview-card top-players-card">
-        <div class="card-header">
-          <h3>Most active players (This month)</h3>
-        </div>
-        <div class="card-content">
-          <table class="simple-table" v-if="store.topPlayers.length > 0">
-            <thead>
-              <tr>
-                <th>Rank</th>
-                <th>Player</th>
-                <th class="text-right">ELO</th>
-                <th class="text-right">Matches</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(player, index) in store.topPlayers" :key="player.name">
-                <td class="rank-col">#{{ index + 1 }}</td>
-                <td class="player-col">{{ player.name }}</td>
-                <td class="text-right font-bold" style="color: var(--color-brand-accent);">{{ player.latest_elo || '-' }}</td>
-                <td class="matches-col text-right">{{ player.matches }}</td>
-              </tr>
-            </tbody>
-          </table>
-          <p v-else class="text-muted">No players found.</p>
-        </div>
-      </div>
-
-      <!-- Monthly Averages Card -->
-      <div class="overview-card monthly-averages-card">
-        <div class="card-header">
-          <h3>Daily Averages (This Month)</h3>
-          <span class="days-recorded">Based on {{ store.monthlyStats.days_recorded }} days</span>
-        </div>
-        <div class="card-content">
-          <table class="simple-table averages-table" v-if="store.monthlyStats.days_recorded > 0">
-            <thead>
-              <tr>
-                <th>Mod</th>
-                <th class="text-center">Total/Day</th>
-                <th class="text-center">BO1</th>
-                <th class="text-center">BO3</th>
-                <th class="text-center">BO5</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td class="mod-name">XKT</td>
-                <td class="text-center font-bold">{{ store.monthlyStats.xkt.avg_total }}</td>
-                <td class="text-center">{{ store.monthlyStats.xkt.avg_bo1 }}</td>
-                <td class="text-center">{{ store.monthlyStats.xkt.avg_bo3 }}</td>
-                <td class="text-center">{{ store.monthlyStats.xkt.avg_bo5 }}</td>
-              </tr>
-              <tr>
-                <td class="mod-name">WTSL</td>
-                <td class="text-center font-bold">{{ store.monthlyStats.wtsl.avg_total }}</td>
-                <td class="text-center">{{ store.monthlyStats.wtsl.avg_bo1 }}</td>
-                <td class="text-center">{{ store.monthlyStats.wtsl.avg_bo3 }}</td>
-                <td class="text-center">{{ store.monthlyStats.wtsl.avg_bo5 }}</td>
-              </tr>
-              <tr>
-                <td class="mod-name">Vanilla</td>
-                <td class="text-center font-bold">{{ store.monthlyStats.vanilla.avg_total }}</td>
-                <td class="text-center">{{ store.monthlyStats.vanilla.avg_bo1 }}</td>
-                <td class="text-center">{{ store.monthlyStats.vanilla.avg_bo3 }}</td>
-                <td class="text-center">{{ store.monthlyStats.vanilla.avg_bo5 }}</td>
-              </tr>
-            </tbody>
-            <tfoot>
-              <tr class="totals-row">
-                <td class="mod-name" style="color: var(--color-text-secondary); text-transform: uppercase;">Total Avg</td>
-                <td class="text-center font-bold" style="color: var(--color-brand-primary);">{{ store.monthlyStats.xkt.avg_total + store.monthlyStats.wtsl.avg_total + store.monthlyStats.vanilla.avg_total }}</td>
-                <td class="text-center font-bold">{{ store.monthlyStats.xkt.avg_bo1 + store.monthlyStats.wtsl.avg_bo1 + store.monthlyStats.vanilla.avg_bo1 }}</td>
-                <td class="text-center font-bold">{{ store.monthlyStats.xkt.avg_bo3 + store.monthlyStats.wtsl.avg_bo3 + store.monthlyStats.vanilla.avg_bo3 }}</td>
-                <td class="text-center font-bold">{{ store.monthlyStats.xkt.avg_bo5 + store.monthlyStats.wtsl.avg_bo5 + store.monthlyStats.vanilla.avg_bo5 }}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </div>
-
-    </div>
+    <MonthlyOverview />
 
     <!-- Filters -->
     <FilterBar 
@@ -200,7 +119,7 @@ function formatTime(isoString) {
       v-if="store.error || wsError"
       :message="store.error || wsError"
       type="error"
-      @dismiss="store.error = null"
+      @dismiss="store.clearError()"
     />
 
     <!-- Loading state -->
@@ -214,7 +133,9 @@ function formatTime(isoString) {
       v-else-if="!store.filteredServers.length" 
       class="empty-state"
     >
-      <div class="empty-icon">🎾</div>
+      <div class="empty-icon-wrapper">
+        <Activity class="empty-icon" :size="64" :stroke-width="1.5" />
+      </div>
       <h3>No matches found</h3>
       <p v-if="store.filters.searchQuery || store.filters.surface || store.filters.startedOnly">
         Try adjusting your filters
@@ -248,10 +169,9 @@ function formatTime(isoString) {
 .page-header {
   display: flex;
   justify-content: space-between;
-  justify-content: space-between;
   align-items: center; 
-  margin-bottom: var(--space-10); /* Drastically increased spacing */
-  padding-top: var(--space-8); /* Increased top padding */
+  margin-bottom: var(--space-10);
+  padding-top: var(--space-8);
 }
 
 .header-content h1 {
@@ -381,9 +301,9 @@ function formatTime(isoString) {
 }
 
 .connection-pill.connected {
-  background: rgba(34, 197, 94, 0.1);
+  background: var(--color-success-light);
   color: var(--color-success);
-  border-color: rgba(34, 197, 94, 0.2);
+  border-color: var(--color-success-border);
 }
 
 .status-dot {
@@ -394,25 +314,25 @@ function formatTime(isoString) {
 }
 
 .connection-pill.connected .status-dot {
-  background: var(--color-error);
-  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
-  animation: pulse-red 2s infinite;
+  background: var(--color-success);
+  box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+  animation: pulse-green 2s infinite;
 }
 
-@keyframes pulse-red {
+@keyframes pulse-green {
   0% {
     transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
   }
   
   70% {
     transform: scale(1);
-    box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+    box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
   }
   
   100% {
     transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
   }
 }
 
@@ -435,12 +355,6 @@ function formatTime(isoString) {
   text-align: center;
 }
 
-.empty-icon {
-  font-size: 4rem;
-  margin-bottom: var(--space-4);
-  opacity: 0.5;
-}
-
 .empty-state h3 {
   margin-bottom: var(--space-2);
 }
@@ -448,6 +362,25 @@ function formatTime(isoString) {
 .empty-state p {
   color: var(--color-text-muted);
   max-width: 300px;
+}
+
+.empty-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+  margin-bottom: var(--space-6);
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.2);
+}
+
+[data-theme="dark"] .empty-icon-wrapper {
+  color: var(--color-brand-primary);
+  background: rgba(212, 255, 95, 0.1);
+  box-shadow: 0 0 20px rgba(212, 255, 95, 0.15);
 }
 
 .matches-grid {
@@ -462,96 +395,6 @@ function formatTime(isoString) {
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
 }
-
-/* Monthly Overview Section */
-.monthly-overview-section {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-6);
-  margin-bottom: var(--space-8);
-}
-
-.overview-card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.overview-card .card-header {
-  padding: var(--space-4) var(--space-5);
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-bg-secondary);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.overview-card .card-header h3 {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--color-text-primary);
-  margin: 0;
-}
-
-.days-recorded {
-  font-size: 0.8rem;
-  color: var(--color-text-muted);
-}
-
-.overview-card .card-content {
-  padding: 0;
-  flex: 1;
-}
-
-/* Simple Table Styling */
-.simple-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.simple-table th, 
-.simple-table td {
-  padding: var(--space-3) var(--space-5);
-  border-bottom: 1px solid var(--color-border);
-  font-size: 0.9rem;
-}
-
-.simple-table th {
-  text-align: left;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  background: rgba(0, 0, 0, 0.02);
-  text-transform: uppercase;
-  font-size: 0.75rem;
-  letter-spacing: 0.05em;
-}
-
-.simple-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.simple-table tbody tr:hover {
-  background: var(--color-bg-hover);
-}
-
-.totals-row td {
-  border-top: 2px solid var(--color-border);
-  background: rgba(0, 0, 0, 0.04);
-}
-
-.text-right, .simple-table th.text-right { text-align: right; }
-.text-center, .simple-table th.text-center { text-align: center; }
-.text-muted { color: var(--color-text-muted); padding: var(--space-4) var(--space-5); }
-.font-bold { font-weight: 700; color: var(--color-brand-live); }
-
-.rank-col { width: 60px; color: var(--color-text-muted); font-weight: 600; }
-.player-col { font-weight: 600; color: var(--color-text-primary); }
-.matches-col { font-weight: 700; color: var(--color-brand-primary); }
-.mod-name { font-weight: 600; }
 
 
 @media (max-width: 768px) {
@@ -580,14 +423,12 @@ function formatTime(isoString) {
     display: none;
   }
 
-  /* Make stats cards consistent full width on mobile */
   .single-stat-card,
   .stats-breakdown {
     width: 100%;
     justify-content: space-between;
   }
 
-  /* Keep Single stat card centered internally or adjust if needed */
   .single-stat-card {
     flex-direction: row;
     gap: var(--space-4);
@@ -597,9 +438,6 @@ function formatTime(isoString) {
   .matches-grid {
     grid-template-columns: 1fr;
   }
-  
-  .monthly-overview-section {
-    grid-template-columns: 1fr;
-  }
 }
+
 </style>
