@@ -48,15 +48,6 @@ const matchDuration = computed(() => {
   return `${hours}h ${mins}m`
 })
 
-// ============ ELO DIFFERENCE ============
-const eloDiff = computed(() => {
-  const elo1 = props.server.elo || 0
-  const elo2 = props.server.other_elo || 0
-  return elo1 - elo2
-})
-
-const player1IsFavorite = computed(() => eloDiff.value > 0)
-const player2IsFavorite = computed(() => eloDiff.value < 0)
 
 // ============ SURFACE DETECTION ============
 const surfaceInfo = computed(() => {
@@ -262,7 +253,7 @@ const isOnlineMode = computed(() => {
             </div>
             <span class="host-badge" title="Match Host">HOST</span>
           </div>
-          <span class="player-elo" :class="{ 'elo-favorite': player1IsFavorite }">elo: {{ server.elo }}</span>
+          <span class="player-elo">elo: {{ server.elo }}</span>
         </div>
         
         <!-- Serving Indicator P1 -->
@@ -293,7 +284,7 @@ const isOnlineMode = computed(() => {
               </span>
             </div>
           </div>
-          <span class="player-elo" :class="{ 'elo-favorite': player2IsFavorite }">elo: {{ server.other_elo }}</span>
+          <span class="player-elo">elo: {{ server.other_elo }}</span>
         </div>
 
         <!-- Serving Indicator P2 -->
@@ -605,11 +596,6 @@ const isOnlineMode = computed(() => {
   text-overflow: ellipsis; 
 }
 
-/* Elo Favorite Highlight */
-.elo-favorite {
-  color: var(--color-brand-primary) !important;
-  font-weight: 700;
-}
 
 /* Duration Tag */
 .duration-tag {

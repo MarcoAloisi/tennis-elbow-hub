@@ -200,6 +200,8 @@ function getRangeTitle(rangeId: string) {
 .overview-card .card-content {
   padding: 0;
   flex: 1;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Simple Table Styling */
