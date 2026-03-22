@@ -19,7 +19,8 @@ if ((Test-Path "backend\.env.example") -and !(Test-Path "backend\.env")) {
     Write-Host "Created backend\.env from example." -ForegroundColor Yellow
 }
 
-Start-Process -FilePath "powershell" -ArgumentList "-NoExit", "-Command", "& '.\backend\.venv\Scripts\Activate.ps1'; cd backend; uvicorn app.main:app --reload --port 8000"
+# CHANGED: Added '--host 127.0.0.1' to the uvicorn command
+Start-Process -FilePath "powershell" -ArgumentList "-NoExit", "-Command", "& '.\backend\.venv\Scripts\Activate.ps1'; cd backend; uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload"
 
 # 4. Start Frontend
 Write-Host "[4/4] Starting Frontend..."
@@ -30,4 +31,5 @@ if (!(Test-Path "node_modules")) {
 }
 
 Write-Host "Launching Vite..." -ForegroundColor Cyan
-npm run dev
+# CHANGED: Added '-- --host 127.0.0.1' to pass the flag through npm to Vite
+npm run dev -- --host 127.0.0.1
