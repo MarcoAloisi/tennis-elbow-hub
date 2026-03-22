@@ -518,6 +518,77 @@ class StatsService:
             logger.error(f"Failed to fetch top players: {e}")
             return []
 
+    async def get_all_players_async(self) -> list[dict[str, Any]]:
+        """Get all players ever recorded with their latest ELO, total matches, and last match date."""
+        try:
+            session_factory = get_session_factory()
+            async with session_factory() as session:
+                result = await session.execute(
+                    select(
+                        FinishedMatch.match_name,
+                        FinishedMatch.p1_elo,
+                        FinishedMatch.p2_elo,
+                        FinishedMatch.date,
+                    )
+                    .order_by(FinishedMatch.created_at.asc())
+                )
+                match_records = result.all()
+
+                from collections import Counter
+
+                player_counts: Counter[str] = Counter()
+                player_latest_elo: dict[str, int] = {}
+                player_last_date: dict[str, date] = {}
+
+                for row in match_records:
+                    name = row.match_name
+                    p1_elo = row.p1_elo
+                    p2_elo = row.p2_elo
+                    match_date = row.date
+
+                    if not name:
+                        continue
+
+                    if " vs " in name:
+                        p1, p2 = name.split(" vs ", 1)
+                        p1, p2 = p1.strip(), p2.strip()
+
+                        if p1 and p1 != "Unknown" and p1 != "1210967164" and not p1.startswith("[."):
+                            player_counts[p1] += 1
+                            if p1_elo is not None and p1_elo > 0:
+                                player_latest_elo[p1] = p1_elo
+                            if match_date:
+                                player_last_date[p1] = match_date
+
+                        if p2 and p2 != "Unknown" and p2 != "1210967164" and not p2.startswith("[."):
+                            player_counts[p2] += 1
+                            if p2_elo is not None and p2_elo > 0:
+                                player_latest_elo[p2] = p2_elo
+                            if match_date:
+                                player_last_date[p2] = match_date
+                    else:
+                        clean_name = name.strip()
+                        if clean_name and clean_name != "Unknown" and clean_name != "1210967164" and not clean_name.startswith("[."):
+                            player_counts[clean_name] += 1
+                            if p1_elo is not None and p1_elo > 0:
+                                player_latest_elo[clean_name] = p1_elo
+                            if match_date:
+                                player_last_date[clean_name] = match_date
+
+                return [
+                    {
+                        "name": name,
+                        "total_matches": count,
+                        "latest_elo": player_latest_elo.get(name),
+                        "last_match_date": player_last_date.get(name, "").isoformat() if player_last_date.get(name) else None,
+                    }
+                    for name, count in player_counts.most_common()
+                ]
+
+        except Exception as e:
+            logger.error(f"Failed to fetch all players: {e}")
+            return []
+
 
 # Singleton instance
 _stats_service: StatsService | None = None

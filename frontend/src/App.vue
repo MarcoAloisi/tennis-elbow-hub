@@ -7,7 +7,7 @@ import AdSidebar from './components/common/AdSidebar.vue'
 import KofiWidget from './components/common/KofiWidget.vue'
 import CookieConsent from './components/common/CookieConsent.vue'
 import { useModalAccessibility } from './composables/useModalAccessibility'
-import { Activity, BarChart2, Globe, Shirt, Clapperboard, LogOut } from 'lucide-vue-next'
+import { Activity, BarChart2, Globe, Shirt, Clapperboard, LogOut, Database } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
@@ -98,6 +98,15 @@ async function submitNameChange() {
             </div>
             <span>Guides</span>
           </RouterLink>
+          <template v-if="authStore.isAdmin">
+            <div class="nav-divider"></div>
+            <RouterLink to="/admin/players" class="nav-link" active-class="active">
+              <div class="icon-wrapper icon-admin">
+                <Database class="nav-icon" :size="20" stroke-width="2.5" />
+              </div>
+              <span>Players DB</span>
+            </RouterLink>
+          </template>
         </nav>
         
         <div class="header-actions">
@@ -304,12 +313,17 @@ async function submitNameChange() {
   background: rgba(245, 158, 11, 0.15); /* Orange */
   color: #f59e0b;
 }
+.icon-admin {
+  background: rgba(239, 68, 68, 0.15); /* Red */
+  color: #ef4444;
+}
 
 [data-theme="dark"] .icon-live { color: #4ade80; }
 [data-theme="dark"] .icon-analysis { color: #c084fc; }
 [data-theme="dark"] .icon-tours { color: #60a5fa; }
 [data-theme="dark"] .icon-gallery { color: #f472b6; }
 [data-theme="dark"] .icon-guides { color: #fbbf24; }
+[data-theme="dark"] .icon-admin { color: #f87171; }
 
 .nav-icon {
   /* Removed global size here since controlled by wrapper */

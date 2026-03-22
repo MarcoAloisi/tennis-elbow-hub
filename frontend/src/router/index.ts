@@ -12,6 +12,7 @@ const TermsOfServiceView = () => import('../views/TermsOfServiceView.vue')
 const ContactView = () => import('../views/ContactView.vue')
 const OutfitGalleryView = () => import('../views/OutfitGalleryView.vue')
 const LoginView = () => import('../views/LoginView.vue')
+const AdminPlayersView = () => import('../views/AdminPlayersView.vue')
 
 const routes: RouteRecordRaw[] = [
     {
@@ -142,6 +143,16 @@ const routes: RouteRecordRaw[] = [
             title: 'Contact',
             description: 'Contact Tennis Elbow Hub. Send us a message with your name, Discord tag, and feedback.'
         }
+    },
+    {
+        path: '/admin/players',
+        name: 'AdminPlayers',
+        component: AdminPlayersView,
+        meta: {
+            title: 'Players Database',
+            description: 'Admin-only players database with ELO ratings and match history.',
+            requiresAdmin: true
+        }
     }
 ]
 
@@ -154,12 +165,21 @@ const router = createRouter({
 })
 
 // Update page title and meta description on navigation
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
     document.title = `${to.meta.title || 'Tennis Elbow Hub'} | Tennis Elbow Hub`
 
     const descriptionMeta = document.querySelector('meta[name="description"]')
     if (descriptionMeta && to.meta.description) {
         descriptionMeta.setAttribute('content', to.meta.description as string)
+    }
+
+    // Admin route guard
+    if (to.meta.requiresAdmin) {
+        const { useAuthStore } = await import('../stores/auth')
+        const authStore = useAuthStore()
+        if (!authStore.isAdmin) {
+            return next('/')
+        }
     }
 
     next()
