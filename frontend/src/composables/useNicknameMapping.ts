@@ -88,6 +88,27 @@ export function useNicknameMapping() {
     }
   }
 
+  async function renameCanonical(oldName: string, newName: string) {
+    isSaving.value = true
+    error.value = null
+    successMessage.value = null
+    try {
+      const headers = await getAuthHeaders()
+      const response = await fetch(apiUrl('/api/admin/aliases/rename'), {
+        method: 'PUT',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ old_name: oldName, new_name: newName }),
+      })
+      if (!response.ok) throw new Error(`HTTP error ${response.status}`)
+      successMessage.value = `Renamed "${oldName}" → "${newName}"`
+      await fetchAliases()
+    } catch (e: any) {
+      error.value = e.message
+    } finally {
+      isSaving.value = false
+    }
+  }
+
   /**
    * Group flat alias list by canonical_name for display.
    */
@@ -126,6 +147,7 @@ export function useNicknameMapping() {
     fetchAliases,
     saveAliases,
     deleteAlias,
+    renameCanonical,
     clearError,
     clearSuccess,
   }
