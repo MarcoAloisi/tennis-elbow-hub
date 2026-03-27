@@ -18,6 +18,7 @@ from app.core.logging import get_logger
 from app.models.daily_stats import DailyStats
 from app.models.finished_match import FinishedMatch
 from app.models.game_server import GameServer
+from app.models.player_alias import PlayerAlias
 
 logger = get_logger("stats_service")
 
@@ -449,6 +450,22 @@ class StatsService:
             logger.error(f"Failed to fetch monthly stats: {e}")
             return {}
 
+    async def _load_alias_map(self) -> dict[str, str]:
+        """Load alias->canonical_name map from DB (all lowercase keys)."""
+        try:
+            session_factory = get_session_factory()
+            async with session_factory() as session:
+                result = await session.execute(select(PlayerAlias))
+                aliases = result.scalars().all()
+                return {a.alias: a.canonical_name for a in aliases}
+        except Exception as e:
+            logger.error(f"Failed to load alias map: {e}")
+            return {}
+
+    def _resolve_name(self, name: str, alias_map: dict[str, str]) -> str:
+        """Resolve a player name through the alias map (case-insensitive)."""
+        return alias_map.get(name.lower(), name)
+
     async def get_top_players_async(self, limit: int = 5, time_range: str = "this_month") -> list[dict[str, Any]]:
         """Get the top players with most matches in the specified time range."""
         today = self._get_today()
@@ -465,9 +482,9 @@ class StatsService:
             end_date = today
         
         try:
+            alias_map = await self._load_alias_map()
             session_factory = get_session_factory()
             async with session_factory() as session:
-                # Optimized query: fetch match names, elos, and order by creation asc to find latest elo
                 result = await session.execute(
                     select(FinishedMatch.match_name, FinishedMatch.p1_elo, FinishedMatch.p2_elo)
                     .where(FinishedMatch.date >= start_date)
@@ -476,7 +493,6 @@ class StatsService:
                 )
                 match_records = result.all()
                 
-                # Manual parsing: match_name is typically "Player1 vs Player2"
                 from collections import Counter
                 player_counts = Counter()
                 player_latest_elo = {}
@@ -490,7 +506,7 @@ class StatsService:
                         continue
                     if " vs " in name:
                         p1, p2 = name.split(" vs ", 1)
-                        p1, p2 = p1.strip(), p2.strip()
+                        p1, p2 = self._resolve_name(p1.strip(), alias_map), self._resolve_name(p2.strip(), alias_map)
                         if p1 and p1 != "Unknown" and p1 != "1210967164" and not p1.startswith("[."):
                             player_counts[p1] += 1
                             if p1_elo is not None and p1_elo > 0:
@@ -500,12 +516,11 @@ class StatsService:
                             if p2_elo is not None and p2_elo > 0:
                                 player_latest_elo[p2] = p2_elo
                     else:
-                        # Sometimes match_name is just "Player1" or weird string
-                        name = name.strip()
-                        if name and name != "Unknown" and name != "1210967164" and not name.startswith("[."):
-                            player_counts[name] += 1
+                        resolved = self._resolve_name(name.strip(), alias_map)
+                        if resolved and resolved != "Unknown" and resolved != "1210967164" and not resolved.startswith("[."):
+                            player_counts[resolved] += 1
                             if p1_elo is not None and p1_elo > 0:
-                                player_latest_elo[name] = p1_elo
+                                player_latest_elo[resolved] = p1_elo
                 
                 top_players = player_counts.most_common(limit)
                 
@@ -521,6 +536,7 @@ class StatsService:
     async def get_all_players_async(self) -> list[dict[str, Any]]:
         """Get all players ever recorded with their latest ELO, total matches, and last match date."""
         try:
+            alias_map = await self._load_alias_map()
             session_factory = get_session_factory()
             async with session_factory() as session:
                 result = await session.execute(
@@ -551,7 +567,7 @@ class StatsService:
 
                     if " vs " in name:
                         p1, p2 = name.split(" vs ", 1)
-                        p1, p2 = p1.strip(), p2.strip()
+                        p1, p2 = self._resolve_name(p1.strip(), alias_map), self._resolve_name(p2.strip(), alias_map)
 
                         if p1 and p1 != "Unknown" and p1 != "1210967164" and not p1.startswith("[."):
                             player_counts[p1] += 1
@@ -567,13 +583,13 @@ class StatsService:
                             if match_date:
                                 player_last_date[p2] = match_date
                     else:
-                        clean_name = name.strip()
-                        if clean_name and clean_name != "Unknown" and clean_name != "1210967164" and not clean_name.startswith("[."):
-                            player_counts[clean_name] += 1
+                        resolved = self._resolve_name(name.strip(), alias_map)
+                        if resolved and resolved != "Unknown" and resolved != "1210967164" and not resolved.startswith("[."):
+                            player_counts[resolved] += 1
                             if p1_elo is not None and p1_elo > 0:
-                                player_latest_elo[clean_name] = p1_elo
+                                player_latest_elo[resolved] = p1_elo
                             if match_date:
-                                player_last_date[clean_name] = match_date
+                                player_last_date[resolved] = match_date
 
                 return [
                     {
