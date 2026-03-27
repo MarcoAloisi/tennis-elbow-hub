@@ -173,3 +173,57 @@ async def delete_alias(
 
     return {"deleted": alias_lower}
 
+
+class RenameRequest(BaseModel):
+    """Request body for renaming a canonical player name."""
+    old_name: str
+    new_name: str
+
+
+@router.put(
+    "/aliases/rename",
+    summary="Rename a canonical player name",
+    description="Rename a player: updates all aliases to point to the new name and adds the old name as an alias. Admin only.",
+)
+@limiter.limit("30/minute")
+async def rename_canonical(
+    request: Request,
+    body: RenameRequest,
+    _admin=Depends(require_admin),
+    db=Depends(get_db),
+) -> dict:
+    """Rename a canonical name and add the old name as alias."""
+    old_name = body.old_name.strip()
+    new_name = body.new_name.strip()
+
+    if not old_name or not new_name:
+        raise HTTPException(status_code=400, detail="Both old_name and new_name are required")
+    if old_name.lower() == new_name.lower():
+        raise HTTPException(status_code=400, detail="Names are the same")
+
+    # Update all aliases that pointed to old_name → now point to new_name
+    from sqlalchemy import update
+    result = await db.execute(
+        update(PlayerAlias)
+        .where(PlayerAlias.canonical_name == old_name)
+        .values(canonical_name=new_name)
+    )
+    updated_count = result.rowcount
+
+    # Add old_name as an alias of new_name (if not already mapped)
+    old_name_lower = old_name.lower()
+    exists = await db.execute(
+        select(PlayerAlias).where(PlayerAlias.alias == old_name_lower)
+    )
+    if not exists.scalar_one_or_none():
+        db.add(PlayerAlias(alias=old_name_lower, canonical_name=new_name))
+
+    # If new_name was previously an alias of old_name, remove that to avoid circular reference
+    new_name_lower = new_name.lower()
+    await db.execute(
+        delete(PlayerAlias).where(PlayerAlias.alias == new_name_lower)
+    )
+
+    await db.commit()
+    return {"old_name": old_name, "new_name": new_name, "aliases_updated": updated_count}
+

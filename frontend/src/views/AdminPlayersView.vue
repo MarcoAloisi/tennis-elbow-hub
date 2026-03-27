@@ -5,7 +5,7 @@ import { useNicknameMapping } from '@/composables/useNicknameMapping'
 import type { SortField } from '@/composables/useAdminPlayers'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import ErrorAlert from '@/components/common/ErrorAlert.vue'
-import { Search, ArrowUpDown, ArrowUp, ArrowDown, Database, X, Plus, Trash2, ChevronDown, ChevronUp, Check } from 'lucide-vue-next'
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, Database, X, Plus, Trash2, ChevronDown, ChevronUp, Check, Pencil } from 'lucide-vue-next'
 
 const {
   players,
@@ -31,6 +31,7 @@ const {
   successMessage,
   saveAliases,
   deleteAlias,
+  renameCanonical,
   clearError: clearAliasError,
   clearSuccess,
   fetchAliases,
@@ -77,6 +78,32 @@ async function handleSave() {
 
 async function handleDelete(alias: string) {
   await deleteAlias(alias)
+  fetchPlayers()
+}
+
+// Rename state
+const renamingGroup = ref<string | null>(null)
+const renameInput = ref('')
+
+function startRename(canonicalName: string) {
+  renamingGroup.value = canonicalName
+  renameInput.value = canonicalName
+}
+
+function cancelRename() {
+  renamingGroup.value = null
+  renameInput.value = ''
+}
+
+async function submitRename(oldName: string) {
+  const newName = renameInput.value.trim()
+  if (!newName || newName === oldName) {
+    cancelRename()
+    return
+  }
+  await renameCanonical(oldName, newName)
+  renamingGroup.value = null
+  renameInput.value = ''
   fetchPlayers()
 }
 
@@ -223,7 +250,29 @@ function getSortIcon(field: SortField) {
           <h3>Active Mappings</h3>
           <div class="mappings-grid">
             <div class="mapping-card" v-for="group in groupedAliases" :key="group.canonical_name">
-              <div class="mapping-canonical">{{ group.canonical_name }}</div>
+              <div class="mapping-header">
+                <template v-if="renamingGroup === group.canonical_name">
+                  <input
+                    v-model="renameInput"
+                    class="rename-input"
+                    @keydown.enter="submitRename(group.canonical_name)"
+                    @keydown.escape="cancelRename"
+                    list="player-suggestions"
+                  />
+                  <button class="rename-action-btn save" @click="submitRename(group.canonical_name)" title="Confirm rename">
+                    <Check :size="14" />
+                  </button>
+                  <button class="rename-action-btn cancel" @click="cancelRename" title="Cancel">
+                    <X :size="14" />
+                  </button>
+                </template>
+                <template v-else>
+                  <div class="mapping-canonical">{{ group.canonical_name }}</div>
+                  <button class="rename-btn" @click="startRename(group.canonical_name)" title="Rename player">
+                    <Pencil :size="13" />
+                  </button>
+                </template>
+              </div>
               <div class="mapping-aliases">
                 <span class="mapping-alias" v-for="alias in group.aliases" :key="alias">
                   {{ alias }}
@@ -697,11 +746,75 @@ function getSortIcon(field: SortField) {
   border-color: rgba(167, 139, 250, 0.3);
 }
 
+.mapping-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
 .mapping-canonical {
   font-weight: 700;
   font-size: 1rem;
   color: var(--color-text-primary);
-  margin-bottom: var(--space-2);
+}
+
+.rename-btn {
+  background: none;
+  border: none;
+  color: var(--color-brand-primary);
+  cursor: pointer;
+  padding: 2px;
+  opacity: 0.5;
+  display: flex;
+  align-items: center;
+  transition: all var(--transition-fast);
+}
+
+.rename-btn:hover {
+  opacity: 1;
+}
+
+.rename-input {
+  flex: 1;
+  padding: 4px 8px;
+  background: var(--color-bg-secondary);
+  border: 1px solid #a78bfa;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-family: inherit;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.15);
+}
+
+.rename-action-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.rename-action-btn.save {
+  color: #34a853;
+}
+
+.rename-action-btn.save:hover {
+  background: rgba(52, 168, 83, 0.12);
+}
+
+.rename-action-btn.cancel {
+  color: var(--color-text-muted);
+}
+
+.rename-action-btn.cancel:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
 }
 
 .mapping-aliases {
