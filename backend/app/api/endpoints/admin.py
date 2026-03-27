@@ -5,12 +5,15 @@ Provides endpoints for admin-only features, protected by the require_admin depen
 
 import csv
 import io
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+from sqlalchemy import delete, select
 
-from app.api.deps import require_admin
+from app.api.deps import get_db, require_admin
 from app.core.limiter import limiter
 from app.core.logging import get_logger
+from app.models.player_alias import PlayerAlias
 
 logger = get_logger("api.admin")
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -26,11 +29,7 @@ async def get_all_players(
     request: Request,
     _admin=Depends(require_admin),
 ) -> list[dict]:
-    """Get all players for admin database view.
-
-    Returns:
-        List of all players with stats.
-    """
+    """Get all players for admin database view."""
     from app.services.stats_service import get_stats_service
 
     stats_service = get_stats_service()
@@ -47,17 +46,12 @@ async def get_all_players_csv(
     request: Request,
     _admin=Depends(require_admin),
 ) -> StreamingResponse:
-    """Download all players as a CSV file.
-
-    Returns:
-        StreamingResponse with CSV content.
-    """
+    """Download all players as a CSV file."""
     from app.services.stats_service import get_stats_service
 
     stats_service = get_stats_service()
     players = await stats_service.get_all_players_async()
 
-    # Build CSV in memory
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(["Player Name", "Latest ELO", "Total Matches", "Last Match Date"])
@@ -77,3 +71,105 @@ async def get_all_players_csv(
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=players_database.csv"},
     )
+
+
+# ─── Nickname / Alias Mapping ───────────────────────────────────────
+
+
+class AliasMappingRequest(BaseModel):
+    """Request body for creating alias mappings."""
+    canonical_name: str
+    aliases: list[str]
+
+
+@router.get(
+    "/aliases",
+    summary="List all alias mappings",
+    description="Get all nickname-to-canonical-name mappings. Admin only.",
+)
+@limiter.limit("30/minute")
+async def list_aliases(
+    request: Request,
+    _admin=Depends(require_admin),
+    db=Depends(get_db),
+) -> list[dict]:
+    """Return all alias mappings."""
+    result = await db.execute(
+        select(PlayerAlias).order_by(PlayerAlias.canonical_name, PlayerAlias.alias)
+    )
+    aliases = result.scalars().all()
+    return [
+        {
+            "id": a.id,
+            "alias": a.alias,
+            "canonical_name": a.canonical_name,
+        }
+        for a in aliases
+    ]
+
+
+@router.post(
+    "/aliases",
+    summary="Create alias mappings",
+    description="Map one or more nicknames to a canonical player name. Admin only.",
+    status_code=status.HTTP_201_CREATED,
+)
+@limiter.limit("30/minute")
+async def create_aliases(
+    request: Request,
+    body: AliasMappingRequest,
+    _admin=Depends(require_admin),
+    db=Depends(get_db),
+) -> dict:
+    """Create alias mappings for a canonical name."""
+    canonical = body.canonical_name.strip()
+    if not canonical:
+        raise HTTPException(status_code=400, detail="canonical_name is required")
+
+    created = []
+    skipped = []
+
+    for raw_alias in body.aliases:
+        alias_lower = raw_alias.strip().lower()
+        if not alias_lower or alias_lower == canonical.lower():
+            continue
+
+        # Check if alias already exists
+        exists = await db.execute(
+            select(PlayerAlias).where(PlayerAlias.alias == alias_lower)
+        )
+        if exists.scalar_one_or_none():
+            skipped.append(alias_lower)
+            continue
+
+        db.add(PlayerAlias(alias=alias_lower, canonical_name=canonical))
+        created.append(alias_lower)
+
+    await db.commit()
+    return {"created": created, "skipped": skipped}
+
+
+@router.delete(
+    "/aliases/{alias}",
+    summary="Delete an alias mapping",
+    description="Remove a single nickname mapping. Admin only.",
+)
+@limiter.limit("30/minute")
+async def delete_alias(
+    request: Request,
+    alias: str,
+    _admin=Depends(require_admin),
+    db=Depends(get_db),
+) -> dict:
+    """Delete a single alias mapping."""
+    alias_lower = alias.strip().lower()
+    result = await db.execute(
+        delete(PlayerAlias).where(PlayerAlias.alias == alias_lower)
+    )
+    await db.commit()
+
+    if result.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Alias not found")
+
+    return {"deleted": alias_lower}
+

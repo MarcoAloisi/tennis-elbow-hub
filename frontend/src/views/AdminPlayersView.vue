@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useAdminPlayers } from '@/composables/useAdminPlayers'
+import { useNicknameMapping } from '@/composables/useNicknameMapping'
 import type { SortField } from '@/composables/useAdminPlayers'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import ErrorAlert from '@/components/common/ErrorAlert.vue'
-import { RefreshCw, Download, FileSpreadsheet, Search, ArrowUpDown, ArrowUp, ArrowDown, Database } from 'lucide-vue-next'
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, Database, X, Plus, Trash2, ChevronDown, ChevronUp, Check } from 'lucide-vue-next'
 
 const {
   players,
@@ -20,6 +22,63 @@ const {
   setSort,
   clearError,
 } = useAdminPlayers()
+
+const {
+  groupedAliases,
+  isLoading: aliasLoading,
+  isSaving,
+  error: aliasError,
+  successMessage,
+  saveAliases,
+  deleteAlias,
+  clearError: clearAliasError,
+  clearSuccess,
+  fetchAliases,
+} = useNicknameMapping()
+
+// Panel UI state
+const showMapper = ref(false)
+const newCanonical = ref('')
+const newAliasInput = ref('')
+const newAliasTags = ref<string[]>([])
+
+function toggleMapper() {
+  showMapper.value = !showMapper.value
+}
+
+function addAliasTag() {
+  const tag = newAliasInput.value.trim()
+  if (tag && !newAliasTags.value.includes(tag.toLowerCase())) {
+    newAliasTags.value.push(tag)
+    newAliasInput.value = ''
+  }
+}
+
+function removeAliasTag(index: number) {
+  newAliasTags.value.splice(index, 1)
+}
+
+function handleAliasKeydown(e: KeyboardEvent) {
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    addAliasTag()
+  }
+}
+
+async function handleSave() {
+  if (!newCanonical.value.trim() || newAliasTags.value.length === 0) return
+  await saveAliases(newCanonical.value.trim(), newAliasTags.value)
+  // After a successful save, also refresh the player table so it reflects the new aliases
+  newCanonical.value = ''
+  newAliasTags.value = []
+  newAliasInput.value = ''
+  fetchPlayers()
+}
+
+async function handleDelete(alias: string) {
+  await deleteAlias(alias)
+  fetchPlayers()
+}
 
 function formatDate(isoString: string | null): string {
   if (!isoString) return '—'
@@ -72,20 +131,115 @@ function getSortIcon(field: SortField) {
       </div>
 
       <div class="toolbar-actions">
+        <button class="btn-toolbar btn-mapper" @click="toggleMapper" :class="{ active: showMapper }" title="Nickname Mapper">
+          <span>Nickname Mapper</span>
+          <component :is="showMapper ? ChevronUp : ChevronDown" :size="14" class="btn-chevron" />
+        </button>
         <button class="btn-toolbar" @click="fetchPlayers" :disabled="isLoading" title="Refresh data">
-          <RefreshCw class="btn-icon" :size="16" :class="{ spinning: isLoading }" />
           <span>Refresh</span>
         </button>
         <button class="btn-toolbar" @click="downloadCsv" :disabled="isLoading || !allPlayers.length" title="Download CSV">
-          <Download class="btn-icon" :size="16" />
           <span>Download CSV</span>
         </button>
         <button class="btn-toolbar btn-sheets" @click="openInGoogleSheets" :disabled="isLoading || !allPlayers.length" title="Open in Google Sheets">
-          <FileSpreadsheet class="btn-icon" :size="16" />
           <span>Google Sheets</span>
         </button>
       </div>
     </div>
+
+    <!-- ─── Nickname Mapper Panel ─── -->
+    <Transition name="panel-slide">
+      <div v-if="showMapper" class="mapper-panel">
+        <div class="mapper-header">
+          <div class="mapper-title">
+            <Users :size="20" />
+            <h2>Nickname Mapper</h2>
+          </div>
+          <p class="mapper-desc">Map alternate nicknames to a single original player name. Enter the original name, then type each alias and press <strong>Enter</strong> to add it as a tag. Click <strong>Save Mapping</strong> when done — stats will be consolidated automatically.</p>
+        </div>
+
+        <!-- Alias error / success -->
+        <ErrorAlert v-if="aliasError" :message="aliasError" type="error" @dismiss="clearAliasError" />
+        <div v-if="successMessage" class="success-alert">
+          <Check :size="16" />
+          <span>{{ successMessage }}</span>
+          <button class="dismiss-btn" @click="clearSuccess"><X :size="14" /></button>
+        </div>
+
+        <!-- Create form -->
+        <div class="mapper-form">
+          <div class="form-row">
+            <div class="form-field">
+              <label for="canonical-name">Original Name</label>
+              <input
+                id="canonical-name"
+                v-model="newCanonical"
+                type="text"
+                placeholder="e.g. barboza"
+                class="mapper-input"
+                list="player-suggestions"
+              />
+              <datalist id="player-suggestions">
+                <option v-for="p in allPlayers" :key="p.name" :value="p.name" />
+              </datalist>
+            </div>
+            <div class="form-field form-field-grow">
+              <label for="alias-input">Aliases</label>
+              <div class="tags-input-wrapper">
+                <div class="tags-list" v-if="newAliasTags.length">
+                  <span class="alias-tag" v-for="(tag, i) in newAliasTags" :key="tag">
+                    {{ tag }}
+                    <button class="tag-remove" @click="removeAliasTag(i)"><X :size="12" /></button>
+                  </span>
+                </div>
+                <input
+                  id="alias-input"
+                  v-model="newAliasInput"
+                  type="text"
+                  placeholder="Type alias, press Enter..."
+                  class="mapper-input tags-input"
+                  list="alias-suggestions"
+                  @keydown="handleAliasKeydown"
+                />
+                <datalist id="alias-suggestions">
+                  <option v-for="p in allPlayers" :key="p.name" :value="p.name" />
+                </datalist>
+              </div>
+            </div>
+          </div>
+          <button
+            class="btn-save"
+            @click="handleSave"
+            :disabled="isSaving || !newCanonical.trim() || newAliasTags.length === 0"
+          >
+            <Plus :size="16" v-if="!isSaving" />
+            <LoadingSpinner v-else size="sm" />
+            <span>Save Mapping</span>
+          </button>
+        </div>
+
+        <!-- Existing mappings -->
+        <div class="mappings-section" v-if="groupedAliases.length">
+          <h3>Active Mappings</h3>
+          <div class="mappings-grid">
+            <div class="mapping-card" v-for="group in groupedAliases" :key="group.canonical_name">
+              <div class="mapping-canonical">{{ group.canonical_name }}</div>
+              <div class="mapping-aliases">
+                <span class="mapping-alias" v-for="alias in group.aliases" :key="alias">
+                  {{ alias }}
+                  <button class="alias-delete" @click="handleDelete(alias)" title="Remove alias">
+                    <Trash2 :size="12" />
+                  </button>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div v-else-if="!aliasLoading" class="mappings-empty">
+          <p>No nickname mappings yet. Create one above.</p>
+        </div>
+      </div>
+    </Transition>
 
     <!-- Stats bar -->
     <div class="stats-bar" v-if="allPlayers.length">
@@ -290,6 +444,27 @@ function getSortIcon(field: SortField) {
   cursor: not-allowed;
 }
 
+.btn-mapper {
+  color: #a78bfa;
+  border-color: rgba(167, 139, 250, 0.3);
+}
+
+.btn-mapper:hover:not(:disabled) {
+  background: rgba(167, 139, 250, 0.08);
+  color: #a78bfa;
+  border-color: rgba(167, 139, 250, 0.5);
+}
+
+.btn-mapper.active {
+  background: rgba(167, 139, 250, 0.12);
+  color: #a78bfa;
+  border-color: rgba(167, 139, 250, 0.5);
+}
+
+.btn-chevron {
+  opacity: 0.6;
+}
+
 .btn-sheets {
   color: #34a853;
   border-color: rgba(52, 168, 83, 0.3);
@@ -311,6 +486,295 @@ function getSortIcon(field: SortField) {
 
 .spinning {
   animation: spin 1s linear infinite;
+}
+
+/* ─── Nickname Mapper Panel ─── */
+.mapper-panel {
+  background: var(--color-surface);
+  border: 1px solid rgba(167, 139, 250, 0.25);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  margin-bottom: var(--space-6);
+  box-shadow: 0 0 24px rgba(167, 139, 250, 0.06);
+}
+
+.mapper-header {
+  margin-bottom: var(--space-5);
+}
+
+.mapper-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: #a78bfa;
+  margin-bottom: var(--space-2);
+}
+
+.mapper-title h2 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.mapper-desc {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  margin: 0;
+}
+
+.success-alert {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 10px 14px;
+  background: rgba(52, 168, 83, 0.1);
+  border: 1px solid rgba(52, 168, 83, 0.3);
+  border-radius: var(--radius-md);
+  color: #34a853;
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--space-4);
+}
+
+.dismiss-btn {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 2px;
+  opacity: 0.6;
+  transition: opacity var(--transition-fast);
+}
+
+.dismiss-btn:hover {
+  opacity: 1;
+}
+
+/* Form */
+.mapper-form {
+  margin-bottom: var(--space-5);
+}
+
+.form-row {
+  display: flex;
+  gap: var(--space-4);
+  margin-bottom: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 200px;
+}
+
+.form-field-grow {
+  flex: 1;
+}
+
+.form-field label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-secondary);
+}
+
+.mapper-input {
+  padding: 10px 14px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+  transition: all var(--transition-fast);
+}
+
+.mapper-input:focus {
+  outline: none;
+  border-color: #a78bfa;
+  box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.15);
+}
+
+.mapper-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.tags-input-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.alias-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: rgba(167, 139, 250, 0.12);
+  border: 1px solid rgba(167, 139, 250, 0.3);
+  border-radius: var(--radius-full);
+  color: #c4b5fd;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.tag-remove {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0.6;
+  display: flex;
+  align-items: center;
+  transition: opacity var(--transition-fast);
+}
+
+.tag-remove:hover {
+  opacity: 1;
+}
+
+.btn-save {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 10px 20px;
+  background: rgba(167, 139, 250, 0.15);
+  border: 1px solid rgba(167, 139, 250, 0.4);
+  border-radius: var(--radius-md);
+  color: #a78bfa;
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-save:hover:not(:disabled) {
+  background: rgba(167, 139, 250, 0.25);
+  border-color: rgba(167, 139, 250, 0.6);
+}
+
+.btn-save:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Existing mappings */
+.mappings-section h3 {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-3);
+  font-weight: 700;
+}
+
+.mappings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-3);
+}
+
+.mapping-card {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  transition: border-color var(--transition-fast);
+}
+
+.mapping-card:hover {
+  border-color: rgba(167, 139, 250, 0.3);
+}
+
+.mapping-canonical {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.mapping-aliases {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mapping-alias {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+  font-size: 0.78rem;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+}
+
+.mapping-alias:hover {
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.alias-delete {
+  background: none;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0;
+  display: flex;
+  align-items: center;
+  transition: opacity var(--transition-fast);
+}
+
+.mapping-alias:hover .alias-delete {
+  opacity: 0.7;
+}
+
+.alias-delete:hover {
+  opacity: 1 !important;
+}
+
+.mappings-empty {
+  text-align: center;
+  padding: var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+/* Panel transition */
+.panel-slide-enter-active,
+.panel-slide-leave-active {
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.panel-slide-enter-from,
+.panel-slide-leave-to {
+  opacity: 0;
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+
+.panel-slide-enter-to,
+.panel-slide-leave-from {
+  opacity: 1;
+  max-height: 800px;
 }
 
 /* Stats bar */
@@ -540,6 +1004,14 @@ function getSortIcon(field: SortField) {
   .players-table td {
     padding: var(--space-2) var(--space-3);
     font-size: 0.8rem;
+  }
+
+  .form-row {
+    flex-direction: column;
+  }
+
+  .mappings-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

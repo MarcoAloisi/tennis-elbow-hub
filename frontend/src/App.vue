@@ -58,10 +58,10 @@ async function submitNameChange() {
     <!-- Header -->
     <header class="app-header">
       <div class="header-content">
-        <div class="logo">
+        <RouterLink to="/" class="logo">
           <img src="/logo_fav.svg" alt="Tennis Elbow Hub" class="logo-image" />
           <span class="logo-text">Tennis Elbow Hub</span>
-        </div>
+        </RouterLink>
         
         <nav class="nav-links" aria-label="Main navigation">
           <RouterLink to="/live" class="nav-link" active-class="active">
