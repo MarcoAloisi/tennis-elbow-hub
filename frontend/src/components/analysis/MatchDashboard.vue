@@ -37,7 +37,7 @@ function formatDate(dateStr: string) {
   <div class="dashboard-container">
     <div class="dashboard-header">
         <button class="btn btn-ghost back-btn" @click="emit('back')">
-            <span class="back-icon">←</span> Load Match Log File
+            <span class="back-icon">←</span> Load Match Log Files
         </button>
         
         <div class="title-row">

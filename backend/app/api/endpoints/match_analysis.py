@@ -3,7 +3,9 @@
 Provides endpoints for uploading and analyzing match log HTML files.
 """
 
-from fastapi import APIRouter, Request, UploadFile, Body
+from typing import List
+
+from fastapi import APIRouter, Request, UploadFile, Body, File
 
 from app.core.limiter import limiter
 from app.core.logging import get_logger
@@ -44,6 +46,69 @@ async def upload_match_log(request: Request, file: UploadFile) -> MatchAnalysisR
     result = await process_uploaded_file(content, safe_filename)
 
     return result
+
+
+@router.post(
+    "/upload-multiple",
+    response_model=MatchAnalysisResponse,
+    summary="Upload and analyze multiple match logs",
+    description="Upload multiple HTML match log files and receive combined parsed statistics.",
+)
+@limiter.limit("10/minute")
+async def upload_multiple_match_logs(
+    request: Request, files: List[UploadFile] = File(...)
+) -> MatchAnalysisResponse:
+    """Upload and analyze multiple match log HTML files.
+
+    Args:
+        files: List of uploaded HTML files.
+
+    Returns:
+        Combined parsed match statistics or error details.
+    """
+    all_matches = []
+    filenames = []
+    errors = []
+
+    for file in files:
+        try:
+            content = await validate_upload_file(file)
+            safe_filename = sanitize_filename(file.filename or "unknown.html")
+            filenames.append(safe_filename)
+
+            logger.info(
+                f"Processing uploaded file: {safe_filename} ({len(content)} bytes)"
+            )
+
+            result = await process_uploaded_file(content, safe_filename)
+
+            if result.success and result.matches:
+                all_matches.extend(result.matches)
+            elif result.error:
+                errors.append(f"{safe_filename}: {result.error}")
+        except Exception as e:
+            safe_filename = sanitize_filename(file.filename or "unknown.html")
+            logger.warning(f"Failed to process file {safe_filename}: {e}")
+            errors.append(f"{safe_filename}: {str(e)}")
+
+    if all_matches:
+        combined_filename = ", ".join(filenames)
+        return MatchAnalysisResponse(
+            success=True,
+            matches=all_matches,
+            stats=all_matches[0] if all_matches else None,
+            filename=combined_filename,
+        )
+    else:
+        error_msg = "Failed to parse any matches from uploaded files"
+        if errors:
+            error_msg += ": " + "; ".join(errors)
+        return MatchAnalysisResponse(
+            success=False,
+            error=error_msg,
+            filename=", ".join(filenames) if filenames else "no files",
+        )
+
 
 
 @router.get(

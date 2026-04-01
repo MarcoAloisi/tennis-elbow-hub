@@ -746,7 +746,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
     })
 
     // Actions
-    async function uploadAndAnalyze(file) {
+    async function uploadAndAnalyze(files: File | File[]) {
         isLoading.value = true
         error.value = null
         uploadProgress.value = 0
@@ -754,9 +754,21 @@ export const useAnalysisStore = defineStore('analysis', () => {
 
         try {
             const formData = new FormData()
-            formData.append('file', file)
+            const fileList = Array.isArray(files) ? files : [files]
 
-            const response = await fetch(apiUrl('/api/analysis/upload'), {
+            // Determine endpoint based on file count
+            let endpoint: string
+            if (fileList.length === 1) {
+                formData.append('file', fileList[0])
+                endpoint = '/api/analysis/upload'
+            } else {
+                fileList.forEach(file => {
+                    formData.append('files', file)
+                })
+                endpoint = '/api/analysis/upload-multiple'
+            }
+
+            const response = await fetch(apiUrl(endpoint), {
                 method: 'POST',
                 body: formData
             })
@@ -778,6 +790,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
                 analysisHistory.value.unshift({
                     filename: data.filename,
                     matchCount: matches.value.length,
+                    fileCount: fileList.length,
                     uploadedAt: new Date().toISOString()
                 })
                 // Keep only last 10 analyses
@@ -791,12 +804,13 @@ export const useAnalysisStore = defineStore('analysis', () => {
             return data
         } catch (e) {
             error.value = e.message
-            console.error('Failed to analyze file:', e)
+            console.error('Failed to analyze file(s):', e)
             throw e
         } finally {
             isLoading.value = false
         }
     }
+
 
     function setIdentifiedPlayers(aliases) {
         userAliases.value = aliases
