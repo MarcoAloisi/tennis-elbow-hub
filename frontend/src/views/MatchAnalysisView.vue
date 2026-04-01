@@ -34,9 +34,9 @@ function backToDashboard() {
   viewMode.value = 'dashboard'
 }
 
-async function handleUpload(file) {
+async function handleUpload(files: File[]) {
   try {
-    await store.uploadAndAnalyze(file)
+    await store.uploadAndAnalyze(files)
   } catch (e) {
     // Error is already in store
   }
@@ -72,7 +72,7 @@ async function handleUpload(file) {
     <div v-if="!store.hasMatches" class="upload-section">
       <FileUploader 
         :is-loading="store.isLoading"
-        title="Load Match Log file"
+        title="Load Match Log files"
         @upload="handleUpload"
       />
       
