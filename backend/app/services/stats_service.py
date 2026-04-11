@@ -167,6 +167,25 @@ class StatsService:
                     # Returning True essentially drops it safely since it's removed from previous_matches.
                     return False
                 
+                # Check for minimum games threshold (5)
+                total_games = 0
+                if clean_score:
+                    sets = clean_score.split()
+                    for s in sets:
+                        if "/" in s:
+                            parts = s.split("/")
+                            g1_str = "".join(c for c in parts[0] if c.isdigit())
+                            g2_str = "".join(c for c in parts[1].split("(")[0] if c.isdigit())
+                            if g1_str and g2_str:
+                                try:
+                                    total_games += int(g1_str) + int(g2_str)
+                                except ValueError:
+                                    pass
+                                    
+                if total_games < 5:
+                    logger.warning(f"Ignoring finished match {server.match_id} due to insufficient games ({total_games}): '{clean_score}'")
+                    return False
+                
                 # Deduce winner from clean score
                 deduced_winner = self._determine_winner(server.match_name, clean_score)
                 
@@ -486,7 +505,7 @@ class StatsService:
             session_factory = get_session_factory()
             async with session_factory() as session:
                 result = await session.execute(
-                    select(FinishedMatch.match_name, FinishedMatch.p1_elo, FinishedMatch.p2_elo)
+                    select(FinishedMatch.match_name, FinishedMatch.p1_elo, FinishedMatch.p2_elo, FinishedMatch.score)
                     .where(FinishedMatch.date >= start_date)
                     .where(FinishedMatch.date <= end_date)
                     .order_by(FinishedMatch.created_at.asc())
@@ -504,6 +523,24 @@ class StatsService:
                     
                     if not name:
                         continue
+                        
+                    # Filter out matches with less than 5 games
+                    total_games = 0
+                    if row.score:
+                        sets = row.score.split()
+                        for s in sets:
+                            if "/" in s:
+                                parts = s.split("/")
+                                g1_str = "".join(c for c in parts[0] if c.isdigit())
+                                g2_str = "".join(c for c in parts[1].split("(")[0] if c.isdigit())
+                                if g1_str and g2_str:
+                                    try:
+                                        total_games += int(g1_str) + int(g2_str)
+                                    except ValueError:
+                                        pass
+                    if total_games < 5:
+                        continue
+                        
                     if " vs " in name:
                         p1, p2 = name.split(" vs ", 1)
                         p1, p2 = self._resolve_name(p1.strip(), alias_map), self._resolve_name(p2.strip(), alias_map)
@@ -545,6 +582,7 @@ class StatsService:
                         FinishedMatch.p1_elo,
                         FinishedMatch.p2_elo,
                         FinishedMatch.date,
+                        FinishedMatch.score,
                     )
                     .order_by(FinishedMatch.created_at.asc())
                 )
@@ -563,6 +601,23 @@ class StatsService:
                     match_date = row.date
 
                     if not name:
+                        continue
+                        
+                    # Filter out matches with less than 5 games
+                    total_games = 0
+                    if row.score:
+                        sets = row.score.split()
+                        for s in sets:
+                            if "/" in s:
+                                parts = s.split("/")
+                                g1_str = "".join(c for c in parts[0] if c.isdigit())
+                                g2_str = "".join(c for c in parts[1].split("(")[0] if c.isdigit())
+                                if g1_str and g2_str:
+                                    try:
+                                        total_games += int(g1_str) + int(g2_str)
+                                    except ValueError:
+                                        pass
+                    if total_games < 5:
                         continue
 
                     if " vs " in name:
