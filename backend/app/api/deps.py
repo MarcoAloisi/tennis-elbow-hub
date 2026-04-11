@@ -64,7 +64,13 @@ def get_current_user(authorization: Annotated[str, Header()]) -> Any:
             detail="Missing or invalid Authorization header",
         )
 
-    token = authorization.split(" ")[1]
+    parts = authorization.split(" ", 1)
+    if len(parts) != 2 or not parts[1]:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing or invalid Authorization header",
+        )
+    token = parts[1]
     supabase = get_supabase()
 
     try:

@@ -12,7 +12,7 @@ export function useWebSocket(url) {
     let socket = null
     let reconnectTimeout = null
     const MAX_RECONNECT_ATTEMPTS = 5
-    const RECONNECT_DELAY = 3000
+    const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000]
 
     /**
      * Connect to WebSocket server
@@ -56,11 +56,12 @@ export function useWebSocket(url) {
 
                 // Attempt reconnection
                 if (reconnectAttempts.value < MAX_RECONNECT_ATTEMPTS) {
+                    const delay = RECONNECT_DELAYS[Math.min(reconnectAttempts.value, RECONNECT_DELAYS.length - 1)]
                     reconnectTimeout = setTimeout(() => {
                         reconnectAttempts.value++
-                        console.log(`Reconnecting... (${reconnectAttempts.value}/${MAX_RECONNECT_ATTEMPTS})`)
+                        console.log(`Reconnecting... (${reconnectAttempts.value}/${MAX_RECONNECT_ATTEMPTS}), delay: ${delay}ms`)
                         connect()
-                    }, RECONNECT_DELAY)
+                    }, delay)
                 } else {
                     error.value = 'Connection lost. Please refresh the page.'
                 }

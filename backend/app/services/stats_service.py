@@ -4,12 +4,11 @@ Tracks finished matches (5+ games) and persists daily statistics.
 Stateless implementation relying on Database for concurrency safety.
 """
 
-import re
 from datetime import date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, select, update
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 
 from app.core.config import get_settings

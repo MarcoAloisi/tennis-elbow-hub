@@ -1,11 +1,8 @@
 """Tests for the analyzer service."""
 
-import pytest
 
 from app.services.analyzer import (
     analyze_match_log,
-    extract_header_info,
-    extract_stats_from_table,
     parse_ratio,
     parse_speed,
 )

@@ -216,10 +216,9 @@ async function submitNameChange() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-6);
-  max-width: 1200px; /* Reduced from 1400px for better focus */
-  margin: 0 auto;
-  padding: var(--space-4) var(--space-6);
+  gap: var(--space-4);
+  width: 100%;
+  padding: var(--space-4) var(--space-8);
 }
 
 .logo {
@@ -227,6 +226,7 @@ async function submitNameChange() {
   align-items: center;
   gap: var(--space-3);
   flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .logo-image {
@@ -243,7 +243,7 @@ async function submitNameChange() {
 
 .nav-links {
   display: flex;
-  align-items: center; /* Ensure divider is centered */
+  align-items: center;
   justify-content: center;
   gap: var(--space-2);
   flex: 1;
@@ -335,6 +335,10 @@ async function submitNameChange() {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  flex-shrink: 0;
+  /* Match logo width so nav-links centers perfectly between both sides */
+  min-width: 190px;
+  justify-content: flex-end;
 }
 
 .auth-buttons {
@@ -486,7 +490,7 @@ async function submitNameChange() {
   .header-content {
     flex-wrap: wrap;
     gap: var(--space-4);
-    padding: var(--space-4); /* Ensure padding on small screens */
+    padding: var(--space-4);
   }
   
   .logo-text {
@@ -495,6 +499,8 @@ async function submitNameChange() {
 
   /* Make nav scrollable horizontally */
   .nav-links {
+    position: static;
+    transform: none;
     order: 3;
     width: 100%;
     justify-content: flex-start; /* Align start to allow scroll from left */

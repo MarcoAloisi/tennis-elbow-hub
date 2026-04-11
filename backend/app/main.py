@@ -11,11 +11,10 @@ This module configures and creates the FastAPI application with:
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 
 from app.api.router import api_router
 from app.core.config import get_settings
@@ -102,20 +101,25 @@ if settings.cors_origins:
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["*"],
     )
-else:
+elif settings.debug:
     # Development: allow common local origins
-    if settings.debug:
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=[
-                "http://localhost:5173",
-                "http://localhost:3000",
-                "http://127.0.0.1:5173",
-            ],
-            allow_credentials=True,
-            allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-            allow_headers=["*"],
-        )
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "http://localhost:5173",
+            "http://localhost:3000",
+            "http://127.0.0.1:5173",
+        ],
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["*"],
+    )
+else:
+    # Production with no explicit CORS origins: deny all cross-origin requests
+    logger.warning(
+        "CORS_ORIGINS is not set in production. All cross-origin requests will be blocked. "
+        "Set CORS_ORIGINS env var to allow your frontend domain."
+    )
 
 
 @app.middleware("http")
@@ -160,9 +164,26 @@ async def root() -> dict[str, str]:
 async def health_check() -> dict[str, str]:
     """Health check endpoint for monitoring.
 
+    Verifies database connectivity before reporting healthy.
+
     Returns:
-        Health status.
+        Health status and environment.
+
+    Raises:
+        HTTPException 503: If the database is unreachable.
     """
+    from sqlalchemy import text
+
+    from app.core.database import get_session_factory
+
+    try:
+        session_factory = get_session_factory()
+        async with session_factory() as session:
+            await session.execute(text("SELECT 1"))
+    except Exception as exc:
+        logger.error(f"Health check failed — database unreachable: {exc}")
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
     return {
         "status": "healthy",
         "environment": settings.app_env,

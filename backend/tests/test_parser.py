@@ -1,8 +1,7 @@
 """Tests for the parser service."""
 
-import pytest
 
-from app.models.game_server import ControlMode, PlayerConfig, SkillMode
+from app.models.game_server import PlayerConfig
 from app.services.parser import (
     parse_game_info_bitfield,
     parse_server_entry,

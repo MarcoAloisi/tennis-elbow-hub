@@ -5,12 +5,12 @@
 declare const __API_URL__: string | undefined;
 
 // API base URL - uses environment variable in production, proxy in development
-export const API_BASE_URL: string = typeof __API_URL__ !== 'undefined' && !!__API_URL__
+const API_BASE_URL: string = typeof __API_URL__ !== 'undefined' && !!__API_URL__
     ? __API_URL__
     : ''
 
 // WebSocket URL
-export const WS_BASE_URL: string = API_BASE_URL
+const WS_BASE_URL: string = API_BASE_URL
     ? API_BASE_URL.replace('https://', 'wss://').replace('http://', 'ws://')
     : ''
 

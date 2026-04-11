@@ -9,7 +9,6 @@ This module provides:
 
 import re
 from pathlib import Path
-from typing import Any
 
 import nh3
 from fastapi import HTTPException, UploadFile, status

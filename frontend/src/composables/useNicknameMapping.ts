@@ -6,13 +6,13 @@ import { ref, computed, onMounted } from 'vue'
 import { apiUrl } from '@/config/api'
 import { supabase } from '@/config/supabase'
 
-export interface AliasRecord {
+interface AliasRecord {
   id: number
   alias: string
   canonical_name: string
 }
 
-export interface GroupedAlias {
+interface GroupedAlias {
   canonical_name: string
   aliases: string[]
 }

@@ -58,11 +58,22 @@ def get_engine():
         elif "postgresql+asyncpg" in url:
             connect_args["statement_cache_size"] = 0
         
-        _engine = create_async_engine(
-            url,
-            echo=get_settings().debug,
-            connect_args=connect_args,
-        )
+        engine_kwargs: dict = {
+            "echo": get_settings().debug,
+            "connect_args": connect_args,
+        }
+        # PostgreSQL supports connection pooling; SQLite does not
+        if "postgresql+asyncpg" in url:
+            engine_kwargs.update(
+                {
+                    "pool_size": 20,
+                    "max_overflow": 10,
+                    "pool_pre_ping": True,
+                    "pool_recycle": 3600,
+                }
+            )
+
+        _engine = create_async_engine(url, **engine_kwargs)
     return _engine
 
 
@@ -92,7 +103,7 @@ async def _seed_default_guides() -> None:
     """Insert default video guides if none exist."""
     from sqlalchemy import func, select
 
-    from app.models.guide import Guide, _slugify
+    from app.models.guide import Guide
 
     session_factory = get_session_factory()
     async with session_factory() as session:

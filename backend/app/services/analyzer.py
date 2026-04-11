@@ -7,7 +7,7 @@ and extracts detailed statistics for both players.
 import re
 from datetime import datetime
 
-from bs4 import BeautifulSoup, Tag
+from bs4 import BeautifulSoup
 
 from app.core.logging import get_logger
 from app.models.match_stats import (

@@ -5,7 +5,7 @@ import { ref } from 'vue'
 import { apiUrl } from '@/config/api'
 import { supabase } from '@/config/supabase'
 
-export interface MatchEntry {
+interface MatchEntry {
   opponent: string
   score: string | null
   date: string | null
@@ -14,7 +14,7 @@ export interface MatchEntry {
   result: 'W' | 'L' | '?'
 }
 
-export interface PlayerDetails {
+interface PlayerDetails {
   name: string
   total_matches: number
   wins: number

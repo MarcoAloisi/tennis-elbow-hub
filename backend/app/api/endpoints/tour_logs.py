@@ -6,10 +6,10 @@ Fetches and processes tour log data from Google Sheets CSV.
 import hashlib
 import re
 from io import StringIO
-from typing import Any
+from typing import Annotated, Any
 
 import httpx
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from app.core.limiter import limiter
 from app.core.logging import get_logger
@@ -250,11 +250,15 @@ def process_row(row: dict[str, str]) -> dict[str, Any] | None:
     description="Fetch and return cleaned tour log data from Google Sheets.",
 )
 @limiter.limit("20/minute")
-async def get_tour_logs(request: Request) -> dict[str, Any]:
-    """Fetch tour logs from Google Sheets and return cleaned data.
-    
+async def get_tour_logs(
+    request: Request,
+    page: Annotated[int, Query(ge=1, description="Page number")] = 1,
+    page_size: Annotated[int, Query(ge=1, le=200, description="Results per page")] = 50,
+) -> dict[str, Any]:
+    """Fetch tour logs from Google Sheets and return paginated cleaned data.
+
     Returns:
-        Dictionary with success status and data array.
+        Dictionary with success status, pagination info, and data array.
     """
     try:
         async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
@@ -294,12 +298,20 @@ async def get_tour_logs(request: Request) -> dict[str, Any]:
             if processed:
                 processed_data.append(processed)
         
-        logger.info(f"Fetched {len(processed_data)} tour log entries")
-        
+        total = len(processed_data)
+        start = (page - 1) * page_size
+        paginated = processed_data[start : start + page_size]
+
+        logger.info(f"Fetched {total} tour log entries, returning page {page}")
+
         return {
             "success": True,
-            "count": len(processed_data),
-            "data": processed_data,
+            "count": len(paginated),
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": max(1, -(-total // page_size)),  # ceiling division
+            "data": paginated,
         }
         
     except httpx.HTTPError as e:

@@ -29,7 +29,10 @@ async def get_all_players(
     request: Request,
     _admin=Depends(require_admin),
 ) -> list[dict]:
-    """Get all players for admin database view."""
+    """Get all players for admin database view.
+
+    Returns the full list — the admin view handles filtering and sorting client-side.
+    """
     from app.services.stats_service import get_stats_service
 
     stats_service = get_stats_service()

@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ruff check:*)",
+      "Bash(python:*)",
+      "Bash(npx knip:*)",
+      "Bash(grep -r \"direct mutation\\\\|this\\\\..*\\\\s*=\\\\|\\\\.value\\\\s*=\" /c/Users/marco/Desktop/TE4-PROJECT/frontend/src/stores/*.ts)",
+      "Bash(pip show:*)",
+      "Bash(pip install:*)",
+      "Bash(alembic init:*)",
+      "Bash(/c/Users/marco/Desktop/TE4-PROJECT/backend/.venv/Scripts/alembic.exe revision:*)",
+      "mcp__plugin_supabase_supabase__execute_sql",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "mcp__plugin_playwright_playwright__browser_resize"
+    ]
+  }
+}

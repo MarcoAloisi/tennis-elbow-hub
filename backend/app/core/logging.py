@@ -6,7 +6,6 @@ with support for different log levels based on environment.
 
 import logging
 import sys
-from typing import Any
 
 from app.core.config import get_settings
 

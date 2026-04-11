@@ -175,20 +175,26 @@ class ConnectionManager:
         logger.info(f"Client disconnected. Total: {len(self.active_connections)}")
 
     async def broadcast(self, message: str) -> None:
-        """Broadcast a message to all connected clients.
+        """Broadcast a message to all connected clients concurrently.
 
         Args:
             message: JSON string to broadcast.
         """
-        disconnected = []
-        for connection in self.active_connections:
-            try:
-                await connection.send_text(message)
-            except Exception:
-                disconnected.append(connection)
+        if not self.active_connections:
+            return
 
-        # Clean up disconnected clients
-        for conn in disconnected:
+        results = await asyncio.gather(
+            *[conn.send_text(message) for conn in self.active_connections],
+            return_exceptions=True,
+        )
+
+        # Clean up any connections that raised errors
+        failed = [
+            conn
+            for conn, result in zip(self.active_connections, results)
+            if isinstance(result, Exception)
+        ]
+        for conn in failed:
             self.disconnect(conn)
 
 

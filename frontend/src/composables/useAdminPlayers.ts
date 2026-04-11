@@ -6,7 +6,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { apiUrl } from '@/config/api'
 import { supabase } from '@/config/supabase'
 
-export interface PlayerRecord {
+interface PlayerRecord {
   name: string
   latest_elo: number | null
   total_matches: number
@@ -14,7 +14,7 @@ export interface PlayerRecord {
 }
 
 export type SortField = 'name' | 'latest_elo' | 'total_matches' | 'last_match_date'
-export type SortDirection = 'asc' | 'desc'
+type SortDirection ='asc' | 'desc'
 
 export function useAdminPlayers() {
   const players = ref<PlayerRecord[]>([])

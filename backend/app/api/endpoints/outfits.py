@@ -9,7 +9,6 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db, get_supabase, require_admin
-from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.core.security import validate_image_upload
 from app.models.outfit import Outfit, OutfitResponse, PaginatedOutfitResponse
@@ -103,7 +102,7 @@ async def create_outfit(
         filename = f"{uuid.uuid4()}.{ext}"
         
         # Upload
-        res = supabase.storage.from_("outfits").upload(
+        supabase.storage.from_("outfits").upload(
             file=file_content,
             path=filename,
             file_options={"content-type": image.content_type or "image/png"}

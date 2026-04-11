@@ -8,7 +8,6 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from sqlalchemy.future import select
 from app.core.database import get_session_factory
 from app.models.finished_match import FinishedMatch
-from app.models.daily_stats import DailyStats
 
 async def run():
     print("Starting data scrub analysis...")

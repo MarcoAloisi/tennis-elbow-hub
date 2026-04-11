@@ -26,9 +26,9 @@ class Guide(Base):
     __tablename__ = "guides"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False, index=True)
     slug: Mapped[str] = mapped_column(String(250), nullable=False, unique=True, index=True)
-    guide_type: Mapped[str] = mapped_column(String(20), nullable=False, default="written")
+    guide_type: Mapped[str] = mapped_column(String(20), nullable=False, default="written", index=True)
     description: Mapped[str] = mapped_column(String(500), nullable=True)
     thumbnail_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     content: Mapped[str | None] = mapped_column(Text, nullable=True)  # HTML body for written guides

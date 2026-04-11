@@ -5,7 +5,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { apiUrl } from '@/config/api'
 
-export interface ScoreFilters {
+interface ScoreFilters {
     surface: string | null
     startedOnly: boolean
     minElo: number | null
