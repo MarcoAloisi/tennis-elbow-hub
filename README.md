@@ -22,25 +22,25 @@
 
 ---
 
-## Overview
+## About
 
-Tennis Elbow Hub is a full-stack web application built for the Tennis Elbow 4 community. It aggregates live match scores via WebSocket broadcasting, provides deep match statistics through HTML log parsing, and hosts a community-curated knowledge base of guides, outfits, and tour logs.
+Tennis Elbow Hub is a community-driven web platform for Tennis Elbow 4 players. It brings together live match scores, in-depth match analysis, a curated guides library, an outfit gallery, and tour history — all in one place.
+
+Built and maintained by **Marco** (known in-game as **Ambience**), a Tennis Elbow 4 player who wanted a proper hub for the community.
 
 ---
 
-## Features
+## What's Inside
 
-| Feature | Description |
+| Section | Description |
 |---|---|
-| **Live Scores** | Real-time match scores streamed via WebSocket with auto-reconnect (exponential backoff) |
-| **Match Analysis** | Upload `.html` match log files — get detailed player stats, game breakdowns, and head-to-head comparisons powered by AI |
-| **Guides** | Curated written guides and video walkthroughs, filterable by tag, type, and keyword |
-| **Outfit Gallery** | Community outfit codes with screenshots, categories, and copy-to-clipboard support |
-| **Tour Logs** | Paginated log of tour match results with player filtering |
-| **Online Tours** | Dedicated section for online tournament information |
-| **Player Stats** | Per-player win/loss records, match history, and daily stats with timezone-aware resets |
-| **Admin Panel** | Full CRUD for guides, outfits, and player alias management — gated behind Supabase JWT role |
-| **Contact** | SMTP contact form routed to a configured inbox |
+| **Live Scores** | Real-time match scores streamed via WebSocket with automatic reconnection |
+| **Match Analysis** | Upload a match log file and get detailed player stats, game breakdowns, and AI-powered insights |
+| **Guides** | Written guides and video walkthroughs curated for all skill levels, filterable by tag and type |
+| **Outfit Gallery** | Community outfit codes with screenshots and one-click copy |
+| **Tour Logs** | Full history of tour match results with player filtering |
+| **Online Tours** | Information and coverage for online tournaments |
+| **Player Stats** | Win/loss records, match history, and daily stats for tracked players |
 | **Dark / Light Theme** | Persistent theme toggle |
 
 ---
@@ -49,209 +49,25 @@ Tennis Elbow Hub is a full-stack web application built for the Tennis Elbow 4 co
 
 ### Backend
 
-| Layer | Technology |
+| | |
 |---|---|
-| Runtime | Python 3.11+ |
+| Language | Python 3.11+ |
 | Framework | FastAPI (async) |
-| ORM | SQLAlchemy 2 (async) |
-| Migrations | Alembic |
-| Database | PostgreSQL (prod) · SQLite (local dev) |
-| Auth | Supabase JWT (`HS256`) |
-| File Storage | Supabase Storage |
-| Rate Limiting | slowapi |
+| Database | PostgreSQL · SQLite (local) |
+| ORM / Migrations | SQLAlchemy 2 · Alembic |
+| Auth | Supabase JWT |
+| Storage | Supabase Storage |
 | AI | OpenRouter API |
-| Server | Uvicorn |
 
 ### Frontend
 
-| Layer | Technology |
+| | |
 |---|---|
 | Framework | Vue 3 (Composition API) |
-| Build Tool | Vite |
+| Build | Vite |
 | State | Pinia |
-| Charts | Chart.js + vue-chartjs |
-| Rich Text | TipTap editor |
-| Auth Client | Supabase JS |
-
----
-
-## Project Structure
-
-```
-TE4-PROJECT/
-├── backend/
-│   ├── app/
-│   │   ├── api/
-│   │   │   ├── endpoints/        # One file per feature
-│   │   │   │   ├── admin.py      # Player DB management
-│   │   │   │   ├── contact.py    # SMTP contact form
-│   │   │   │   ├── guides.py     # Guides CRUD + image uploads
-│   │   │   │   ├── live_scores.py # WebSocket score broadcasting
-│   │   │   │   ├── match_analysis.py # Log parsing + AI analysis
-│   │   │   │   ├── outfits.py    # Outfit gallery CRUD
-│   │   │   │   └── tour_logs.py  # Paginated tour log history
-│   │   │   ├── deps.py           # Auth + DB session dependencies
-│   │   │   └── router.py         # Mounts all routers under /api
-│   │   ├── core/
-│   │   │   ├── config.py         # Pydantic settings (env-driven)
-│   │   │   ├── database.py       # Async engine + session factory
-│   │   │   ├── limiter.py        # slowapi rate limiter
-│   │   │   ├── logging.py        # Structured logging setup
-│   │   │   ├── security.py       # Image validation, security headers
-│   │   │   └── utils.py          # Shared helpers (escape_like, etc.)
-│   │   ├── models/               # SQLAlchemy models + Pydantic schemas
-│   │   ├── services/             # Business logic (scraper, stats, analyzer)
-│   │   └── main.py               # App factory, middleware, health check
-│   ├── alembic/                  # Database migrations
-│   │   └── versions/
-│   ├── requirements.txt
-│   └── tests/
-│
-└── frontend/
-    └── src/
-        ├── components/           # Reusable UI components
-        ├── composables/          # Encapsulated view-local logic
-        ├── config/               # API URL helper, Supabase client
-        ├── stores/               # Pinia global stores (auth, scores)
-        └── views/                # Page-level route components
-```
-
----
-
-## Getting Started
-
-### Prerequisites
-
-- Python 3.11+
-- Node.js 18+
-- A Supabase project (for auth and file storage)
-
-### Environment Variables
-
-Create a `.env` file in the project root:
-
-```env
-# Database
-DATABASE_URL=postgresql+asyncpg://user:password@host/db   # omit for SQLite locally
-
-# Supabase
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_KEY=your-service-role-key
-SUPABASE_JWT_SECRET=your-jwt-secret
-
-# CORS (comma-separated, required in production)
-CORS_ORIGINS=https://yourdomain.com
-
-# App
-APP_ENV=development
-DEBUG=true
-
-# Score scraper polling interval (seconds)
-SCORE_REFRESH_INTERVAL=60
-
-# SMTP (contact form)
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=you@gmail.com
-SMTP_PASSWORD=your-app-password
-SMTP_FROM=you@gmail.com
-
-# AI (match analysis)
-OPENROUTER_API_KEY=your-key
-
-# Stats timezone for daily resets
-STATS_TIMEZONE=Europe/Rome
-```
-
-### Backend
-
-```bash
-cd backend
-python -m venv .venv
-
-# Windows
-.venv\Scripts\activate
-# macOS / Linux
-source .venv/bin/activate
-
-pip install -r requirements.txt
-
-# Apply database migrations
-.venv/Scripts/alembic.exe upgrade head   # Windows
-# alembic upgrade head                   # macOS / Linux
-
-uvicorn app.main:app --reload
-```
-
-Backend runs at `http://localhost:8000`.  
-API docs (dev only): `http://localhost:8000/docs`
-
-### Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Frontend runs at `http://localhost:5173`.
-
----
-
-## API Reference
-
-All routes are prefixed with `/api`.
-
-| Method | Route | Auth | Description |
-|---|---|---|---|
-| `GET` | `/guides` | Public | List guides (paginated, filterable) |
-| `GET` | `/guides/tags` | Public | Distinct tag list |
-| `GET` | `/guides/{slug}` | Public | Single guide by slug |
-| `POST` | `/guides` | Admin | Create guide |
-| `PUT` | `/guides/{id}` | Admin | Update guide |
-| `DELETE` | `/guides/{id}` | Admin | Delete guide |
-| `POST` | `/guides/images` | Admin | Upload in-content image |
-| `GET` | `/outfits` | Public | List outfits (paginated) |
-| `POST` | `/outfits` | Admin | Create outfit |
-| `PUT` | `/outfits/{id}` | Admin | Update outfit |
-| `DELETE` | `/outfits/{id}` | Admin | Delete outfit |
-| `GET` | `/tour-logs` | Public | Paginated tour log history |
-| `POST` | `/match-analysis` | Public | Upload `.html` log for analysis |
-| `GET` | `/admin/players` | Admin | Full player list |
-| `POST` | `/admin/players/aliases` | Admin | Add player alias |
-| `POST` | `/contact` | Public | Send contact email |
-| `WS` | `/ws/live-scores` | Public | Real-time score stream |
-| `GET` | `/health` | Public | DB connectivity check |
-
----
-
-## Authentication
-
-Auth is handled by Supabase JWT:
-
-- Frontend sends `Authorization: Bearer <token>` on every protected request
-- Backend verifies the token against `SUPABASE_JWT_SECRET`
-- Admin access requires `app_metadata.role == "admin"` — set server-side in Supabase only
-
----
-
-## Database Migrations
-
-```bash
-# Generate a new migration from model changes
-alembic revision --autogenerate -m "description"
-
-# Apply all pending migrations
-alembic upgrade head
-
-# Roll back the last migration
-alembic downgrade -1
-
-# Check current schema version
-alembic current
-```
-
-> Never use `Base.metadata.create_all()` for schema changes in production — Alembic only.
+| Charts | Chart.js |
+| Rich Text | TipTap |
 
 ---
 
