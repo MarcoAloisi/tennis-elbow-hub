@@ -255,16 +255,6 @@ alembic current
 
 ---
 
-## Deployment
-
-The application is deployed on **Render**.
-
-- **Backend**: Web Service → `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-- **Pre-deploy command**: `alembic upgrade head` (runs migrations automatically on each deploy)
-- All environment variables are configured in the Render dashboard
-
----
-
 ## License
 
 MIT
