@@ -25,6 +25,12 @@ export function useAdminPlayers() {
   const sortField = ref<SortField>('total_matches')
   const sortDirection = ref<SortDirection>('desc')
 
+  // Range filters
+  const eloMin = ref<number | null>(null)
+  const eloMax = ref<number | null>(null)
+  const matchesMin = ref<number | null>(null)
+  const matchesMax = ref<number | null>(null)
+
   let autoRefreshTimer: ReturnType<typeof setInterval> | null = null
 
   // 24 hours in ms
@@ -133,13 +139,34 @@ export function useAdminPlayers() {
     }
   }
 
+  /** Players list after excluding doubles/pair entries (names with '&'). */
+  const cleanPlayers = computed(() =>
+    players.value.filter(p => !p.name.includes('&'))
+  )
+
   const filteredAndSortedPlayers = computed(() => {
-    let result = [...players.value]
+    let result = [...cleanPlayers.value]
 
     // Filter by search query
     if (searchQuery.value) {
       const query = searchQuery.value.toLowerCase()
       result = result.filter(p => p.name.toLowerCase().includes(query))
+    }
+
+    // Filter by ELO range
+    if (eloMin.value !== null) {
+      result = result.filter(p => (p.latest_elo ?? 0) >= eloMin.value!)
+    }
+    if (eloMax.value !== null) {
+      result = result.filter(p => (p.latest_elo ?? 0) <= eloMax.value!)
+    }
+
+    // Filter by matches range
+    if (matchesMin.value !== null) {
+      result = result.filter(p => p.total_matches >= matchesMin.value!)
+    }
+    if (matchesMax.value !== null) {
+      result = result.filter(p => p.total_matches <= matchesMax.value!)
     }
 
     // Sort
@@ -168,6 +195,37 @@ export function useAdminPlayers() {
     return result
   })
 
+  /* ─── KPI Computed Properties ─── */
+  const highestEloEntry = computed(() => {
+    const withElo = cleanPlayers.value.filter(p => p.latest_elo !== null)
+    if (!withElo.length) return null
+    return withElo.reduce((best, p) => (p.latest_elo! > best.latest_elo!) ? p : best)
+  })
+
+  const highestElo = computed(() => highestEloEntry.value?.latest_elo ?? null)
+  const highestEloPlayer = computed(() => highestEloEntry.value?.name ?? null)
+
+  const lowestEloEntry = computed(() => {
+    const withElo = cleanPlayers.value.filter(p => p.latest_elo !== null)
+    if (!withElo.length) return null
+    return withElo.reduce((best, p) => (p.latest_elo! < best.latest_elo!) ? p : best)
+  })
+
+  const lowestElo = computed(() => lowestEloEntry.value?.latest_elo ?? null)
+  const lowestEloPlayer = computed(() => lowestEloEntry.value?.name ?? null)
+
+  const avgElo = computed(() => {
+    const elos = cleanPlayers.value.map(p => p.latest_elo).filter((e): e is number => e !== null)
+    if (!elos.length) return null
+    return Math.round(elos.reduce((sum, e) => sum + e, 0) / elos.length)
+  })
+
+  const avgMatchesPlayed = computed(() => {
+    if (!cleanPlayers.value.length) return null
+    const total = cleanPlayers.value.reduce((sum, p) => sum + p.total_matches, 0)
+    return Math.round((total / cleanPlayers.value.length) * 10) / 10
+  })
+
   function startAutoRefresh() {
     autoRefreshTimer = setInterval(fetchPlayers, AUTO_REFRESH_INTERVAL)
   }
@@ -192,19 +250,37 @@ export function useAdminPlayers() {
     stopAutoRefresh()
   })
 
+  function clearFilters() {
+    eloMin.value = null
+    eloMax.value = null
+    matchesMin.value = null
+    matchesMax.value = null
+  }
+
   return {
     players: filteredAndSortedPlayers,
-    allPlayers: players,
+    allPlayers: cleanPlayers,
     isLoading,
     error,
     lastRefreshed,
     searchQuery,
     sortField,
     sortDirection,
+    eloMin,
+    eloMax,
+    matchesMin,
+    matchesMax,
+    highestElo,
+    highestEloPlayer,
+    lowestElo,
+    lowestEloPlayer,
+    avgElo,
+    avgMatchesPlayed,
     fetchPlayers,
     downloadCsv,
     openInGoogleSheets,
     setSort,
     clearError,
+    clearFilters,
   }
 }

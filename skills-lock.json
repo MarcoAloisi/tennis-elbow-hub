@@ -1,15 +1,85 @@
 {
   "version": 1,
   "skills": {
+    "async-python-patterns": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "computedHash": "3a53bc38ef4e884e8f4d9f9c35041710f6cc9ac3e851b78fc202adee380fb3ce"
+    },
     "audit-website": {
       "source": "squirrelscan/skills",
       "sourceType": "github",
       "computedHash": "82588484b29316f3106185374cc6aedf409c38a0698d49f7034c9b5ec07a1aa7"
     },
+    "frontend-design": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "computedHash": "516bd2154eb843a8240e43d5b285229129853114ad7075a5e141e1c08e408c84"
+    },
+    "python-anti-patterns": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "computedHash": "6aad22ecbc1546927f2d2c6cac7ac793aa8256a6b47ded75d8c628c5fe491259"
+    },
+    "python-background-jobs": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "computedHash": "05cccc6b1d42b0ffbf2ded8ee6f641251adf2262ee0019f3c1a8daeb5a9be548"
+    },
+    "python-code-style": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "computedHash": "c375dffa8d94962e10193079af1527b149f43b68d60043830d89cbce1228cec7"
+    },
+    "python-configuration": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "computedHash": "494fda3e5e5a1a8d83c30b0830d2f53ed71876afefb9106c411531587d5deef3"
+    },
+    "python-design-patterns": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "computedHash": "8646a52fb34f1b88954aa84c86d5de04fbda1f415e509045c7f3ffff5886ded4"
+    },
+    "python-error-handling": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "computedHash": "c82529570288890c2af08bb197239e74ce56caec6576ccbfab5973dc24941dcc"
+    },
+    "python-observability": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "computedHash": "893f3609abe557831318a8ccd7993baeb7bacbf59ff4a1c13ebae4fc774f63c8"
+    },
+    "python-performance-optimization": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "computedHash": "6390615b25e5922057b15eb900d69a90db563c5f2d6bd3182be707592fc25f09"
+    },
+    "python-resilience": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "computedHash": "049e03c53aa322bf850281e44a0b267bed002fb02be8ae515d9569fd02dfa402"
+    },
+    "python-resource-management": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "computedHash": "109bcb8e4e9c619c26851744826833dd0c6ac0d7bae6c614ea987944327733b1"
+    },
+    "python-type-safety": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "computedHash": "76e08740199869de7af1224f1c3e69b0dd1d8f46e82276ba20530e657234fb73"
+    },
     "supabase-postgres-best-practices": {
       "source": "supabase/agent-skills",
       "sourceType": "github",
-      "computedHash": "e3ba3d760c5f4cc43b02a91fb8924f726c7818f95cc35d79d0a606ca622b72f5"
+      "computedHash": "abf015aafed757edaf2a329299fc106abebdc53bc7f089e92e1f762ed3d8f117"
+    },
+    "typescript-expert": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "computedHash": "3e45cb0773354ceeefcdf18fac14c8f6f476e7af7d83af57fcde9839d18ea39c"
     },
     "ui-ux-pro-max": {
       "source": "nextlevelbuilder/ui-ux-pro-max-skill",
@@ -20,6 +90,11 @@
       "source": "hyf0/vue-skills",
       "sourceType": "github",
       "computedHash": "21132f6c11c765bd11d0d6ad081122dd858630073e2123b651e58f17b399b131"
+    },
+    "vue-pinia-best-practices": {
+      "source": "vuejs-ai/skills",
+      "sourceType": "github",
+      "computedHash": "ab191c9cc34d755e5e2133bbedc56bd5f9ba0841e242a7b54c818780a5c78a9c"
     }
   }
 }

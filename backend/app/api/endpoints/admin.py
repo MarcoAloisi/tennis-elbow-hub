@@ -73,6 +73,24 @@ async def get_all_players_csv(
     )
 
 
+@router.get(
+    "/players/{player_name:path}",
+    summary="Get detailed player stats",
+    description="Get detailed match history, W/L record, best win, worst loss, and activity for a player. Admin only.",
+)
+@limiter.limit("30/minute")
+async def get_player_details(
+    request: Request,
+    player_name: str,
+    _admin=Depends(require_admin),
+) -> dict:
+    """Get detailed stats for a specific player."""
+    from app.services.stats_service import get_stats_service
+
+    stats_service = get_stats_service()
+    return await stats_service.get_player_details_async(player_name)
+
+
 # ─── Nickname / Alias Mapping ───────────────────────────────────────
 
 

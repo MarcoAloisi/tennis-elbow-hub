@@ -244,7 +244,9 @@ async function submitNameChange() {
 .nav-links {
   display: flex;
   align-items: center; /* Ensure divider is centered */
+  justify-content: center;
   gap: var(--space-2);
+  flex: 1;
 }
 
 .nav-divider {

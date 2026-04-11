@@ -34,7 +34,8 @@ import { RouterLink } from 'vue-router'
             Watch Tennis Elbow 4 online matches unfold in real-time. Our WebSocket-powered
             scoreboard updates every few seconds, showing player names, ELO ratings,
             match scores, surfaces, and tournament details. Filter by surface, search
-            by player name, and see today's match statistics at a glance.
+            by player name, track the most active players, view daily matches played,
+            and see today's match statistics at a glance.
           </p>
           <RouterLink to="/live" class="feature-link">Go to Live Scores →</RouterLink>
         </div>
@@ -43,8 +44,9 @@ import { RouterLink } from 'vue-router'
           <div class="feature-icon">📊</div>
           <h3>Match Log Analysis</h3>
           <p>
-            Upload your Tennis Elbow 4 HTML match logs and get detailed statistical
-            breakdowns. View radar charts comparing power, serve accuracy, net game,
+            Upload your Tennis Elbow 4 HTML match logs and unlock AI-powered match
+            review analysis with detailed statistical breakdowns. Explore historical
+            data charts, view radar charts comparing power, serve accuracy, net game,
             consistency, pressure points, and stamina. Analyze head-to-head records,
             filter by opponent, surface, or tournament, and track your improvement
             over time with win rate calculations.
@@ -66,7 +68,7 @@ import { RouterLink } from 'vue-router'
 
         <div class="feature-card">
           <div class="feature-icon">🎬</div>
-          <h3>Video Guides</h3>
+          <h3>Guides</h3>
           <p>
             Learn the ropes with curated video tutorials for Tennis Elbow 4 online play.
             Whether you're a newcomer looking to set up your first online match or an

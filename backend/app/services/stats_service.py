@@ -605,6 +605,120 @@ class StatsService:
             logger.error(f"Failed to fetch all players: {e}")
             return []
 
+    async def get_player_details_async(self, player_name: str) -> dict[str, Any]:
+        """Get detailed match history and stats for a specific player.
+
+        Returns matches played, wins, losses, best win (highest ELO opponent beaten),
+        worst loss, and recent activity counts.
+        """
+        try:
+            alias_map = await self._load_alias_map()
+            session_factory = get_session_factory()
+            async with session_factory() as session:
+                result = await session.execute(
+                    select(
+                        FinishedMatch.match_name,
+                        FinishedMatch.score,
+                        FinishedMatch.winner,
+                        FinishedMatch.p1_elo,
+                        FinishedMatch.p2_elo,
+                        FinishedMatch.date,
+                    )
+                    .order_by(FinishedMatch.date.desc())
+                )
+                all_matches = result.all()
+
+                # Resolve which names map to this player
+                target_lower = player_name.lower()
+                # Build set of raw names that resolve to this player
+                raw_names_for_player: set[str] = {target_lower}
+                for alias_lower, canonical in alias_map.items():
+                    if canonical.lower() == target_lower or alias_lower == target_lower:
+                        raw_names_for_player.add(alias_lower)
+                        raw_names_for_player.add(canonical.lower())
+
+                today = self._get_today()
+                week_ago = today - timedelta(days=7)
+                month_ago = today - timedelta(days=30)
+
+                matches: list[dict[str, Any]] = []
+                wins = 0
+                losses = 0
+                best_win: dict[str, Any] | None = None
+                worst_loss: dict[str, Any] | None = None
+                matches_last_7 = 0
+                matches_last_30 = 0
+
+                for row in all_matches:
+                    name = row.match_name
+                    if not name or " vs " not in name:
+                        continue
+
+                    raw_p1, raw_p2 = name.split(" vs ", 1)
+                    p1 = self._resolve_name(raw_p1.strip(), alias_map)
+                    p2 = self._resolve_name(raw_p2.strip(), alias_map)
+
+                    # Check if this player is involved
+                    is_p1 = p1.lower() in raw_names_for_player
+                    is_p2 = p2.lower() in raw_names_for_player
+                    if not is_p1 and not is_p2:
+                        continue
+
+                    opponent = p2 if is_p1 else p1
+                    player_elo = row.p1_elo if is_p1 else row.p2_elo
+                    opponent_elo = row.p2_elo if is_p1 else row.p1_elo
+
+                    winner_resolved = None
+                    if row.winner:
+                        winner_resolved = self._resolve_name(row.winner.strip(), alias_map)
+
+                    did_win = winner_resolved and winner_resolved.lower() in raw_names_for_player
+                    did_lose = winner_resolved and not did_win and winner_resolved.strip() != ""
+
+                    match_entry = {
+                        "opponent": opponent,
+                        "score": row.score,
+                        "date": row.date.isoformat() if row.date else None,
+                        "player_elo": player_elo,
+                        "opponent_elo": opponent_elo,
+                        "result": "W" if did_win else ("L" if did_lose else "?"),
+                    }
+                    matches.append(match_entry)
+
+                    if did_win:
+                        wins += 1
+                        if opponent_elo and opponent_elo > 0:
+                            if best_win is None or opponent_elo > (best_win.get("opponent_elo") or 0):
+                                best_win = match_entry
+                    elif did_lose:
+                        losses += 1
+                        if opponent_elo and opponent_elo > 0:
+                            if worst_loss is None or opponent_elo < (worst_loss.get("opponent_elo") or 9999):
+                                worst_loss = match_entry
+
+                    if row.date:
+                        if row.date >= week_ago:
+                            matches_last_7 += 1
+                        if row.date >= month_ago:
+                            matches_last_30 += 1
+
+                return {
+                    "name": player_name,
+                    "total_matches": len(matches),
+                    "wins": wins,
+                    "losses": losses,
+                    "win_rate": round(wins / len(matches) * 100, 1) if matches else 0,
+                    "matches_last_7_days": matches_last_7,
+                    "matches_last_30_days": matches_last_30,
+                    "best_win": best_win,
+                    "worst_loss": worst_loss,
+                    "recent_matches": matches[:10],  # Last 10 matches
+                }
+
+        except Exception as e:
+            logger.error(f"Failed to fetch player details for {player_name}: {e}")
+            return {"name": player_name, "error": str(e)}
+
 
 # Singleton instance
 _stats_service: StatsService | None = None
