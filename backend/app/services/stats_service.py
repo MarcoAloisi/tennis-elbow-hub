@@ -664,6 +664,25 @@ class StatsService:
                     if not is_p1 and not is_p2:
                         continue
 
+                    # Calculate total games played to filter out aborted matches
+                    total_games = 0
+                    if row.score:
+                        sets = row.score.split()
+                        for s in sets:
+                            if "/" in s:
+                                parts = s.split("/")
+                                g1_str = "".join(c for c in parts[0] if c.isdigit())
+                                g2_str = "".join(c for c in parts[1].split("(")[0] if c.isdigit())
+                                if g1_str and g2_str:
+                                    try:
+                                        total_games += int(g1_str) + int(g2_str)
+                                    except ValueError:
+                                        pass
+                                        
+                    # Ignore matches with less than 5 games (aborted early)
+                    if total_games < 5:
+                        continue
+
                     opponent = p2 if is_p1 else p1
                     player_elo = row.p1_elo if is_p1 else row.p2_elo
                     opponent_elo = row.p2_elo if is_p1 else row.p1_elo
@@ -702,12 +721,13 @@ class StatsService:
                         if row.date >= month_ago:
                             matches_last_30 += 1
 
+                completed_matches = wins + losses
                 return {
                     "name": player_name,
-                    "total_matches": len(matches),
+                    "total_matches": completed_matches,
                     "wins": wins,
                     "losses": losses,
-                    "win_rate": round(wins / len(matches) * 100, 1) if matches else 0,
+                    "win_rate": round(wins / completed_matches * 100, 1) if completed_matches > 0 else 0,
                     "matches_last_7_days": matches_last_7,
                     "matches_last_30_days": matches_last_30,
                     "best_win": best_win,
