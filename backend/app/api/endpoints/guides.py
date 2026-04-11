@@ -12,6 +12,7 @@ from fastapi import (
     Form,
     HTTPException,
     Query,
+    Request,
     UploadFile,
     status,
 )
@@ -19,8 +20,10 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db, get_supabase, require_admin
+from app.core.limiter import limiter
 from app.core.logging import get_logger
 from app.core.security import validate_image_upload
+from app.core.utils import escape_like
 from app.models.guide import (
     Guide,
     GuideResponse,
@@ -33,11 +36,6 @@ router = APIRouter(prefix="/guides", tags=["Guides"])
 
 BUCKET_NAME = "guide-thumbnails"
 IMAGE_BUCKET_NAME = "guide-images"
-
-
-def _escape_like(value: str) -> str:
-    """Escape special LIKE/ILIKE pattern characters."""
-    return value.replace("%", r"\%").replace("_", r"\_")
 
 
 async def _generate_unique_slug(db: AsyncSession, title: str, exclude_id: int | None = None) -> str:
@@ -113,7 +111,9 @@ async def upload_guide_image(
 
 
 @router.get("", response_model=PaginatedGuideResponse)
+@limiter.limit("60/minute")
 async def get_guides(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     tag: str | None = None,
     guide_type: str | None = Query(None, alias="type"),
@@ -125,11 +125,11 @@ async def get_guides(
     conditions = []
 
     if tag and tag.lower() != "all":
-        conditions.append(Guide.tags.ilike(f"%{_escape_like(tag)}%"))
+        conditions.append(Guide.tags.ilike(f"%{escape_like(tag)}%"))
     if guide_type:
         conditions.append(Guide.guide_type == guide_type)
     if search:
-        conditions.append(Guide.title.ilike(f"%{_escape_like(search)}%"))
+        conditions.append(Guide.title.ilike(f"%{escape_like(search)}%"))
 
     # Total count
     count_query = select(func.count(Guide.id))

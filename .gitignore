@@ -69,9 +69,16 @@ uploads/
 # SQLite databases
 stats.db
 
-# Agent
+# Agent / Claude tooling
 .agent/
 .agents/
+.claude/
+.playwright-mcp/
 
 skills-lock.json
 .skills-lock.json
+
+# Dev scripts & local docs
+start-dev.ps1
+deployment.md
+DEV_NOTES.md

@@ -11,15 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_db, get_supabase, require_admin
 from app.core.logging import get_logger
 from app.core.security import validate_image_upload
+from app.core.utils import escape_like
 from app.models.outfit import Outfit, OutfitResponse, PaginatedOutfitResponse
 
 logger = get_logger("api.outfits")
 router = APIRouter(prefix="/outfits", tags=["Outfits"])
-
-
-def _escape_like(value: str) -> str:
-    """Escape special LIKE/ILIKE pattern characters."""
-    return value.replace("%", r"\%").replace("_", r"\_")
 
 
 @router.get("", response_model=PaginatedOutfitResponse)
@@ -37,7 +33,7 @@ async def get_outfits(
     if category and category.lower() != "all":
         conditions.append(Outfit.category.ilike(category))
     if search:
-        conditions.append(Outfit.title.ilike(f"%{_escape_like(search)}%"))
+        conditions.append(Outfit.title.ilike(f"%{escape_like(search)}%"))
     if uploader:
         conditions.append(Outfit.uploader_name == uploader)
 
