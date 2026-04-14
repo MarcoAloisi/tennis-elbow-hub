@@ -4,11 +4,15 @@
 Scoring rules:
 - Wrong winner → 0 pts
 - Match not played yet → 0 pts
-- Qualifying rounds (Q1, Q2) → 0 pts (not scored)
+- Qualifying rounds (Q1, Q2, Qualified) → 0 pts (not scored)
+- Unknown/unrecognised round names → 0 pts
 - Correct winner, no score / unparseable → winner-only base pts
 - Correct sets count + all sets exact → exact score pts
 - Correct sets count + some sets exact → sets-count pts + 3 per correct set
 - Wrong sets count + some sets match → winner-only pts + 3 per correct set
+
+Note: super-tiebreak sets (e.g. 10/7) pass the valid-set filter (max >= 6)
+and are treated as normal sets for scoring purposes.
 """
 
 from __future__ import annotations
@@ -98,7 +102,10 @@ def compute_match_score(
     if predicted_winner != actual_winner:
         return 0
 
-    pts_winner, pts_sets, pts_exact = ROUND_POINTS.get(round_name, (5, 15, 30))
+    round_pts = ROUND_POINTS.get(round_name)
+    if round_pts is None:
+        return 0  # unrecognised round — no points
+    pts_winner, pts_sets, pts_exact = round_pts
 
     pred_sets = parse_score(predicted_score)
     actual_sets = parse_score(actual_score)

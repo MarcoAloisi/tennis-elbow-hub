@@ -1,7 +1,6 @@
 # backend/tests/test_scoring.py
 """Unit tests for the tournament prediction scoring engine."""
-import pytest
-from app.services.scoring import compute_match_score, parse_score, ROUND_POINTS
+from app.services.scoring import compute_match_score, compute_entry_score, parse_score, ROUND_POINTS
 
 
 class TestParseScore:
@@ -74,6 +73,30 @@ class TestComputeMatchScore:
         score = compute_match_score("QF", "Jira", "Jira", "7/6 6/4", "7/6(3) 6/4")
         assert score == 100  # exact
 
-    def test_unknown_round_defaults_to_r1(self):
-        score = compute_match_score("Q2", "Jira", "Jira", None, None)
-        assert score == 0  # qualifying not scored
+    def test_qualifying_round_scores_zero(self):
+        # Q1, Q2, Qualified are not scored
+        assert compute_match_score("Q2", "Jira", "Jira", None, None) == 0
+        assert compute_match_score("Q1", "Jira", "Jira", None, None) == 0
+
+    def test_unrecognised_round_scores_zero(self):
+        # Unknown round names should not award points
+        assert compute_match_score("R4", "Jira", "Jira", None, None) == 0
+
+
+class TestComputeEntryScore:
+    def test_two_correct_picks(self):
+        picks = {
+            "main_R1_0": {"winner": "Jira", "score": "6/3 6/2"},
+            "main_R1_1": {"winner": "gifu", "score": None},
+        }
+        matches = [
+            {"id": "main_R1_0", "round": "R1", "winner": "Jira", "score": "6/3 6/2"},
+            {"id": "main_R1_1", "round": "R1", "winner": "gifu", "score": "6/4 6/1"},
+        ]
+        # R1 exact = 30, R1 winner only = 5
+        assert compute_entry_score(picks, matches) == 30 + 5
+
+    def test_unknown_match_id_ignored(self):
+        picks = {"nonexistent_match": {"winner": "Jira"}}
+        matches = []
+        assert compute_entry_score(picks, matches) == 0
