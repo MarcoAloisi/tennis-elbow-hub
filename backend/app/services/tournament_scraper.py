@@ -295,17 +295,26 @@ async def scrape_tournament_draw(url: str) -> dict:
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.5",
+        "Referer": "http://www.managames.com/",
         "Connection": "keep-alive",
         "Upgrade-Insecure-Requests": "1",
     }
 
     def _fetch_html() -> str:
+        # Disable SSL verification — managames cert may not be trusted by all
+        # server CA bundles; this is low-risk for a score-scraping use case.
         ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
         req = urllib.request.Request(url, headers=_headers)
-        with urllib.request.urlopen(req, timeout=30, context=ctx) as resp:
-            raw = resp.read()
-        charset = resp.headers.get_content_charset() or "utf-8"
-        return raw.decode(charset, errors="replace")
+        try:
+            with urllib.request.urlopen(req, timeout=30, context=ctx) as resp:
+                raw = resp.read()
+                charset = resp.headers.get_content_charset() or "utf-8"
+                return raw.decode(charset, errors="replace")
+        except Exception as exc:
+            logger.error("urllib fetch failed for %s: %s: %s", url, type(exc).__name__, exc)
+            raise
 
     html = await asyncio.to_thread(_fetch_html)
 

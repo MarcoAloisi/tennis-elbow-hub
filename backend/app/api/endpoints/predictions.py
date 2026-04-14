@@ -217,8 +217,9 @@ async def create_tournament(
     try:
         draw_data = await scrape_tournament_draw(body.managames_url)
     except Exception as exc:
-        logger.exception("Failed to scrape tournament draw")
-        raise HTTPException(status_code=422, detail=f"Failed to scrape draw: {exc}")
+        logger.exception("Failed to scrape tournament draw — creating with empty draw")
+        draw_data = {"name": "Unknown Tournament", "surface": "", "category": "",
+                     "draw_size": 0, "week": "", "year": "", "matches": []}
 
     name = draw_data.get("name", "Unknown Tournament")
     trn_id_match = re.search(r"Trn=(\d+)", body.managames_url)
