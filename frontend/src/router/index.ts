@@ -13,6 +13,7 @@ const ContactView = () => import('../views/ContactView.vue')
 const OutfitGalleryView = () => import('../views/OutfitGalleryView.vue')
 const LoginView = () => import('../views/LoginView.vue')
 const AdminPlayersView = () => import('../views/AdminPlayersView.vue')
+const PredictionView = () => import('../views/PredictionView.vue')
 
 const routes: RouteRecordRaw[] = [
     {
@@ -95,6 +96,15 @@ const routes: RouteRecordRaw[] = [
                 meta: {
                     title: 'WTSL Tour',
                     description: 'WTSL Tour for Tennis Elbow 4 — online competitive tour with ELO rankings and match statistics.'
+                }
+            },
+            {
+                path: 'xkt/predictions',
+                name: 'XKTPredictions',
+                component: PredictionView,
+                meta: {
+                    title: 'XKT Tournament Predictions',
+                    description: 'Predict XKT tournament bracket results and compete with other players.'
                 }
             }
         ]

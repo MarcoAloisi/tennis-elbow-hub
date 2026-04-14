@@ -3,7 +3,7 @@ import { computed, onMounted, watch } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
 import tourData from '@/data/onlineTours.json'
 import { useTourLogsStore } from '@/stores/tourLogs'
-import { ChartNoAxesCombined, Gamepad2, Film, MousePointerClick, Globe, Video } from 'lucide-vue-next'
+import { ChartNoAxesCombined, Gamepad2, Film, MousePointerClick, Globe, Video, Trophy } from 'lucide-vue-next'
 
 const route = useRoute()
 const tourLogsStore = useTourLogsStore()
@@ -160,14 +160,32 @@ watch(currentTourKey, (newKey) => {
           <!-- Tour Logs Link (WTSL only) -->
           <div v-if="currentTourKey === 'wtsl'" class="tour-stats-section">
             <h3>Tour Statistics</h3>
-            <RouterLink 
-              to="/tour-logs" 
+            <RouterLink
+              to="/tour-logs"
               class="link-card tour-logs-highlight"
             >
               <span class="link-icon-wrapper mod-stats"><ChartNoAxesCombined :size="24" stroke-width="2.5" /></span>
               <div class="tour-logs-content">
                 <span class="link-label">Tour Logs & Player Stats</span>
                 <span class="link-sublabel">View match history and detailed statistics</span>
+              </div>
+              <span class="link-arrow">→</span>
+            </RouterLink>
+          </div>
+
+          <!-- Tournament Predictions Link (XKT only) -->
+          <div v-if="currentTourKey === 'xkt'" class="tour-stats-section">
+            <h3>Tournament Predictions</h3>
+            <RouterLink
+              to="/online-tours/xkt/predictions"
+              class="link-card tour-predictions-highlight"
+            >
+              <span class="link-icon-wrapper mod-predictions">
+                <Trophy :size="24" stroke-width="2.5" />
+              </span>
+              <div class="tour-logs-content">
+                <span class="link-label">Predict the Draw</span>
+                <span class="link-sublabel">Pick match winners, score exact results, win the podium</span>
               </div>
               <span class="link-arrow">→</span>
             </RouterLink>
@@ -651,6 +669,17 @@ watch(currentTourKey, (newKey) => {
 .guide-link:hover .guide-arrow {
   transform: translateX(4px);
 }
+
+.tour-predictions-highlight {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(245, 158, 11, 0.05));
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  padding: var(--space-5);
+}
+.tour-predictions-highlight:hover {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.1));
+  border-color: var(--color-warning);
+}
+.mod-predictions { color: var(--color-warning); background: rgba(245, 158, 11, 0.1); }
 
 /* Responsive */
 @media (max-width: 640px) {
