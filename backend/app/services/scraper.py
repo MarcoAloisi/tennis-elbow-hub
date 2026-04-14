@@ -5,9 +5,11 @@ and manages the data fetching lifecycle.
 """
 
 import asyncio
+import http.client
+import socket
+import ssl
 from datetime import datetime, timezone
-
-import httpx
+from urllib.parse import urlparse
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
@@ -23,33 +25,12 @@ class ScraperService:
     def __init__(self) -> None:
         """Initialize the scraper service."""
         self.settings = get_settings()
-        self._client: httpx.AsyncClient | None = None
         self._polling_task: asyncio.Task | None = None
         self._cache: GameServerList | None = None
         self._update_event = asyncio.Event()
 
-    async def get_client(self) -> httpx.AsyncClient:
-        """Get or create the HTTP client.
-
-        Returns:
-            Async HTTP client instance.
-        """
-        if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(
-                timeout=httpx.Timeout(30.0),
-                follow_redirects=True,
-                headers={
-                    "User-Agent": "TennisTracker/1.0",
-                    "Accept": "text/plain, */*",
-                },
-            )
-        return self._client
-
     async def close(self) -> None:
-        """Close the HTTP client."""
-        if self._client and not self._client.is_closed:
-            await self._client.aclose()
-            self._client = None
+        """Stop polling and clean up."""
         await self.stop_polling()
 
     async def start_polling(self, interval: int = 60) -> None:
@@ -95,6 +76,33 @@ class ScraperService:
             
             await asyncio.sleep(interval)
 
+    @staticmethod
+    def _fetch_ipv4(url: str) -> str:
+        """Synchronous fetch forced over IPv4 (avoids ENETUNREACH on IPv6-less servers)."""
+        parsed = urlparse(url)
+        hostname = parsed.hostname or ""
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        path = parsed.path + (f"?{parsed.query}" if parsed.query else "")
+
+        ipv4 = socket.getaddrinfo(hostname, port, socket.AF_INET, socket.SOCK_STREAM)[0][4][0]
+
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+
+        conn = http.client.HTTPSConnection(ipv4, port, context=ctx, timeout=30)
+        conn.request("GET", path, headers={
+            "Host": hostname,
+            "User-Agent": "TennisTracker/1.0",
+            "Accept": "text/plain, */*",
+        })
+        resp = conn.getresponse()
+        if resp.status >= 400:
+            raise OSError(f"HTTP {resp.status} {resp.reason}")
+        data = resp.read()
+        conn.close()
+        return data.decode("utf-8", errors="replace")
+
     async def fetch_raw_data(self) -> str | None:
         """Fetch raw score data from the configured URL.
 
@@ -107,20 +115,10 @@ class ScraperService:
             return None
 
         try:
-            client = await self.get_client()
-            response = await client.get(url)
-            response.raise_for_status()
-
-            logger.info(f"Fetched data from {url}: {len(response.text)} chars")
-            return response.text
-
-        except httpx.TimeoutException:
-            logger.error(f"Timeout fetching data from {url}")
-            return None
-        except httpx.HTTPStatusError as e:
-            logger.error(f"HTTP error {e.response.status_code} from {url}")
-            return None
-        except httpx.RequestError as e:
+            text = await asyncio.to_thread(self._fetch_ipv4, url)
+            logger.info(f"Fetched data from {url}: {len(text)} chars")
+            return text
+        except Exception as e:
             logger.error(f"Request error fetching from {url}: {e}")
             return None
 
