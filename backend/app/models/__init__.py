@@ -4,6 +4,7 @@ from app.models.game_server import GameServer
 from app.models.match_stats import MatchStats, MatchInfo
 from app.models.outfit import Outfit
 from app.models.player_alias import PlayerAlias
+from app.models.prediction import PredictionTournament, PredictionEntry  # noqa: F401
 
 __all__ = [
     "GameServer",
@@ -13,4 +14,6 @@ __all__ = [
     "DailyStats",
     "Outfit",
     "PlayerAlias",
+    "PredictionTournament",
+    "PredictionEntry",
 ]
