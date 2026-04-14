@@ -98,16 +98,16 @@ const routes: RouteRecordRaw[] = [
                     description: 'WTSL Tour for Tennis Elbow 4 — online competitive tour with ELO rankings and match statistics.'
                 }
             },
-            {
-                path: 'xkt/predictions',
-                name: 'XKTPredictions',
-                component: PredictionView,
-                meta: {
-                    title: 'XKT Tournament Predictions',
-                    description: 'Predict XKT tournament bracket results and compete with other players.'
-                }
-            }
         ]
+    },
+    {
+        path: '/online-tours/xkt/predictions',
+        name: 'XKTPredictions',
+        component: PredictionView,
+        meta: {
+            title: 'XKT Tournament Predictions',
+            description: 'Predict XKT tournament bracket results and compete with other players.'
+        }
     },
     {
         path: '/guides',
