@@ -234,6 +234,10 @@ export const usePredictionsStore = defineStore('predictions', () => {
             headers: { 'Authorization': `Bearer ${token}` },
         })
         if (!res.ok) throw new Error(`Failed to delete tournament: ${res.statusText}`)
+        if (activeTournament.value?.id === tournamentId) {
+            activeTournament.value = null
+            entries.value = []
+        }
         await fetchTournaments()
     }
 

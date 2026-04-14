@@ -293,15 +293,33 @@ async def scrape_tournament_draw(url: str) -> dict:
         timeout=httpx.Timeout(30.0),
         follow_redirects=True,
         headers={
-            "User-Agent": "TennisElbowHub/1.0 (tournament predictions)",
-            "Accept": "text/html,*/*",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
         },
     ) as client:
         response = await client.get(url)
         response.raise_for_status()
 
+    logger.info("Fetched %s — status %s, %d bytes", url, response.status_code, len(response.text))
+
     soup = BeautifulSoup(response.text, "lxml")
+
+    # Debug: log key structural elements
+    h2 = soup.find("h2")
+    logger.info("h2 text: %r", h2.get_text()[:120] if h2 else None)
+    dt_labels = [dt.get_text(strip=True) for dt in soup.find_all("dt")]
+    logger.info("dt labels found: %r", dt_labels)
+    ot_tables = soup.find_all("table", class_="Ot")
+    logger.info("tables.Ot count: %d", len(ot_tables))
+    scrollable = soup.find_all("div", class_="OtScrollableContainer")
+    logger.info("OtScrollableContainer divs: %d", len(scrollable))
+
     meta = _parse_tournament_meta(soup)
+    logger.info("Parsed meta: %s", meta)
 
     # Find all draw sections by their <dt> label
     all_matches: list[dict] = []
@@ -313,12 +331,18 @@ async def scrape_tournament_draw(url: str) -> dict:
             for container in parent_dl.find_all("div", class_="OtScrollableContainer"):
                 table = container.find("table", class_="Ot")
                 if table:
-                    all_matches.extend(_parse_draw_table(table, "main"))
+                    section_matches = _parse_draw_table(table, "main")
+                    logger.info("Main draw table → %d matches", len(section_matches))
+                    all_matches.extend(section_matches)
         elif label == "Qualifications":
             parent_dl = dt.parent
             table = parent_dl.find("table", class_="Ot")
             if table:
-                all_matches.extend(_parse_draw_table(table, "qualifying"))
+                section_matches = _parse_draw_table(table, "qualifying")
+                logger.info("Qualifying table → %d matches", len(section_matches))
+                all_matches.extend(section_matches)
+
+    logger.info("Total matches parsed: %d", len(all_matches))
 
     return {
         "name": meta["name"],

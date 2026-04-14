@@ -81,6 +81,9 @@ async function onAdminRefresh() {
             store.fetchTournament(tournament.value.slug),
             store.fetchEntries(tournament.value.id),
         ])
+    } else {
+        store.activeTournament = null
+        store.entries = []
     }
 }
 
