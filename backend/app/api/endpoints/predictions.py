@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import func, select, update
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db, require_admin
@@ -32,10 +32,13 @@ router = APIRouter(prefix="/predictions", tags=["Predictions"])
 
 
 def _get_client_ip(request: Request) -> str:
-    """Extract client IP, respecting X-Forwarded-For proxy headers."""
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
+    """Extract client IP from the TCP connection (not X-Forwarded-For).
+
+    We use the real socket peer address to prevent header-spoofing bypass
+    of the IP-lock. If a reverse proxy is in use, configure it to rewrite
+    the source IP at the network level (e.g. nginx real_ip_header) rather
+    than relying on X-Forwarded-For here.
+    """
     return request.client.host if request.client else "unknown"
 
 
@@ -61,22 +64,22 @@ async def list_tournaments(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> Any:
-    """List all tournaments (active first, then by created_at desc)."""
-    result = await db.execute(
-        select(PredictionTournament).order_by(
-            PredictionTournament.status.asc(),
-            PredictionTournament.created_at.desc(),
-        )
+    """List all tournaments (open first, then closed, then finished; newest first)."""
+    status_order = case(
+        (PredictionTournament.status == "open", 0),
+        (PredictionTournament.status == "closed", 1),
+        else_=2,
     )
-    tournaments = result.scalars().all()
+    rows = (await db.execute(
+        select(PredictionTournament, func.count(PredictionEntry.id).label("entry_count"))
+        .outerjoin(PredictionEntry, PredictionEntry.tournament_id == PredictionTournament.id)
+        .group_by(PredictionTournament.id)
+        .order_by(status_order, PredictionTournament.created_at.desc())
+    )).all()
 
     out = []
-    for t in tournaments:
-        count_result = await db.execute(
-            select(func.count(PredictionEntry.id)).where(PredictionEntry.tournament_id == t.id)
-        )
-        entry_count = count_result.scalar_one()
-        item = TournamentListItem.model_validate(t)
+    for tournament, entry_count in rows:
+        item = TournamentListItem.model_validate(tournament)
         item.entry_count = entry_count
         out.append(item)
 
@@ -116,6 +119,12 @@ async def list_entries(
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     """List all prediction entries for a tournament, sorted by score desc."""
+    tournament = (await db.execute(
+        select(PredictionTournament.id).where(PredictionTournament.id == tournament_id)
+    )).scalar_one_or_none()
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+
     result = await db.execute(
         select(PredictionEntry)
         .where(PredictionEntry.tournament_id == tournament_id)
@@ -150,7 +159,7 @@ async def submit_entry(
     now = datetime.now(timezone.utc)
     close_at = tournament.predictions_close_at
     if close_at.tzinfo is None:
-        close_at = close_at.replace(tzinfo=timezone.utc)
+        close_at = close_at.replace(tzinfo=timezone.utc)  # SQLite stores naive datetimes
     if now > close_at:
         raise HTTPException(status_code=409, detail="Prediction deadline has passed")
 
@@ -281,11 +290,12 @@ async def close_predictions(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Close predictions (no new entries accepted) (Admin only)."""
-    await db.execute(
-        update(PredictionTournament)
-        .where(PredictionTournament.id == tournament_id)
-        .values(status="closed")
-    )
+    tournament = (await db.execute(
+        select(PredictionTournament).where(PredictionTournament.id == tournament_id)
+    )).scalar_one_or_none()
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+    tournament.status = "closed"
     await db.commit()
     return {"status": "closed"}
 
@@ -299,16 +309,18 @@ async def finish_tournament(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Mark tournament as finished and reveal podium (Admin only)."""
-    await db.execute(
-        update(PredictionTournament)
-        .where(PredictionTournament.id == tournament_id)
-        .values(status="finished")
-    )
+    tournament = (await db.execute(
+        select(PredictionTournament).where(PredictionTournament.id == tournament_id)
+    )).scalar_one_or_none()
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+    tournament.status = "finished"
     await db.commit()
     return {"status": "finished"}
 
 
 @router.delete("/tournaments/{tournament_id}", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("10/minute")
 async def delete_tournament(
     request: Request,
     tournament_id: int,
@@ -326,6 +338,7 @@ async def delete_tournament(
 
 
 @router.delete("/entries/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("10/minute")
 async def delete_entry(
     request: Request,
     entry_id: int,
