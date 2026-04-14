@@ -29,6 +29,7 @@ import app.models.player_alias  # noqa: F401, E402
 import app.models.daily_stats  # noqa: F401, E402
 import app.models.match_stats  # noqa: F401, E402
 import app.models.finished_match  # noqa: F401, E402
+import app.models.prediction  # noqa: F401, E402
 
 # Alembic Config object
 config = context.config
@@ -85,6 +86,7 @@ async def run_async_migrations() -> None:
         configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args={"statement_cache_size": 0},
     )
 
     async with connectable.connect() as connection:
