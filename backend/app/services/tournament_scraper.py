@@ -229,9 +229,6 @@ def _parse_draw_table(table: Tag, section: str) -> list[dict]:
                 idx = match_idx_per_round.get(col_idx, 0)
                 match_idx_per_round[col_idx] = idx + 1
 
-                # Determine previous round name to link players
-                prev_round = rounds[col_idx - 1] if col_idx > 0 else None
-
                 matches.append({
                     "id": f"{section}_{round_name}_{idx}",
                     "section": section,
