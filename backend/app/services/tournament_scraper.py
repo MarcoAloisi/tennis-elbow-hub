@@ -30,9 +30,10 @@ draw_data shape:
 from __future__ import annotations
 
 import asyncio
+import http.client
 import re
+import socket
 import ssl
-import urllib.request
 from urllib.parse import urlparse, parse_qs
 
 from bs4 import BeautifulSoup, Tag
@@ -291,30 +292,46 @@ async def scrape_tournament_draw(url: str) -> dict:
         urllib.error.URLError: If the page cannot be fetched.
         ValueError: If the page structure is unexpected.
     """
-    _headers = {
+    _req_headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.5",
         "Referer": "http://www.managames.com/",
-        "Connection": "keep-alive",
         "Upgrade-Insecure-Requests": "1",
     }
 
     def _fetch_html() -> str:
-        # Disable SSL verification — managames cert may not be trusted by all
-        # server CA bundles; this is low-risk for a score-scraping use case.
+        parsed = urlparse(url)
+        hostname = parsed.hostname or ""
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        path = parsed.path + (f"?{parsed.query}" if parsed.query else "")
+
+        # Force IPv4: many servers (including Render) have no IPv6 routing.
+        try:
+            ipv4 = socket.getaddrinfo(hostname, port, socket.AF_INET, socket.SOCK_STREAM)[0][4][0]
+        except (socket.gaierror, IndexError) as exc:
+            logger.error("IPv4 DNS resolution failed for %s: %s", hostname, exc)
+            raise
+
+        # Disable SSL hostname check — we connect via IP, not hostname.
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
-        req = urllib.request.Request(url, headers=_headers)
+
+        logger.info("Connecting to %s (%s) port %d", hostname, ipv4, port)
         try:
-            with urllib.request.urlopen(req, timeout=30, context=ctx) as resp:
-                raw = resp.read()
-                charset = resp.headers.get_content_charset() or "utf-8"
-                return raw.decode(charset, errors="replace")
+            conn = http.client.HTTPSConnection(ipv4, port, context=ctx, timeout=30)
+            conn.request("GET", path, headers={**_req_headers, "Host": hostname})
+            resp = conn.getresponse()
+            logger.info("HTTP %d for %s", resp.status, url)
+            if resp.status >= 400:
+                raise OSError(f"HTTP {resp.status} {resp.reason}")
+            raw = resp.read()
+            conn.close()
         except Exception as exc:
-            logger.error("urllib fetch failed for %s: %s: %s", url, type(exc).__name__, exc)
+            logger.error("Fetch failed for %s: %s: %s", url, type(exc).__name__, exc)
             raise
+        return raw.decode("utf-8", errors="replace")
 
     html = await asyncio.to_thread(_fetch_html)
 
