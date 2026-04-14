@@ -33,7 +33,7 @@ async function create() {
         adminError.value = 'URL and deadline are required'
         return
     }
-    await run(() => store.createTournament(newUrl.value, new Date(newCloseAt.value).toISOString()))
+    await run(async () => { await store.createTournament(newUrl.value, new Date(newCloseAt.value).toISOString()) })
     newUrl.value = ''
     newCloseAt.value = ''
 }
