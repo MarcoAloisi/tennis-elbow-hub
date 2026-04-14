@@ -29,10 +29,12 @@ draw_data shape:
 
 from __future__ import annotations
 
+import asyncio
 import re
+import ssl
+import urllib.request
 from urllib.parse import urlparse, parse_qs
 
-import httpx
 from bs4 import BeautifulSoup, Tag
 
 from app.core.logging import get_logger
@@ -286,27 +288,30 @@ async def scrape_tournament_draw(url: str) -> dict:
         draw_data dict ready to store in PredictionTournament.draw_data.
 
     Raises:
-        httpx.HTTPError: If the page cannot be fetched.
+        urllib.error.URLError: If the page cannot be fetched.
         ValueError: If the page structure is unexpected.
     """
-    async with httpx.AsyncClient(
-        timeout=httpx.Timeout(30.0),
-        follow_redirects=True,
-        headers={
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.5",
-            "Accept-Encoding": "gzip, deflate, br",
-            "Connection": "keep-alive",
-            "Upgrade-Insecure-Requests": "1",
-        },
-    ) as client:
-        response = await client.get(url)
-        response.raise_for_status()
+    _headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+        "Connection": "keep-alive",
+        "Upgrade-Insecure-Requests": "1",
+    }
 
-    logger.info("Fetched %s — status %s, %d bytes", url, response.status_code, len(response.text))
+    def _fetch_html() -> str:
+        ctx = ssl.create_default_context()
+        req = urllib.request.Request(url, headers=_headers)
+        with urllib.request.urlopen(req, timeout=30, context=ctx) as resp:
+            raw = resp.read()
+        charset = resp.headers.get_content_charset() or "utf-8"
+        return raw.decode(charset, errors="replace")
 
-    soup = BeautifulSoup(response.text, "lxml")
+    html = await asyncio.to_thread(_fetch_html)
+
+    logger.info("Fetched %s — %d bytes", url, len(html))
+
+    soup = BeautifulSoup(html, "lxml")
 
     # Debug: log key structural elements
     h2 = soup.find("h2")

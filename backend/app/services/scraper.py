@@ -36,6 +36,7 @@ class ScraperService:
         """
         if self._client is None or self._client.is_closed:
             self._client = httpx.AsyncClient(
+                transport=httpx.AsyncHTTPTransport(local_address="0.0.0.0"),
                 timeout=httpx.Timeout(30.0),
                 follow_redirects=True,
                 headers={
