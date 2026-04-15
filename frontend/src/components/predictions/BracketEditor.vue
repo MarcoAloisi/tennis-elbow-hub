@@ -16,7 +16,7 @@ const emit = defineEmits<{
 }>()
 
 // Canonical round order — only rounds present in draw_data will be shown
-const MAIN_ROUND_ORDER = ['R1', 'R2', 'R3', 'QF', 'SF', 'F']
+const MAIN_ROUND_ORDER = ['R1', 'R2', 'R3', 'R4', 'QF', 'SF', 'F']
 const QUAL_ROUND_ORDER = ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Qualified']
 
 const rounds = computed(() => {
@@ -64,12 +64,12 @@ function effectiveMatch(match: DrawMatch, roundIndex: number): DrawMatch {
 }
 
 const ROUND_LABELS: Record<string, string> = {
-    R1: 'R1', R2: 'R2', R3: 'R3', QF: 'QF', SF: 'SF', F: 'F',
+    R1: 'R1', R2: 'R2', R3: 'R3', R4: 'R4', QF: 'QF', SF: 'SF', F: 'F',
     Q1: 'Q1', Q2: 'Q2', Q3: 'Q3', Q4: 'Q4', Q5: 'Q5', Q6: 'Q6', Qualified: 'Q',
 }
 
 const ROUND_PTS: Record<string, string> = {
-    R1: '5/30', R2: '10/50', R3: '15/70', QF: '20/100', SF: '30/150', F: '50/200',
+    R1: '5/30', R2: '10/50', R3: '15/70', R4: '18/80', QF: '20/100', SF: '30/150', F: '50/200',
     Q1: '2/10', Q2: '3/15', Q3: '3/15', Q4: '4/20', Q5: '4/20', Q6: '5/25', Qualified: '5/25',
 }
 </script>

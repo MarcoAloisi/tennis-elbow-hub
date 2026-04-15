@@ -42,7 +42,8 @@ function isActualLoser(player: PlayerInfo) {
 }
 
 const ROUND_EXACT_PTS: Record<string, number> = {
-    R1: 30, R2: 50, R3: 70, QF: 100, SF: 150, F: 200
+    R1: 30, R2: 50, R3: 70, R4: 80, QF: 100, SF: 150, F: 200,
+    Q1: 10, Q2: 15, Q3: 15, Q4: 20, Q5: 20, Q6: 25, Qualified: 25,
 }
 const exactPts = ROUND_EXACT_PTS[props.match.round] ?? 30
 </script>
