@@ -326,13 +326,15 @@ async def scrape_tournament_draw(url: str) -> dict:
             seed_resp = conn.getresponse()
             seed_resp.read()  # drain body
             session_cookie = ""
+            all_cookies = seed_resp.headers.get_all("Set-Cookie") or []
+            logger.info("index.php status=%d set-cookie headers=%d: %r", seed_resp.status, len(all_cookies), all_cookies)
             # http.client exposes all headers via .headers (http.client.HTTPMessage)
-            for header_val in seed_resp.headers.get_all("Set-Cookie") or []:
+            for header_val in all_cookies:
                 cookie_name = header_val.split(";")[0].strip()
-                if cookie_name.startswith("phpbb3_mana_sid="):
+                if "sid" in cookie_name.lower():
                     session_cookie = cookie_name
                     break
-            logger.info("Session cookie obtained: %s", bool(session_cookie))
+            logger.info("Session cookie obtained: %s (%r)", bool(session_cookie), session_cookie)
 
             # Step 2: fetch the tournament page with the session cookie.
             headers_with_cookie = dict(_req_headers)
