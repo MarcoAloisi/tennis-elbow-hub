@@ -357,6 +357,8 @@ async def scrape_tournament_draw(url: str) -> dict:
     html = await asyncio.to_thread(_fetch_html)
 
     logger.info("Fetched %s — %d bytes", url, len(html))
+    if len(html) < 1000:
+        logger.warning("Tiny response body: %r", html)
 
     soup = BeautifulSoup(html, "lxml")
 
