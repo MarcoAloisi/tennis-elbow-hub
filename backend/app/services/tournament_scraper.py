@@ -44,7 +44,8 @@ logger = get_logger("tournament_scraper")
 
 # Maps abbreviated column headers to canonical round names
 _ROUND_MAP: dict[str, str] = {
-    "Q1": "Q1", "Q2": "Q2", "Qualified": "Qualified",
+    "Q1": "Q1", "Q2": "Q2", "Q3": "Q3", "Q4": "Q4", "Q5": "Q5", "Q6": "Q6",
+    "Qualified": "Qualified",
     "R1": "R1", "R2": "R2", "R3": "R3",
     "Q": "QF",   # managames uses Q for quarterfinals
     "S": "SF",   # and S for semifinals

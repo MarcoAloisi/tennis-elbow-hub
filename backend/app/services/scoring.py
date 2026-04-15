@@ -30,7 +30,7 @@ ROUND_POINTS: dict[str, tuple[int, int, int]] = {
 }
 
 # Rounds that are NOT scored (qualifying)
-_UNSCORED_ROUNDS = {"Q1", "Q2", "Qualified"}
+_UNSCORED_ROUNDS = {"Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Qualified"}
 
 
 def parse_score(score: str | None) -> list[str]:
