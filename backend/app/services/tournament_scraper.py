@@ -223,7 +223,9 @@ def _parse_draw_table(table: Tag, section: str) -> list[dict]:
             if match_i < len(result_cells):
                 result_td = result_cells[match_i]
                 result_player = _parse_player_cell(result_td)
-                if result_player["name"] != "TBD":
+                # Only accept as winner if it came from a real player link (has player_id).
+                # Plain text like "Qualifier #1" is a slot label, not a winner.
+                if result_player.get("player_id") is not None:
                     winner_name = result_player["name"]
                     score = _parse_score_cell(result_td)
 

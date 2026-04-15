@@ -44,10 +44,10 @@ const matchesByRound = computed(() => {
 function effectiveMatch(match: DrawMatch, roundIndex: number): DrawMatch {
     if (roundIndex === 0) return match
 
-    // Backend has real names → use them directly
-    if (match.player1.name !== 'TBD' || match.player2.name !== 'TBD') return match
+    // Both players known from backend → use directly
+    if (match.player1.name !== 'TBD' && match.player2.name !== 'TBD') return match
 
-    // Both TBD: derive from what the user picked in the previous round
+    // At least one slot is TBD: fill from user picks in previous round
     const prevRound = rounds.value[roundIndex - 1]
     const prevMatches = matchesByRound.value[prevRound] ?? []
     const matchIdx = parseInt(match.id.split('_').pop() ?? '0', 10)
@@ -58,8 +58,13 @@ function effectiveMatch(match: DrawMatch, roundIndex: number): DrawMatch {
 
     return {
         ...match,
-        player1: pick1 ? { name: pick1, seed: null, player_id: null } : { name: 'TBD', seed: null, player_id: null },
-        player2: pick2 ? { name: pick2, seed: null, player_id: null } : { name: 'TBD', seed: null, player_id: null },
+        // Keep actual name if known; substitute TBD slot with user's pick
+        player1: match.player1.name !== 'TBD'
+            ? match.player1
+            : pick1 ? { name: pick1, seed: null, player_id: null } : { name: 'TBD', seed: null, player_id: null },
+        player2: match.player2.name !== 'TBD'
+            ? match.player2
+            : pick2 ? { name: pick2, seed: null, player_id: null } : { name: 'TBD', seed: null, player_id: null },
     }
 }
 
