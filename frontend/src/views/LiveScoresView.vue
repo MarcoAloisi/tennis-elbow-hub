@@ -104,6 +104,14 @@ function formatTime(isoString: string) {
       </div>
     </div>
 
+    <!-- Service announcement banner -->
+    <div class="announcement-banner">
+      <span class="announcement-icon">⚠️</span>
+      <span class="announcement-text">
+        The connection between the website and Managames is currently down. We are working on a fix — thanks for your patience.
+      </span>
+    </div>
+
     <!-- Monthly Stats & Top Players Section -->
     <MonthlyOverview />
 
@@ -164,6 +172,35 @@ function formatTime(isoString: string) {
 <style scoped>
 .live-scores-view {
   min-height: 100%;
+}
+
+.announcement-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-6);
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: var(--radius-lg);
+  color: #9a3412;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+}
+
+[data-theme="dark"] .announcement-banner {
+  background: rgba(251, 146, 60, 0.1);
+  border-color: rgba(251, 146, 60, 0.3);
+  color: #fb923c;
+}
+
+.announcement-icon {
+  flex-shrink: 0;
+  font-size: 1.1rem;
+}
+
+.announcement-text {
+  line-height: 1.5;
 }
 
 .page-header {
