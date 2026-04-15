@@ -21,6 +21,13 @@ import re
 
 # (winner_only, correct_sets_count, exact_score)
 ROUND_POINTS: dict[str, tuple[int, int, int]] = {
+    "Q1": (2, 5, 10),
+    "Q2": (3, 8, 15),
+    "Q3": (3, 8, 15),
+    "Q4": (4, 10, 20),
+    "Q5": (4, 10, 20),
+    "Q6": (5, 12, 25),
+    "Qualified": (5, 12, 25),
     "R1": (5, 15, 30),
     "R2": (10, 25, 50),
     "R3": (15, 35, 70),
@@ -29,8 +36,8 @@ ROUND_POINTS: dict[str, tuple[int, int, int]] = {
     "F": (50, 100, 200),
 }
 
-# Rounds that are NOT scored (qualifying)
-_UNSCORED_ROUNDS = {"Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Qualified"}
+# Rounds that are NOT scored
+_UNSCORED_ROUNDS: set[str] = set()
 
 
 def parse_score(score: str | None) -> list[str]:
