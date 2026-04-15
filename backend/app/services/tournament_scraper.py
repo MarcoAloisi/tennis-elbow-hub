@@ -308,21 +308,18 @@ async def scrape_tournament_draw(url: str) -> dict:
         path = parsed.path + (f"?{parsed.query}" if parsed.query else "")
 
         # Force IPv4: many servers (including Render) have no IPv6 routing.
-        try:
-            ipv4 = socket.getaddrinfo(hostname, port, socket.AF_INET, socket.SOCK_STREAM)[0][4][0]
-        except (socket.gaierror, IndexError) as exc:
-            logger.error("IPv4 DNS resolution failed for %s: %s", hostname, exc)
-            raise
+        _orig_getaddrinfo = socket.getaddrinfo
 
-        # Disable SSL hostname check — we connect via IP, not hostname.
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
+        def _ipv4_only(*args, **kwargs):
+            """Override to force AF_INET (IPv4) resolution."""
+            return _orig_getaddrinfo(args[0], args[1], socket.AF_INET, *args[3:], **kwargs)
 
-        logger.info("Connecting to %s (%s) port %d", hostname, ipv4, port)
+        logger.info("Connecting to %s port %d", hostname, port)
         try:
-            conn = http.client.HTTPSConnection(ipv4, port, context=ctx, timeout=30)
-            conn.request("GET", path, headers={**_req_headers, "Host": hostname})
+            socket.getaddrinfo = _ipv4_only
+            ctx = ssl.create_default_context()
+            conn = http.client.HTTPSConnection(hostname, port, context=ctx, timeout=30)
+            conn.request("GET", path, headers=_req_headers)
             resp = conn.getresponse()
             logger.info("HTTP %d for %s", resp.status, url)
             if resp.status >= 400:
@@ -332,6 +329,8 @@ async def scrape_tournament_draw(url: str) -> dict:
         except Exception as exc:
             logger.error("Fetch failed for %s: %s: %s", url, type(exc).__name__, exc)
             raise
+        finally:
+            socket.getaddrinfo = _orig_getaddrinfo
         return raw.decode("utf-8", errors="replace")
 
     html = await asyncio.to_thread(_fetch_html)
