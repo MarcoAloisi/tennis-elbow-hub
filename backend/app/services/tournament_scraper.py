@@ -319,7 +319,26 @@ async def scrape_tournament_draw(url: str) -> dict:
             socket.getaddrinfo = _ipv4_only
             ctx = ssl.create_default_context()
             conn = http.client.HTTPSConnection(hostname, port, context=ctx, timeout=30)
-            conn.request("GET", path, headers=_req_headers)
+
+            # phpBB requires a session cookie even for anonymous views.
+            # Step 1: hit the forum index to obtain a phpbb3_mana_sid cookie.
+            conn.request("GET", "/Forum/index.php", headers=_req_headers)
+            seed_resp = conn.getresponse()
+            seed_resp.read()  # drain body
+            session_cookie = ""
+            # http.client exposes all headers via .headers (http.client.HTTPMessage)
+            for header_val in seed_resp.headers.get_all("Set-Cookie") or []:
+                cookie_name = header_val.split(";")[0].strip()
+                if cookie_name.startswith("phpbb3_mana_sid="):
+                    session_cookie = cookie_name
+                    break
+            logger.info("Session cookie obtained: %s", bool(session_cookie))
+
+            # Step 2: fetch the tournament page with the session cookie.
+            headers_with_cookie = dict(_req_headers)
+            if session_cookie:
+                headers_with_cookie["Cookie"] = session_cookie
+            conn.request("GET", path, headers=headers_with_cookie)
             resp = conn.getresponse()
             logger.info("HTTP %d for %s", resp.status, url)
             if resp.status >= 400:
