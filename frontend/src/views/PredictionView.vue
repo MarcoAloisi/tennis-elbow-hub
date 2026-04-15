@@ -169,7 +169,22 @@ function formatDeadline(dt: string) {
                             ✓ You have submitted your prediction for this tournament.
                         </div>
 
-                        <!-- Bracket -->
+                        <!-- Qualifying bracket (only if draw has qualifying matches) -->
+                        <div
+                            v-if="store.activeTournament.draw_data?.matches?.some(m => m.section === 'qualifying')"
+                            class="bracket-section"
+                        >
+                            <h3 class="section-heading">Qualifications</h3>
+                            <BracketEditor
+                                :draw-data="store.activeTournament.draw_data"
+                                :picks="alreadySubmitted ? (store.entries.find(e => e.nickname === store.myNickname)?.picks ?? store.myPicks) : store.myPicks"
+                                :readonly="alreadySubmitted || !canSubmit"
+                                section="qualifying"
+                                @pick="handlePick"
+                            />
+                        </div>
+
+                        <!-- Main bracket -->
                         <div class="bracket-section">
                             <h3 class="section-heading">Main Draw</h3>
                             <BracketEditor

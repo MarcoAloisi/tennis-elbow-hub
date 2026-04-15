@@ -55,8 +55,8 @@ const exactPts = ROUND_EXACT_PTS[props.match.round] ?? 30
             :class="{
                 selected: isSelected(match.player1),
                 eliminated: isEliminated(match.player1),
-                'actual-winner': readonly && isActualWinner(match.player1),
-                'actual-loser': readonly && isActualLoser(match.player1),
+                'actual-winner': isActualWinner(match.player1),
+                'actual-loser': isActualLoser(match.player1),
                 tbd: match.player1.name === 'TBD',
                 clickable: !readonly && match.player1.name !== 'TBD',
             }"
@@ -75,8 +75,8 @@ const exactPts = ROUND_EXACT_PTS[props.match.round] ?? 30
             :class="{
                 selected: isSelected(match.player2),
                 eliminated: isEliminated(match.player2),
-                'actual-winner': readonly && isActualWinner(match.player2),
-                'actual-loser': readonly && isActualLoser(match.player2),
+                'actual-winner': isActualWinner(match.player2),
+                'actual-loser': isActualLoser(match.player2),
                 tbd: match.player2.name === 'TBD',
                 clickable: !readonly && match.player2.name !== 'TBD',
             }"
