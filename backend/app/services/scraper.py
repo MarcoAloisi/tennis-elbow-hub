@@ -31,6 +31,7 @@ class ScraperService:
     async def get_client(self) -> httpx.AsyncClient:
         """Get or create the HTTP client."""
         if self._client is None or self._client.is_closed:
+            logger.info("Creating HTTP client with User-Agent: TennisTracker/1.0")
             self._client = httpx.AsyncClient(
                 timeout=httpx.Timeout(30.0),
                 follow_redirects=True,
