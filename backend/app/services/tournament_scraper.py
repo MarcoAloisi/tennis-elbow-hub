@@ -62,36 +62,41 @@ def _extract_trn_id(url: str) -> int:
     return int(trn_values[0])
 
 
-def _parse_player_cell(td: Tag) -> dict | None:
+_TBD: dict = {"name": "TBD", "seed": None, "player_id": None}
+
+
+def _parse_player_cell(td: Tag) -> dict:
     """Extract player info from a draw table <td> cell.
 
     Returns dict with keys: name, seed, player_id.
-    Returns None for empty or TBD cells.
+    Returns _TBD for empty/unplayed cells.
     """
     if td is None:
-        return None
+        return _TBD
 
-    # Check for player link
+    # Named player with link
     link = td.find("a", href=re.compile(r"OT_Player\.php"))
     if link:
         name = link.get_text(strip=True)
         href = link.get("href", "")
         pid_match = re.search(r"p=(\d+)", href)
         player_id = pid_match.group(1) if pid_match else None
-
-        # Seed: appears as "(N)" text immediately after the link
         full_text = td.get_text()
         seed_match = re.search(r"\((\d+)\)", full_text)
         seed = int(seed_match.group(1)) if seed_match else None
-
         return {"name": name, "seed": seed, "player_id": player_id}
 
-    # Check for TBD / Bye text
+    # Plain text: strip score span content first, then use remaining text
+    # (e.g. "Qualifier #2", "Lucky Loser", "Bye")
     text = td.get_text(strip=True)
-    if text in ("TBD", "Bye", ""):
-        return {"name": "TBD", "seed": None, "player_id": None}
+    score_span = td.find("span", class_="score")
+    if score_span:
+        text = text.replace(score_span.get_text(strip=True), "").strip()
 
-    return None
+    if not text or text in ("TBD", "Bye"):
+        return _TBD
+
+    return {"name": text, "seed": None, "player_id": None}
 
 
 def _parse_score_cell(td: Tag) -> str | None:
@@ -145,102 +150,91 @@ def _build_virtual_grid(table: Tag) -> list[list[dict | None]]:
     return grid
 
 
+def _collect_col_cells(data_rows: list, col_idx: int) -> list[Tag]:
+    """Return ordered list of unique (non-rowspan-continuation) tds for a column."""
+    cells: list[Tag] = []
+    seen: set[int] = set()
+    for row_idx, row in enumerate(data_rows):
+        if col_idx >= len(row):
+            continue
+        cell = row[col_idx]
+        if cell is None or row_idx in seen:
+            continue
+        rs = cell["rowspan"]
+        seen.update(range(row_idx, min(row_idx + rs, len(data_rows))))
+        cells.append(cell["td"])
+    return cells
+
+
 def _parse_draw_table(table: Tag, section: str) -> list[dict]:
-    """Parse one draw table (main or qualifying) into a list of match dicts."""
-    # Extract round headers from <thead>
+    """Parse one draw table (main or qualifying) into a list of match dicts.
+
+    Column semantics:
+      Col 0  — individual player slots (R1 entries)
+      Col N  — result of match between the two col N-1 cells this cell spans
+               → contains winner name + score (empty if not played yet)
+
+    Match round names come from col N-1 header (the round being played).
+    Handles variable draw sizes (R1,R2,Q,S,F,W or R1,R2,R3,Q,S,F,W etc.).
+    """
     thead = table.find("thead")
     if not thead:
         return []
 
     headers = [th.get_text(strip=True) for th in thead.find_all("th", class_="Large")]
-    rounds = [_ROUND_MAP.get(h) for h in headers]
+    rounds = [_ROUND_MAP.get(h) for h in headers]  # None for unknown, "W" for winner col
 
-    # Skip "W" (winner column) and points/date rows — only parse player/result rows
     grid = _build_virtual_grid(table)
 
-    # Filter out header rows (they have class="Points" cells or all-header content)
+    # Drop points/date header rows — keep only rows with actual player/result cells
     data_rows = []
     for row in grid:
-        # Skip rows that are all None or contain only points/date cells
-        has_player_content = False
         for cell in row:
             if cell and cell["td"]:
-                td = cell["td"]
-                if "Points" not in (td.get("class") or []) and "Hidden" not in (td.get("class") or []):
-                    has_player_content = True
+                cls = cell["td"].get("class") or []
+                if "Points" not in cls and "Hidden" not in cls:
+                    data_rows.append(row)
                     break
-        if has_player_content:
-            data_rows.append(row)
 
-    matches = []
-    match_idx_per_round: dict[int, int] = {}
+    # Build ordered cell list per column
+    num_cols = len(rounds)
+    col_cells = [_collect_col_cells(data_rows, c) for c in range(num_cols)]
 
-    # R1 players are in column 0 (one per row), R2 in column 1 (rowspan=2), etc.
-    # For each round column, collect the cells that actually contain data
-    num_rounds = len(rounds)
-    for col_idx, round_name in enumerate(rounds):
-        if round_name is None or round_name == "W":
+    matches: list[dict] = []
+
+    # Iterate player columns (col 0 .. num_cols-2); col N+1 holds the result.
+    # Skip col whose round is None or "W" (winner display only).
+    for col_idx in range(num_cols - 1):
+        round_name = rounds[col_idx]
+        if not round_name or round_name == "W":
             continue
 
-        col_matches: list[tuple[Tag, Tag | None]] = []  # (player/winner_td, ?)
-        seen_rows: set[int] = set()
+        player_cells = col_cells[col_idx]
+        result_cells = col_cells[col_idx + 1] if col_idx + 1 < num_cols else []
 
-        for row_idx, row in enumerate(data_rows):
-            if col_idx >= len(row):
-                continue
-            cell = row[col_idx]
-            if cell is None:
-                continue
-            if row_idx in seen_rows:
-                continue
+        # Pair up cells two-by-two — each pair = one match
+        for match_i, i in enumerate(range(0, len(player_cells) - 1, 2)):
+            p1 = _parse_player_cell(player_cells[i])
+            p2 = _parse_player_cell(player_cells[i + 1])
 
-            td = cell["td"]
-            rs = cell["rowspan"]
-            # Mark all spanned rows as seen
-            for r in range(row_idx, min(row_idx + rs, len(data_rows))):
-                seen_rows.add(r)
+            winner_name: str | None = None
+            score: str | None = None
+            if match_i < len(result_cells):
+                result_td = result_cells[match_i]
+                result_player = _parse_player_cell(result_td)
+                if result_player["name"] != "TBD":
+                    winner_name = result_player["name"]
+                    score = _parse_score_cell(result_td)
 
-            col_matches.append((td, rs, row_idx))
-
-        # For R1: each cell is one player (appears in pairs as match)
-        # For R2+: each cell is the winner of a match (rowspan covers that match's players)
-        if col_idx == 0:
-            # Pair up consecutive R1 cells into matches
-            for i in range(0, len(col_matches) - 1, 2):
-                td1, _, _ = col_matches[i]
-                td2, _, _ = col_matches[i + 1]
-                p1 = _parse_player_cell(td1)
-                p2 = _parse_player_cell(td2)
-                if p1 or p2:
-                    idx = match_idx_per_round.get(col_idx, 0)
-                    match_idx_per_round[col_idx] = idx + 1
-                    matches.append({
-                        "id": f"{section}_{round_name}_{idx}",
-                        "section": section,
-                        "round": round_name,
-                        "player1": p1 or {"name": "TBD", "seed": None, "player_id": None},
-                        "player2": p2 or {"name": "TBD", "seed": None, "player_id": None},
-                        "winner": None,
-                        "score": None,
-                    })
-        else:
-            # Each cell in R2+ is a winner/result cell
-            for td, rs, row_idx in col_matches:
-                player_info = _parse_player_cell(td)
-                score = _parse_score_cell(td)
-
-                idx = match_idx_per_round.get(col_idx, 0)
-                match_idx_per_round[col_idx] = idx + 1
-
-                matches.append({
-                    "id": f"{section}_{round_name}_{idx}",
-                    "section": section,
-                    "round": round_name,
-                    "player1": {"name": "TBD", "seed": None, "player_id": None},
-                    "player2": {"name": "TBD", "seed": None, "player_id": None},
-                    "winner": player_info["name"] if player_info and player_info["name"] != "TBD" else None,
-                    "score": score,
-                })
+            matches.append({
+                "id": f"{section}_{round_name}_{match_i}",
+                "section": section,
+                "round": round_name,
+                "player1": p1,
+                "player2": p2,
+                "winner": winner_name,
+                "score": score,
+            })
 
     return matches
 
