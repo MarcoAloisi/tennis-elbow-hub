@@ -22,7 +22,6 @@ function selectPlayer(player: PlayerInfo) {
 
 function selectSets(n: SetsCount) {
     if (props.readonly || !props.pickedWinner) return
-    // Toggle off if same value clicked again
     const next = props.pickedSets === n ? undefined : n
     emit('pick', props.match.id, { sets_count: next, retirement: false })
 }
@@ -35,18 +34,10 @@ function toggleRetirement() {
     })
 }
 
-function isSelected(player: PlayerInfo) {
-    return props.pickedWinner === player.name
-}
-function isEliminated(player: PlayerInfo) {
-    return props.pickedWinner !== null && props.pickedWinner !== player.name
-}
-function isActualWinner(player: PlayerInfo) {
-    return props.match.winner === player.name
-}
-function isActualLoser(player: PlayerInfo) {
-    return props.match.winner !== null && props.match.winner !== player.name
-}
+function isSelected(player: PlayerInfo) { return props.pickedWinner === player.name }
+function isEliminated(player: PlayerInfo) { return props.pickedWinner !== null && props.pickedWinner !== player.name }
+function isActualWinner(player: PlayerInfo) { return props.match.winner === player.name }
+function isActualLoser(player: PlayerInfo) { return props.match.winner !== null && props.match.winner !== player.name }
 
 const ROUND_POINTS: Record<string, [number, number, number]> = {
     R1: [5, 15, 10], R2: [10, 25, 18], R3: [15, 35, 25], R4: [18, 40, 30],
@@ -54,9 +45,9 @@ const ROUND_POINTS: Record<string, [number, number, number]> = {
     Q1: [2, 5, 4], Q2: [3, 8, 6], Q3: [3, 8, 6],
     Q4: [4, 10, 7], Q5: [4, 10, 7], Q6: [5, 12, 9], Qualified: [5, 12, 9],
 }
-const tiers = computed(() => ROUND_POINTS[props.match.round] ?? [5, 15, 20])
-const setsTooltip = computed(() => `Correct winner + correct sets = +${tiers.value[1]} pts`)
-const retiredTooltip = computed(() => `Correct winner + correct retirement = +${tiers.value[2]} pts`)
+const tiers = computed(() => ROUND_POINTS[props.match.round] ?? [5, 15, 10])
+const setsTooltip = computed(() => `+${tiers.value[1]} pts for correct winner + sets`)
+const retiredTooltip = computed(() => `+${tiers.value[2]} pts for correct winner + retirement`)
 
 function parseActualSets(score: string | null): { sets: number; retired: boolean } {
     if (!score) return { sets: 0, retired: false }
@@ -75,7 +66,7 @@ const actualResult = computed(() => parseActualSets(props.match.score))
 </script>
 
 <template>
-    <div class="bracket-match">
+    <div class="bracket-match" :class="readonly ? 'bm-view' : 'bm-edit'">
         <!-- Player 1 -->
         <div
             class="player-row"
@@ -114,32 +105,29 @@ const actualResult = computed(() => parseActualSets(props.match.score))
             <span v-if="isSelected(match.player2)" class="check">✓</span>
         </div>
 
-        <!-- Sets / Retirement picker -->
-        <div v-if="!readonly && pickedWinner" class="pick-extras">
-            <div class="extras-label" :title="setsTooltip">Sets</div>
-            <div class="sets-row">
-                <button
-                    v-for="n in ([2, 3, 4, 5] as SetsCount[])"
-                    :key="n"
-                    class="sets-btn"
-                    :class="{ active: pickedSets === n, disabled: pickedRetirement }"
-                    :title="setsTooltip"
-                    @click.stop="selectSets(n)"
-                >{{ n }}</button>
-                <button
-                    class="sets-btn ret-btn"
-                    :class="{ active: pickedRetirement }"
-                    :title="retiredTooltip"
-                    @click.stop="toggleRetirement"
-                >Retired</button>
-            </div>
+        <!-- Sets / Retirement picker — always rendered in edit mode for consistent card height -->
+        <div v-if="!readonly" class="pick-extras" :class="{ inactive: !pickedWinner }">
+            <button
+                v-for="n in ([2, 3, 4, 5] as SetsCount[])"
+                :key="n"
+                class="sets-btn"
+                :class="{ active: pickedSets === n }"
+                :title="setsTooltip"
+                @click.stop="selectSets(n)"
+            >{{ n }}</button>
+            <button
+                class="sets-btn ret-btn"
+                :class="{ active: pickedRetirement }"
+                :title="retiredTooltip"
+                @click.stop="toggleRetirement"
+            >Ret</button>
         </div>
 
-        <!-- Readonly: show actual result -->
-        <div v-if="readonly && match.score" class="actual-score">
-            <span class="actual-score-text">{{ match.score }}</span>
-            <span v-if="actualResult.retired" class="actual-tag ret">retired</span>
-            <span v-else-if="actualResult.sets > 0" class="actual-tag">{{ actualResult.sets }} sets</span>
+        <!-- Readonly: score bar — always rendered so all cards stay the same height -->
+        <div v-if="readonly" class="actual-score">
+            <span class="actual-score-text">{{ match.score || '—' }}</span>
+            <span v-if="match.score && actualResult.retired" class="actual-tag ret">retired</span>
+            <span v-else-if="match.score && actualResult.sets > 0" class="actual-tag">{{ actualResult.sets }} sets</span>
         </div>
     </div>
 </template>
@@ -151,13 +139,22 @@ const actualResult = computed(() => parseActualSets(props.match.score))
     border-radius: var(--radius-md);
     overflow: hidden;
     min-width: 150px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
     transition: border-color var(--transition-fast);
 }
 .bracket-match:hover { border-color: var(--color-border-hover); }
+
+/* Fixed heights per mode — keeps connector lines aligned */
+.bm-view { min-height: 89px; }
+.bm-edit { min-height: 97px; }
+
 .player-row {
     display: flex; align-items: center; gap: var(--space-2);
     padding: 6px 10px; font-size: var(--font-size-sm); color: var(--color-text-secondary);
-    transition: background var(--transition-fast), color var(--transition-fast); min-height: 32px;
+    transition: background var(--transition-fast), color var(--transition-fast);
+    min-height: 32px; flex-shrink: 0;
 }
 .player-row.clickable { cursor: pointer; }
 .player-row.clickable:hover { background: var(--color-bg-hover); color: var(--color-text-primary); }
@@ -169,38 +166,46 @@ const actualResult = computed(() => parseActualSets(props.match.score))
 .seed { font-size: var(--font-size-xs); color: var(--color-warning); font-weight: var(--font-weight-bold); min-width: 20px; }
 .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .check { color: var(--color-brand-live); font-size: var(--font-size-sm); }
-.divider { height: 1px; background: var(--color-border); }
+.divider { height: 1px; background: var(--color-border); flex-shrink: 0; }
 
-.pick-extras { padding: 6px 10px; background: var(--color-bg-secondary); display: flex; flex-direction: column; gap: 4px; }
-.extras-label { font-size: var(--font-size-xs); color: var(--color-text-muted); }
-.sets-row { display: flex; gap: 4px; flex-wrap: wrap; }
+/* Sets picker — single row, always visible, faded until winner is picked */
+.pick-extras {
+    display: flex;
+    gap: 3px;
+    padding: 5px 8px;
+    background: var(--color-bg-secondary);
+    flex-shrink: 0;
+    transition: opacity var(--transition-fast);
+}
+.pick-extras.inactive {
+    opacity: 0.25;
+    pointer-events: none;
+}
 .sets-btn {
-    flex: 1 1 auto; min-width: 28px;
+    flex: 1;
     background: var(--color-surface); border: 1px solid var(--color-border);
     border-radius: var(--radius-sm); color: var(--color-text-secondary);
     font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold);
-    padding: 3px 6px; cursor: pointer; transition: all var(--transition-fast);
+    padding: 3px 2px; cursor: pointer; transition: all var(--transition-fast);
+    white-space: nowrap;
 }
 .sets-btn:hover { border-color: var(--color-accent); color: var(--color-accent); }
-.sets-btn.active {
-    background: var(--color-accent); border-color: var(--color-accent); color: var(--color-text-inverse);
-}
-.sets-btn.disabled { opacity: 0.4; }
-.sets-btn.ret-btn { flex: 1 1 100%; margin-top: 2px; }
-.sets-btn.ret-btn.active {
-    background: var(--color-warning); border-color: var(--color-warning); color: var(--color-text-inverse);
-}
+.sets-btn.active { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-text-inverse); }
+.ret-btn.active { background: var(--color-warning); border-color: var(--color-warning); color: var(--color-text-inverse); }
 
+/* Score bar — always rendered in readonly */
 .actual-score {
     padding: 4px 10px; font-size: var(--font-size-xs); color: var(--color-text-muted);
     font-family: var(--font-mono); background: var(--color-bg-secondary);
     display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
+    flex-shrink: 0; min-height: 25px;
 }
+.actual-score-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .actual-tag {
     font-family: var(--font-sans); font-size: 10px; text-transform: uppercase;
     letter-spacing: 0.5px; color: var(--color-text-secondary);
     background: var(--color-surface); border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm); padding: 1px 6px;
+    border-radius: var(--radius-sm); padding: 1px 6px; flex-shrink: 0;
 }
 .actual-tag.ret { color: var(--color-warning); border-color: var(--color-warning); }
 </style>
