@@ -58,7 +58,6 @@ function effectiveMatch(match: DrawMatch, roundIndex: number): DrawMatch {
 
     return {
         ...match,
-        // Keep actual name if known; substitute TBD slot with user's pick
         player1: match.player1.name !== 'TBD'
             ? match.player1
             : pick1 ? { name: pick1, seed: null, player_id: null } : { name: 'TBD', seed: null, player_id: null },
@@ -90,15 +89,17 @@ const ROUND_PTS: Record<string, string> = {
         >
             <div class="round-header">
                 <span class="round-name">{{ ROUND_LABELS[round] }}</span>
-                <span class="round-pts" title="winner / +sets / +retirement">{{ ROUND_PTS[round] }} pts</span>
+                <span v-if="!readonly" class="round-pts" title="winner / +sets / +retirement">{{ ROUND_PTS[round] }} pts</span>
             </div>
             <div class="round-matches">
                 <div
-                    v-for="(match, _matchIndex) in matchesByRound[round]"
+                    v-for="(match, matchIndex) in matchesByRound[round]"
                     :key="match.id"
                     class="match-wrapper"
-                    :style="{ '--depth': roundIndex }"
                 >
+                    <!-- Left entry arm (not first round) -->
+                    <div v-if="roundIndex > 0" class="conn-arm-left" />
+
                     <BracketMatch
                         :match="effectiveMatch(match, roundIndex)"
                         :picked-winner="picks[match.id]?.winner ?? null"
@@ -107,6 +108,15 @@ const ROUND_PTS: Record<string, string> = {
                         :readonly="readonly"
                         @pick="(id, patch) => emit('pick', id, patch)"
                     />
+
+                    <!-- Right exit arm + vertical connector (not last round) -->
+                    <template v-if="roundIndex < rounds.length - 1">
+                        <div class="conn-arm-right" />
+                        <div
+                            class="conn-vert"
+                            :class="matchIndex % 2 === 0 ? 'conn-vert-down' : 'conn-vert-up'"
+                        />
+                    </template>
                 </div>
             </div>
         </div>
@@ -116,24 +126,28 @@ const ROUND_PTS: Record<string, string> = {
 <style scoped>
 .bracket-editor {
     display: flex;
-    gap: 0;
+    gap: 24px;
     overflow-x: auto;
+    align-items: stretch;
     padding-bottom: var(--space-3);
 }
+
 .round-col {
     display: flex;
     flex-direction: column;
-    min-width: 170px;
+    min-width: 175px;
     flex-shrink: 0;
 }
+
 .round-header {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: var(--space-2) var(--space-2);
+    padding: var(--space-2);
     border-bottom: 1px solid var(--color-border);
     margin-bottom: var(--space-2);
 }
+
 .round-name {
     font-size: var(--font-size-xs);
     font-weight: var(--font-weight-bold);
@@ -141,21 +155,69 @@ const ROUND_PTS: Record<string, string> = {
     letter-spacing: 1px;
     color: var(--color-text-secondary);
 }
+
 .round-pts {
     font-size: var(--font-size-xs);
     color: var(--color-accent);
     font-weight: var(--font-weight-semibold);
     font-family: var(--font-mono);
 }
+
 .round-matches {
     display: flex;
     flex-direction: column;
     flex: 1;
 }
+
+/* Each match wrapper fills an equal vertical slice of the column.
+   flex: 1 ensures R1 slots are small, R2 slots are 2× taller, etc.
+   Connectors are absolutely positioned and extend into the 24px gap. */
 .match-wrapper {
+    position: relative;
     display: flex;
     align-items: center;
-    padding: calc(var(--space-1) * (1 + var(--depth, 0))) var(--space-2);
     flex: 1;
+    padding: 6px 0;
+}
+
+/* ── Connectors ─────────────────────────────────────────────────────── */
+/* The 24px gap is split: right arm = 12px out, left arm = 12px in.
+   Vertical connector sits at right edge + 12px (center of gap). */
+
+.conn-arm-left {
+    position: absolute;
+    left: -12px;
+    top: 50%;
+    width: 12px;
+    height: 1px;
+    background: var(--color-border);
+}
+
+.conn-arm-right {
+    position: absolute;
+    right: -12px;
+    top: 50%;
+    width: 12px;
+    height: 1px;
+    background: var(--color-border);
+}
+
+.conn-vert {
+    position: absolute;
+    right: -12px;
+    width: 1px;
+    background: var(--color-border);
+}
+
+/* Top of pair: vertical from match center (50%) down to bottom of wrapper (100%) */
+.conn-vert-down {
+    top: 50%;
+    height: 50%;
+}
+
+/* Bottom of pair: vertical from top of wrapper (0%) up to match center (50%) */
+.conn-vert-up {
+    top: 0;
+    height: 50%;
 }
 </style>
