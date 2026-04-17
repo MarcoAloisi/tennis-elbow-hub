@@ -88,7 +88,7 @@ class TestComputeMatchScore:
 
     def test_retirement_predicted_and_happened(self):
         pts, reason = compute_match_score("SF", "Jira", "Jira", None, True, "6/3 2/1 ret.")
-        assert pts == 105  # SF tier3
+        assert pts == 50  # SF tier3
         assert "retirement" in reason.lower()
 
     def test_retirement_predicted_but_no_retirement(self):
@@ -101,7 +101,7 @@ class TestComputeMatchScore:
 
     def test_walkover_counts_as_retirement(self):
         pts, reason = compute_match_score("R1", "Jira", "Jira", None, True, "WO")
-        assert pts == 20  # R1 tier3
+        assert pts == 10  # R1 tier3
         assert "retirement" in reason.lower()
 
     def test_unknown_round(self):
@@ -142,5 +142,5 @@ class TestComputeEntryBreakdown:
         assert len(items) == 2
         assert items[0].points == 15
         assert items[0].predicted_sets == 2
-        assert items[1].points == 20  # R1 tier3
+        assert items[1].points == 10  # R1 tier3
         assert items[1].predicted_retirement is True

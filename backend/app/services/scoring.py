@@ -22,22 +22,23 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-# (winner_only, winner_plus_sets, winner_plus_sets_plus_retirement)
+# (winner_only, winner_plus_sets, winner_plus_retirement)
+# Retirement is a small bonus — less than predicting the correct sets count.
 ROUND_POINTS: dict[str, tuple[int, int, int]] = {
-    "Q1": (2, 5, 7),
-    "Q2": (3, 8, 11),
-    "Q3": (3, 8, 11),
-    "Q4": (4, 10, 14),
-    "Q5": (4, 10, 14),
-    "Q6": (5, 12, 17),
-    "Qualified": (5, 12, 17),
-    "R1": (5, 15, 20),
-    "R2": (10, 25, 35),
-    "R3": (15, 35, 50),
-    "R4": (18, 40, 58),
-    "QF": (20, 50, 70),
-    "SF": (30, 75, 105),
-    "F": (50, 100, 140),
+    "Q1": (2, 5, 4),
+    "Q2": (3, 8, 6),
+    "Q3": (3, 8, 6),
+    "Q4": (4, 10, 7),
+    "Q5": (4, 10, 7),
+    "Q6": (5, 12, 9),
+    "Qualified": (5, 12, 9),
+    "R1": (5, 15, 10),
+    "R2": (10, 25, 18),
+    "R3": (15, 35, 25),
+    "R4": (18, 40, 30),
+    "QF": (20, 50, 35),
+    "SF": (30, 75, 50),
+    "F": (50, 100, 70),
 }
 
 
