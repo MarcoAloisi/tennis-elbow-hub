@@ -1,18 +1,18 @@
 <!-- frontend/src/components/predictions/BracketEditor.vue -->
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { DrawData, DrawMatch } from '@/stores/predictions'
+import type { DrawData, DrawMatch, PickData } from '@/stores/predictions'
 import BracketMatch from './BracketMatch.vue'
 
 const props = defineProps<{
     drawData: DrawData
-    picks: Record<string, { winner: string; score?: string }>
+    picks: Record<string, PickData>
     readonly: boolean
     section: 'main' | 'qualifying'
 }>()
 
 const emit = defineEmits<{
-    pick: [matchId: string, winner: string, score: string | undefined]
+    pick: [matchId: string, patch: Partial<PickData>]
 }>()
 
 // Canonical round order — only rounds present in draw_data will be shown
@@ -74,8 +74,10 @@ const ROUND_LABELS: Record<string, string> = {
 }
 
 const ROUND_PTS: Record<string, string> = {
-    R1: '5/30', R2: '10/50', R3: '15/70', R4: '18/80', QF: '20/100', SF: '30/150', F: '50/200',
-    Q1: '2/10', Q2: '3/15', Q3: '3/15', Q4: '4/20', Q5: '4/20', Q6: '5/25', Qualified: '5/25',
+    R1: '5 / 15 / 20', R2: '10 / 25 / 35', R3: '15 / 35 / 50', R4: '18 / 40 / 58',
+    QF: '20 / 50 / 70', SF: '30 / 75 / 105', F: '50 / 100 / 140',
+    Q1: '2 / 5 / 7', Q2: '3 / 8 / 11', Q3: '3 / 8 / 11',
+    Q4: '4 / 10 / 14', Q5: '4 / 10 / 14', Q6: '5 / 12 / 17', Qualified: '5 / 12 / 17',
 }
 </script>
 
@@ -88,11 +90,11 @@ const ROUND_PTS: Record<string, string> = {
         >
             <div class="round-header">
                 <span class="round-name">{{ ROUND_LABELS[round] }}</span>
-                <span class="round-pts">{{ ROUND_PTS[round] }} pts</span>
+                <span class="round-pts" title="winner / +sets / +retirement">{{ ROUND_PTS[round] }} pts</span>
             </div>
             <div class="round-matches">
                 <div
-                    v-for="(match, matchIndex) in matchesByRound[round]"
+                    v-for="(match, _matchIndex) in matchesByRound[round]"
                     :key="match.id"
                     class="match-wrapper"
                     :style="{ '--depth': roundIndex }"
@@ -100,9 +102,10 @@ const ROUND_PTS: Record<string, string> = {
                     <BracketMatch
                         :match="effectiveMatch(match, roundIndex)"
                         :picked-winner="picks[match.id]?.winner ?? null"
-                        :picked-score="picks[match.id]?.score"
+                        :picked-sets="picks[match.id]?.sets_count ?? null"
+                        :picked-retirement="picks[match.id]?.retirement ?? false"
                         :readonly="readonly"
-                        @pick="(id, w, s) => emit('pick', id, w, s)"
+                        @pick="(id, patch) => emit('pick', id, patch)"
                     />
                 </div>
             </div>

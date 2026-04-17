@@ -1,102 +1,146 @@
 # backend/tests/test_scoring.py
 """Unit tests for the tournament prediction scoring engine."""
-from app.services.scoring import compute_match_score, compute_entry_score, parse_score, ROUND_POINTS
+from app.services.scoring import (
+    compute_entry_breakdown,
+    compute_entry_score,
+    compute_match_score,
+    count_sets,
+    is_retirement,
+)
 
 
-class TestParseScore:
+class TestCountSets:
     def test_two_set_straight(self):
-        assert parse_score("6/3 6/2") == ["6/3", "6/2"]
+        assert count_sets("6/3 6/2") == 2
 
     def test_three_set_match(self):
-        assert parse_score("6/3 3/6 7/5") == ["6/3", "3/6", "7/5"]
+        assert count_sets("6/3 3/6 7/5") == 3
 
-    def test_tiebreak_notation_stripped(self):
-        # 7/6(3) normalises to 7/6 for comparison
-        assert parse_score("7/6(3) 6/4") == ["7/6", "6/4"]
+    def test_tiebreak_notation(self):
+        assert count_sets("7/6(3) 6/4") == 2
 
     def test_dash_separator(self):
-        assert parse_score("6-3 6-2") == ["6/3", "6/2"]
+        assert count_sets("6-3 6-2") == 2
 
-    def test_empty_string(self):
-        assert parse_score("") == []
+    def test_empty(self):
+        assert count_sets("") == 0
+        assert count_sets(None) == 0
+
+    def test_walkover(self):
+        assert count_sets("WO") == 0
+        assert count_sets("w.o.") == 0
+
+    def test_retirement_drops_incomplete_set(self):
+        # 2/1 is incomplete — only 6/3 counts
+        assert count_sets("6/3 2/1 ret.") == 1
+
+
+class TestIsRetirement:
+    def test_retired(self):
+        assert is_retirement("6/3 2/1 ret.") is True
+
+    def test_walkover(self):
+        assert is_retirement("WO") is True
+        assert is_retirement("w.o.") is True
+
+    def test_normal_finish(self):
+        assert is_retirement("6/3 6/2") is False
 
     def test_none(self):
-        assert parse_score(None) == []
-
-    def test_walkover_returns_empty(self):
-        assert parse_score("WO") == []
-        assert parse_score("w.o.") == []
-
-    def test_retired_returns_partial(self):
-        # ret. / ret scores still count the completed sets
-        assert parse_score("6/3 2/1 ret.") == ["6/3"]
+        assert is_retirement(None) is False
 
 
 class TestComputeMatchScore:
-    def test_wrong_winner_zero(self):
-        assert compute_match_score("R1", "PlayerA", "PlayerB", None, None) == 0
+    def test_wrong_winner(self):
+        pts, reason = compute_match_score("R1", "A", "B", None, False, None)
+        assert pts == 0
+        assert reason == "wrong winner"
 
-    def test_match_not_played_zero(self):
-        assert compute_match_score("R1", "PlayerA", None, None, None) == 0
+    def test_match_not_played(self):
+        pts, reason = compute_match_score("R1", "A", None, None, False, None)
+        assert pts == 0
+        assert reason == "match not played"
 
-    def test_winner_only_no_score(self):
-        assert compute_match_score("R1", "Jira", "Jira", None, None) == 5
-        assert compute_match_score("SF", "Jira", "Jira", None, None) == 30
-        assert compute_match_score("F", "Jira", "Jira", None, None) == 50
+    def test_no_pick(self):
+        pts, reason = compute_match_score("R1", "", "A", None, False, None)
+        assert pts == 0
+        assert reason == "no pick"
 
-    def test_winner_with_unparseable_score(self):
-        assert compute_match_score("R1", "Jira", "Jira", "WO", "6/3 6/2") == 5
+    def test_winner_only(self):
+        pts, reason = compute_match_score("R1", "Jira", "Jira", None, False, "6/3 6/2")
+        assert pts == 5
+        assert reason == "correct winner"
 
-    def test_exact_score_r1(self):
-        assert compute_match_score("R1", "Jira", "Jira", "6/3 6/2", "6/3 6/2") == 30
+    def test_winner_plus_sets_r1(self):
+        pts, reason = compute_match_score("R1", "Jira", "Jira", 2, False, "6/3 6/2")
+        assert pts == 15
+        assert "2 sets" in reason
 
-    def test_exact_score_final(self):
-        assert compute_match_score("F", "Jira", "Jira", "6/3 3/6 7/5", "6/3 3/6 7/5") == 200
+    def test_winner_plus_sets_final(self):
+        pts, reason = compute_match_score("F", "Jira", "Jira", 3, False, "6/3 3/6 7/5")
+        assert pts == 100
+        assert "3 sets" in reason
 
-    def test_correct_sets_count_straight(self):
-        # predicted 2 sets, actual 2 sets — correct sets count
-        score = compute_match_score("R1", "Jira", "Jira", "6/1 6/0", "6/3 6/2")
-        assert score == 15  # sets count pts, no individual set bonus (both wrong)
+    def test_winner_wrong_sets_count(self):
+        pts, reason = compute_match_score("R1", "Jira", "Jira", 2, False, "6/3 3/6 6/4")
+        assert pts == 5
+        assert "wrong sets" in reason
 
-    def test_correct_sets_count_plus_partial(self):
-        # predicted 6/3 3/6 7/5, actual 6/3 3/6 6/1 — correct sets count, 2 sets right
-        score = compute_match_score("SF", "Jira", "Jira", "6/3 3/6 7/5", "6/3 3/6 6/1")
-        assert score == 75 + 3 + 3  # sets pts + 2 correct sets * 3
+    def test_retirement_predicted_and_happened(self):
+        pts, reason = compute_match_score("SF", "Jira", "Jira", None, True, "6/3 2/1 ret.")
+        assert pts == 105  # SF tier3
+        assert "retirement" in reason.lower()
 
-    def test_wrong_sets_count_winner_only_plus_partial(self):
-        # predicted 2 sets, actual 3 sets — wrong sets count
-        score = compute_match_score("R1", "Jira", "Jira", "6/3 6/2", "6/3 3/6 6/4")
-        assert score == 5 + 3  # winner pts + 1 correct set (6/3)
+    def test_retirement_predicted_but_no_retirement(self):
+        pts, reason = compute_match_score("R1", "Jira", "Jira", None, True, "6/3 6/2")
+        assert pts == 5
 
-    def test_tiebreak_normalized_in_comparison(self):
-        # 7/6 should match 7/6(3)
-        score = compute_match_score("QF", "Jira", "Jira", "7/6 6/4", "7/6(3) 6/4")
-        assert score == 100  # exact
+    def test_retirement_happened_but_not_predicted(self):
+        pts, reason = compute_match_score("R2", "Jira", "Jira", 3, False, "6/3 2/1 ret.")
+        assert pts == 10  # R2 winner-only
 
-    def test_qualifying_round_scores_zero(self):
-        # Q1, Q2, Qualified are not scored
-        assert compute_match_score("Q2", "Jira", "Jira", None, None) == 0
-        assert compute_match_score("Q1", "Jira", "Jira", None, None) == 0
+    def test_walkover_counts_as_retirement(self):
+        pts, reason = compute_match_score("R1", "Jira", "Jira", None, True, "WO")
+        assert pts == 20  # R1 tier3
+        assert "retirement" in reason.lower()
 
-    def test_unrecognised_round_scores_zero(self):
-        # Unknown round names should not award points
-        assert compute_match_score("R4", "Jira", "Jira", None, None) == 0
+    def test_unknown_round(self):
+        pts, reason = compute_match_score("R99", "Jira", "Jira", 2, False, "6/3 6/2")
+        assert pts == 0
 
 
 class TestComputeEntryScore:
     def test_two_correct_picks(self):
         picks = {
-            "main_R1_0": {"winner": "Jira", "score": "6/3 6/2"},
-            "main_R1_1": {"winner": "gifu", "score": None},
+            "main_R1_0": {"winner": "Jira", "sets_count": 2},
+            "main_R1_1": {"winner": "gifu"},
         }
         matches = [
-            {"id": "main_R1_0", "round": "R1", "winner": "Jira", "score": "6/3 6/2"},
-            {"id": "main_R1_1", "round": "R1", "winner": "gifu", "score": "6/4 6/1"},
+            {"id": "main_R1_0", "section": "main", "round": "R1", "winner": "Jira", "score": "6/3 6/2"},
+            {"id": "main_R1_1", "section": "main", "round": "R1", "winner": "gifu", "score": "6/4 6/1"},
         ]
-        # R1 exact = 30, R1 winner only = 5
-        assert compute_entry_score(picks, matches) == 30 + 5
+        # R1 tier2 (winner+sets) = 15, R1 tier1 (winner only) = 5
+        assert compute_entry_score(picks, matches) == 15 + 5
 
     def test_unknown_match_id_ignored(self):
-        picks = {"nonexistent_match": {"winner": "Jira"}}
-        matches = []
+        picks = {"nonexistent": {"winner": "Jira"}}
+        matches: list[dict] = []
         assert compute_entry_score(picks, matches) == 0
+
+
+class TestComputeEntryBreakdown:
+    def test_breakdown_items_per_match(self):
+        picks = {
+            "main_R1_0": {"winner": "Jira", "sets_count": 2},
+            "main_R1_1": {"winner": "B", "retirement": True},
+        }
+        matches = [
+            {"id": "main_R1_0", "section": "main", "round": "R1", "winner": "Jira", "score": "6/3 6/2"},
+            {"id": "main_R1_1", "section": "main", "round": "R1", "winner": "B", "score": "6/4 3/0 ret."},
+        ]
+        items = compute_entry_breakdown(picks, matches)
+        assert len(items) == 2
+        assert items[0].points == 15
+        assert items[0].predicted_sets == 2
+        assert items[1].points == 20  # R1 tier3
+        assert items[1].predicted_retirement is True

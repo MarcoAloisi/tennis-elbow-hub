@@ -1,17 +1,18 @@
 <!-- frontend/src/views/PredictionView.vue -->
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { usePredictionsStore } from '@/stores/predictions'
+import { usePredictionsStore, type PickData, type DrawMatch } from '@/stores/predictions'
 import { useAuthStore } from '@/stores/auth'
 import BracketEditor from '@/components/predictions/BracketEditor.vue'
 import PredictionLeaderboard from '@/components/predictions/PredictionLeaderboard.vue'
 import AllPredictions from '@/components/predictions/AllPredictions.vue'
 import AdminPanel from '@/components/predictions/AdminPanel.vue'
+import ScoringLegend from '@/components/predictions/ScoringLegend.vue'
 
 const store = usePredictionsStore()
 const authStore = useAuthStore()
 
-const activeTab = ref<'prediction' | 'leaderboard' | 'all'>('prediction')
+const activeTab = ref<'prediction' | 'draw' | 'leaderboard' | 'all'>('prediction')
 const nicknameInput = ref(store.myNickname)
 const submitError = ref<string | null>(null)
 const submitSuccess = ref(false)
@@ -70,9 +71,24 @@ async function handleSubmit() {
     }
 }
 
-function handlePick(matchId: string, winner: string, score: string | undefined) {
-    store.setPick(matchId, winner, score)
+function handlePick(matchId: string, patch: Partial<PickData>) {
+    store.setPick(matchId, patch)
 }
+
+// Readonly "actual draw" picks: map every played match to {winner: actualWinner}
+// so BracketEditor highlights winners exactly like the scraper recorded.
+const actualPicks = computed<Record<string, PickData>>(() => {
+    const out: Record<string, PickData> = {}
+    const matches = store.activeTournament?.draw_data?.matches ?? []
+    for (const m of matches as DrawMatch[]) {
+        if (m.winner) out[m.id] = { winner: m.winner }
+    }
+    return out
+})
+
+const hasQualifyingMatches = computed(() =>
+    (store.activeTournament?.draw_data?.matches ?? []).some(m => m.section === 'qualifying')
+)
 
 async function onAdminRefresh() {
     await store.fetchTournaments()
@@ -98,7 +114,7 @@ function formatDeadline(dt: string) {
     <div class="prediction-view">
         <div class="page-header">
             <h1>Tournament Predictions</h1>
-            <p class="intro">Predict the draw, earn points for exact scores. Top 3 go on the podium.</p>
+            <p class="intro">Pick winners, predict how many sets each match goes (or a retirement), and earn points. Top 3 go on the podium.</p>
         </div>
 
         <!-- Admin panel -->
@@ -145,6 +161,11 @@ function formatDeadline(dt: string) {
                 >🎯 My Prediction</button>
                 <button
                     class="tab"
+                    :class="{ active: activeTab === 'draw' }"
+                    @click="activeTab = 'draw'"
+                >🗺️ Tournament Draw</button>
+                <button
+                    class="tab"
                     :class="{ active: activeTab === 'leaderboard' }"
                     @click="activeTab = 'leaderboard'"
                 >🏆 Leaderboard <span class="count">{{ store.entries.length }}</span></button>
@@ -164,6 +185,8 @@ function formatDeadline(dt: string) {
                         Draw not yet available.
                     </div>
                     <template v-else>
+                        <ScoringLegend :draw="store.activeTournament.draw_data" />
+
                         <!-- Already submitted -->
                         <div v-if="alreadySubmitted" class="submitted-notice">
                             ✓ You have submitted your prediction for this tournament.
@@ -171,7 +194,7 @@ function formatDeadline(dt: string) {
 
                         <!-- Qualifying bracket (only if draw has qualifying matches) -->
                         <div
-                            v-if="store.activeTournament.draw_data?.matches?.some(m => m.section === 'qualifying')"
+                            v-if="hasQualifyingMatches"
                             class="bracket-section"
                         >
                             <h3 class="section-heading">Qualifications</h3>
@@ -224,8 +247,38 @@ function formatDeadline(dt: string) {
                     </template>
                 </div>
 
+                <!-- Tournament Draw tab (read-only actual draw + results) -->
+                <div v-if="activeTab === 'draw'">
+                    <div v-if="!store.activeTournament.draw_data?.matches?.length" class="empty">
+                        Draw not yet available.
+                    </div>
+                    <template v-else>
+                        <div v-if="hasQualifyingMatches" class="bracket-section">
+                            <h3 class="section-heading">Qualifications</h3>
+                            <BracketEditor
+                                :draw-data="store.activeTournament.draw_data"
+                                :picks="actualPicks"
+                                :readonly="true"
+                                section="qualifying"
+                                @pick="() => {}"
+                            />
+                        </div>
+                        <div class="bracket-section">
+                            <h3 class="section-heading">Main Draw</h3>
+                            <BracketEditor
+                                :draw-data="store.activeTournament.draw_data"
+                                :picks="actualPicks"
+                                :readonly="true"
+                                section="main"
+                                @pick="() => {}"
+                            />
+                        </div>
+                    </template>
+                </div>
+
                 <!-- Leaderboard tab -->
                 <div v-if="activeTab === 'leaderboard'">
+                    <ScoringLegend :draw="store.activeTournament.draw_data" />
                     <PredictionLeaderboard
                         :entries="store.entries"
                         :tournament="store.activeTournament"

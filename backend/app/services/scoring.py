@@ -1,161 +1,177 @@
 # backend/app/services/scoring.py
 """Pure scoring functions for tournament predictions.
 
-Scoring rules:
-- Wrong winner → 0 pts
-- Match not played yet → 0 pts
-- Qualifying rounds (Q1, Q2, Qualified) → 0 pts (not scored)
-- Unknown/unrecognised round names → 0 pts
-- Correct winner, no score / unparseable → winner-only base pts
-- Correct sets count + all sets exact → exact score pts
-- Correct sets count + some sets exact → sets-count pts + 3 per correct set
-- Wrong sets count + some sets match → winner-only pts + 3 per correct set
+Pick shape: {winner: str, sets_count?: int, retirement?: bool}
 
-Note: super-tiebreak sets (e.g. 10/7) pass the valid-set filter (max >= 6)
-and are treated as normal sets for scoring purposes.
+Scoring tiers per round: (winner_only, winner_plus_sets, winner_plus_sets_plus_retirement).
+
+Rules:
+- Wrong winner or match not played yet → 0 pts.
+- Unknown round → 0 pts.
+- Correct winner + actual retirement/walkover (score contains 'ret.' or 'w.o.'):
+    - Predicted retirement=True → tier3 points.
+    - Else → winner-only.
+- Correct winner + actual normal finish:
+    - Predicted retirement=True → winner-only (no retirement happened).
+    - sets_count matches actual set count → tier2.
+    - Else → winner-only.
 """
 
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 
-# (winner_only, correct_sets_count, exact_score)
+# (winner_only, winner_plus_sets, winner_plus_sets_plus_retirement)
 ROUND_POINTS: dict[str, tuple[int, int, int]] = {
-    "Q1": (2, 5, 10),
-    "Q2": (3, 8, 15),
-    "Q3": (3, 8, 15),
-    "Q4": (4, 10, 20),
-    "Q5": (4, 10, 20),
-    "Q6": (5, 12, 25),
-    "Qualified": (5, 12, 25),
-    "R1": (5, 15, 30),
-    "R2": (10, 25, 50),
-    "R3": (15, 35, 70),
-    "R4": (18, 40, 80),
-    "QF": (20, 50, 100),
-    "SF": (30, 75, 150),
-    "F": (50, 100, 200),
+    "Q1": (2, 5, 7),
+    "Q2": (3, 8, 11),
+    "Q3": (3, 8, 11),
+    "Q4": (4, 10, 14),
+    "Q5": (4, 10, 14),
+    "Q6": (5, 12, 17),
+    "Qualified": (5, 12, 17),
+    "R1": (5, 15, 20),
+    "R2": (10, 25, 35),
+    "R3": (15, 35, 50),
+    "R4": (18, 40, 58),
+    "QF": (20, 50, 70),
+    "SF": (30, 75, 105),
+    "F": (50, 100, 140),
 }
 
-# Rounds that are NOT scored
-_UNSCORED_ROUNDS: set[str] = set()
+
+@dataclass
+class MatchBreakdown:
+    match_id: str
+    round: str
+    section: str
+    predicted_winner: str | None
+    predicted_sets: int | None
+    predicted_retirement: bool
+    actual_winner: str | None
+    actual_score: str | None
+    points: int
+    reason: str
 
 
-def parse_score(score: str | None) -> list[str]:
-    """Parse a score string into a list of normalised set scores.
+_RET_RE = re.compile(r"ret\.?$", re.IGNORECASE)
+_WO_RE = re.compile(r"^w\.?o\.?$", re.IGNORECASE)
 
-    Handles formats like '6/3 6/2', '6-3 6-2', '7/6(3) 6/4', '6/3 2/1 ret.'.
-    Tiebreak annotations (e.g. '(3)') are stripped for comparison.
-    Walkover / w.o. / WO returns [].
-    Only fully completed sets are returned (ret. mid-set is dropped).
-    A completed set has at least one player reaching 6 or more games.
 
-    Args:
-        score: Raw score string from managames or user input.
+def is_retirement(score: str | None) -> bool:
+    """True if score indicates retirement or walkover."""
+    if not score:
+        return False
+    s = score.strip()
+    if _WO_RE.fullmatch(s) or s.upper() == "WO":
+        return True
+    return bool(_RET_RE.search(s))
 
-    Returns:
-        List of normalised set score strings like ['6/3', '7/6', '3/6'].
+
+def count_sets(score: str | None) -> int:
+    """Count fully completed sets in a score string.
+
+    A completed set has at least one side with >= 6 games. Tiebreak
+    annotations are stripped; trailing 'ret.' is stripped. Walkover → 0.
     """
     if not score:
-        return []
-
-    score = score.strip()
-
-    # Strip ret./retirement suffix — keep only what came before
-    score = re.sub(r"\s+ret\.?$", "", score, flags=re.IGNORECASE).strip()
-
-    # Walkover / w.o. — no sets
-    if re.fullmatch(r"w\.?o\.?", score, re.IGNORECASE) or score.upper() == "WO":
-        return []
-
-    # Normalise: replace dashes with slashes, strip tiebreak annotations
-    score = score.replace("-", "/")
-    score = re.sub(r"\(\d+\)", "", score)  # remove (3), (6) etc.
-
-    sets = []
-    for token in score.split():
-        token = token.strip()
-        if re.fullmatch(r"\d+/\d+", token):
-            a, b = int(token.split("/")[0]), int(token.split("/")[1])
-            # Only include completed sets: at least one player reached 6+ games
-            if max(a, b) >= 6:
-                sets.append(token)
-
-    return sets
+        return 0
+    s = score.strip()
+    s = re.sub(r"\s+ret\.?$", "", s, flags=re.IGNORECASE).strip()
+    if _WO_RE.fullmatch(s) or s.upper() == "WO":
+        return 0
+    s = s.replace("-", "/")
+    s = re.sub(r"\(\d+\)", "", s)
+    count = 0
+    for token in s.split():
+        m = re.fullmatch(r"(\d+)/(\d+)", token.strip())
+        if m and max(int(m.group(1)), int(m.group(2))) >= 6:
+            count += 1
+    return count
 
 
 def compute_match_score(
     round_name: str,
     predicted_winner: str,
     actual_winner: str | None,
-    predicted_score: str | None,
+    predicted_sets: int | None,
+    predicted_retirement: bool,
     actual_score: str | None,
-) -> int:
-    """Compute points for one match prediction.
-
-    Args:
-        round_name: e.g. 'R1', 'QF', 'F'. Qualifying rounds score 0.
-        predicted_winner: Nickname the user picked to win.
-        actual_winner: Actual winner from managames (None if not played).
-        predicted_score: User-provided score string (may be None).
-        actual_score: Actual score from managames (None if not played).
-
-    Returns:
-        Points earned for this match (0 if wrong winner or not yet played).
-    """
-    if round_name in _UNSCORED_ROUNDS:
-        return 0
+) -> tuple[int, str]:
+    """Score one match and return (points, short reason)."""
+    if not predicted_winner:
+        return 0, "no pick"
     if actual_winner is None:
-        return 0
+        return 0, "match not played"
     if predicted_winner != actual_winner:
-        return 0
+        return 0, "wrong winner"
 
-    round_pts = ROUND_POINTS.get(round_name)
-    if round_pts is None:
-        return 0  # unrecognised round — no points
-    pts_winner, pts_sets, pts_exact = round_pts
+    tiers = ROUND_POINTS.get(round_name)
+    if tiers is None:
+        return 0, "unknown round"
+    t1, t2, t3 = tiers
 
-    pred_sets = parse_score(predicted_score)
-    actual_sets = parse_score(actual_score)
+    actual_retired = is_retirement(actual_score)
 
-    if not pred_sets or not actual_sets:
-        return pts_winner
+    if actual_retired:
+        if predicted_retirement:
+            return t3, "correct winner + retirement"
+        return t1, "correct winner (retirement not predicted)"
 
-    # Per-set partial credit
-    per_set_bonus = sum(3 for p, a in zip(pred_sets, actual_sets) if p == a)
+    if predicted_retirement:
+        return t1, "correct winner (match did not end in retirement)"
 
-    if pred_sets == actual_sets:
-        return pts_exact  # exact match — max points
+    if predicted_sets is None:
+        return t1, "correct winner"
 
-    if len(pred_sets) == len(actual_sets):
-        # Correct sets count, not exact
-        return pts_sets + per_set_bonus
+    actual_sets = count_sets(actual_score)
+    if actual_sets == 0:
+        return t1, "correct winner"
+    if predicted_sets == actual_sets:
+        return t2, f"correct winner + {actual_sets} sets"
+    return t1, f"correct winner, wrong sets ({predicted_sets} vs {actual_sets})"
 
-    # Wrong sets count — winner only + partial
-    return pts_winner + per_set_bonus
+
+def compute_entry_breakdown(picks: dict, matches: list[dict]) -> list[MatchBreakdown]:
+    """Per-match breakdown for an entry, in the order matches appear in the draw."""
+    out: list[MatchBreakdown] = []
+    for match in matches:
+        match_id = match["id"]
+        pick = picks.get(match_id) or {}
+        predicted_winner = pick.get("winner") or None
+        predicted_sets = pick.get("sets_count")
+        if not isinstance(predicted_sets, int) or predicted_sets not in (2, 3, 4, 5):
+            predicted_sets = None
+        predicted_retirement = bool(pick.get("retirement"))
+
+        if predicted_winner is None:
+            points, reason = 0, "no pick"
+        else:
+            points, reason = compute_match_score(
+                round_name=match.get("round", ""),
+                predicted_winner=predicted_winner,
+                actual_winner=match.get("winner"),
+                predicted_sets=predicted_sets,
+                predicted_retirement=predicted_retirement,
+                actual_score=match.get("score"),
+            )
+
+        out.append(MatchBreakdown(
+            match_id=match_id,
+            round=match.get("round", ""),
+            section=match.get("section", ""),
+            predicted_winner=predicted_winner,
+            predicted_sets=predicted_sets,
+            predicted_retirement=predicted_retirement,
+            actual_winner=match.get("winner"),
+            actual_score=match.get("score"),
+            points=points,
+            reason=reason,
+        ))
+    return out
 
 
 def compute_entry_score(picks: dict, matches: list[dict]) -> int:
-    """Compute total score for a prediction entry against actual draw results.
-
-    Args:
-        picks: {match_id: {"winner": str, "score": str | None}}
-        matches: draw_data["matches"] list from PredictionTournament.
-
-    Returns:
-        Total points earned across all predicted matches.
-    """
-    match_map = {m["id"]: m for m in matches}
-    total = 0
-    for match_id, pick in picks.items():
-        match = match_map.get(match_id)
-        if not match:
-            continue
-        total += compute_match_score(
-            round_name=match["round"],
-            predicted_winner=pick.get("winner", ""),
-            actual_winner=match.get("winner"),
-            predicted_score=pick.get("score"),
-            actual_score=match.get("score"),
-        )
-    return total
+    """Sum total points for an entry."""
+    return sum(item.points for item in compute_entry_breakdown(picks, matches))

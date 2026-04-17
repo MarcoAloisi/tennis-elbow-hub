@@ -15,17 +15,23 @@ from app.api.deps import get_db, require_admin
 from app.core.limiter import limiter
 from app.core.logging import get_logger
 from app.models.prediction import (
+    EntryBreakdownResponse,
     EntryCreate,
     EntryResponse,
+    MatchBreakdownItem,
     PredictionEntry,
     PredictionTournament,
+    QualifierMapUpdate,
     TournamentCreate,
     TournamentListItem,
     TournamentResponse,
     _slugify,
 )
-from app.services.scoring import compute_entry_score
-from app.services.tournament_scraper import scrape_tournament_draw
+from app.services.scoring import compute_entry_breakdown, compute_entry_score
+from app.services.tournament_scraper import (
+    apply_qualifier_map,
+    scrape_tournament_draw,
+)
 
 logger = get_logger("api.predictions")
 router = APIRouter(prefix="/predictions", tags=["Predictions"])
@@ -40,6 +46,46 @@ def _get_client_ip(request: Request) -> str:
     than relying on X-Forwarded-For here.
     """
     return request.client.host if request.client else "unknown"
+
+
+def _resolve_draw(draw_data: dict, admin_map: dict | None) -> dict:
+    """Merge auto + admin qualifier maps and apply them to main-draw matches.
+
+    The scraper stores its auto-built map at draw_data['qualifier_map_auto'].
+    Admin override (tournament.qualifier_map) takes precedence. The merged
+    map is stored at draw_data['qualifier_map_effective'] for frontend use.
+    """
+    matches = draw_data.get("matches", [])
+    auto_map = draw_data.get("qualifier_map_auto") or {}
+    admin = admin_map or {}
+    effective: dict = {**auto_map, **admin}
+    resolved_matches = apply_qualifier_map(matches, effective)
+    return {
+        **draw_data,
+        "matches": resolved_matches,
+        "qualifier_map_effective": effective,
+    }
+
+
+def _validate_picks(picks: dict) -> None:
+    """Raise HTTPException if any pick has an invalid shape."""
+    if not isinstance(picks, dict):
+        raise HTTPException(status_code=400, detail="picks must be an object")
+    for match_id, pick in picks.items():
+        if not isinstance(pick, dict):
+            raise HTTPException(status_code=400, detail=f"pick for {match_id} must be an object")
+        winner = pick.get("winner", "")
+        if not isinstance(winner, str):
+            raise HTTPException(status_code=400, detail=f"pick.winner for {match_id} must be a string")
+        if "sets_count" in pick and pick["sets_count"] is not None:
+            if pick["sets_count"] not in (2, 3, 4, 5):
+                raise HTTPException(status_code=400, detail=f"pick.sets_count for {match_id} must be 2-5")
+        if "retirement" in pick and not isinstance(pick["retirement"], bool):
+            raise HTTPException(status_code=400, detail=f"pick.retirement for {match_id} must be boolean")
+        allowed = {"winner", "sets_count", "retirement"}
+        extra = set(pick.keys()) - allowed
+        if extra:
+            raise HTTPException(status_code=400, detail=f"pick for {match_id} has unknown keys: {sorted(extra)}")
 
 
 async def _unique_slug(db: AsyncSession, base: str) -> str:
@@ -167,6 +213,8 @@ async def submit_entry(
     if not nickname:
         raise HTTPException(status_code=400, detail="Nickname is required")
 
+    _validate_picks(body.picks)
+
     ip = _get_client_ip(request)
 
     # IP lock
@@ -219,7 +267,10 @@ async def create_tournament(
     except Exception as exc:
         logger.exception("Failed to scrape tournament draw — creating with empty draw")
         draw_data = {"name": "Unknown Tournament", "surface": "", "category": "",
-                     "draw_size": 0, "week": "", "year": "", "matches": []}
+                     "draw_size": 0, "week": "", "year": "", "matches": [],
+                     "qualifier_map_auto": {}}
+
+    draw_data = _resolve_draw(draw_data, admin_map=None)
 
     name = draw_data.get("name", "Unknown Tournament")
     trn_id_match = re.search(r"Trn=(\d+)", body.managames_url)
@@ -233,6 +284,7 @@ async def create_tournament(
         managames_url=body.managames_url,
         trn_id=trn_id,
         draw_data=draw_data,
+        qualifier_map=None,
         status="open",
         predictions_close_at=body.predictions_close_at,
     )
@@ -266,6 +318,7 @@ async def refresh_tournament(
         logger.exception("Failed to re-scrape draw")
         raise HTTPException(status_code=422, detail=f"Failed to re-scrape: {exc}")
 
+    draw_data = _resolve_draw(draw_data, admin_map=tournament.qualifier_map)
     tournament.draw_data = draw_data
     await db.flush()
 
@@ -336,6 +389,97 @@ async def delete_tournament(
         raise HTTPException(status_code=404, detail="Tournament not found")
     await db.delete(tournament)
     await db.commit()
+
+
+@router.get(
+    "/tournaments/{tournament_id}/entries/{entry_id}/breakdown",
+    response_model=EntryBreakdownResponse,
+)
+@limiter.limit("60/minute")
+async def get_entry_breakdown(
+    request: Request,
+    tournament_id: int,
+    entry_id: int,
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Per-match breakdown of an entry's picks against the actual draw."""
+    tournament = (await db.execute(
+        select(PredictionTournament).where(PredictionTournament.id == tournament_id)
+    )).scalar_one_or_none()
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+
+    entry = (await db.execute(
+        select(PredictionEntry).where(
+            PredictionEntry.id == entry_id,
+            PredictionEntry.tournament_id == tournament_id,
+        )
+    )).scalar_one_or_none()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+
+    matches = (tournament.draw_data or {}).get("matches", [])
+    breakdown = compute_entry_breakdown(entry.picks or {}, matches)
+    items = [
+        MatchBreakdownItem(
+            match_id=b.match_id,
+            round=b.round,
+            section=b.section,
+            predicted_winner=b.predicted_winner,
+            predicted_sets=b.predicted_sets,
+            predicted_retirement=b.predicted_retirement,
+            actual_winner=b.actual_winner,
+            actual_score=b.actual_score,
+            points=b.points,
+            reason=b.reason,
+        )
+        for b in breakdown
+    ]
+    return EntryBreakdownResponse(
+        entry_id=entry.id,
+        nickname=entry.nickname,
+        total_score=entry.total_score,
+        items=items,
+    )
+
+
+@router.put("/tournaments/{tournament_id}/qualifier-map")
+@limiter.limit("10/minute")
+async def update_qualifier_map(
+    request: Request,
+    tournament_id: int,
+    body: QualifierMapUpdate,
+    _admin: Any = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Set the admin qualifier override map (Admin only).
+
+    Does not re-scrape. Call /refresh afterwards to apply to the draw and
+    recompute entry scores.
+    """
+    tournament = (await db.execute(
+        select(PredictionTournament).where(PredictionTournament.id == tournament_id)
+    )).scalar_one_or_none()
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+
+    cleaned: dict[str, str] = {}
+    for key, val in (body.mapping or {}).items():
+        if not isinstance(key, str) or not isinstance(val, str):
+            continue
+        k = key.strip()
+        v = val.strip()
+        if not k or not v:
+            continue
+        cleaned[k] = v
+
+    tournament.qualifier_map = cleaned or None
+    # Re-apply to cached draw_data so the change is immediately visible
+    # (scores are only recomputed on explicit /refresh).
+    if tournament.draw_data:
+        tournament.draw_data = _resolve_draw(tournament.draw_data, admin_map=tournament.qualifier_map)
+    await db.commit()
+    return {"qualifier_map": tournament.qualifier_map or {}}
 
 
 @router.delete("/entries/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)

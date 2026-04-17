@@ -28,6 +28,8 @@ export interface DrawData {
     week: string
     year: string
     matches: DrawMatch[]
+    qualifier_map_auto?: Record<string, PlayerInfo>
+    qualifier_map_effective?: Record<string, PlayerInfo | string>
 }
 
 export interface Tournament {
@@ -37,6 +39,7 @@ export interface Tournament {
     managames_url?: string
     trn_id?: number
     draw_data?: DrawData
+    qualifier_map?: Record<string, string> | null
     status: 'open' | 'closed' | 'finished'
     predictions_close_at: string
     created_at: string
@@ -44,18 +47,41 @@ export interface Tournament {
     entry_count: number
 }
 
+export type SetsCount = 2 | 3 | 4 | 5
+
+export interface PickData {
+    winner: string
+    sets_count?: SetsCount
+    retirement?: boolean
+}
+
 export interface PredictionEntry {
     id: number
     tournament_id: number
     nickname: string
-    picks: Record<string, { winner: string; score?: string }>
+    picks: Record<string, PickData>
     total_score: number
     submitted_at: string
 }
 
-export interface PickData {
-    winner: string
-    score?: string
+export interface MatchBreakdownItem {
+    match_id: string
+    round: string
+    section: string
+    predicted_winner: string | null
+    predicted_sets: number | null
+    predicted_retirement: boolean
+    actual_winner: string | null
+    actual_score: string | null
+    points: number
+    reason: string
+}
+
+export interface EntryBreakdown {
+    entry_id: number
+    nickname: string
+    total_score: number
+    items: MatchBreakdownItem[]
 }
 
 const STORAGE_KEY_PREFIX = 'prediction_submitted_'
@@ -154,12 +180,28 @@ export const usePredictionsStore = defineStore('predictions', () => {
         }
     }
 
-    function setPick(matchId: string, winner: string, score?: string): void {
-        myPicks.value[matchId] = { winner, score: score || undefined }
+    function setPick(matchId: string, patch: Partial<PickData>): void {
+        const current = myPicks.value[matchId] ?? { winner: '' }
+        const next: PickData = { ...current, ...patch }
+        if (!next.winner) {
+            delete myPicks.value[matchId]
+            return
+        }
+        if (next.sets_count === undefined) delete next.sets_count
+        if (!next.retirement) delete next.retirement
+        myPicks.value[matchId] = next
     }
 
     function clearPicks(): void {
         myPicks.value = {}
+    }
+
+    async function fetchBreakdown(tournamentId: number, entryId: number): Promise<EntryBreakdown> {
+        const res = await fetch(
+            apiUrl(`/api/predictions/tournaments/${tournamentId}/entries/${entryId}/breakdown`)
+        )
+        if (!res.ok) throw new Error(`Failed to load breakdown: ${res.statusText}`)
+        return res.json()
     }
 
     // ─── Admin actions ──────────────────────────────────────────────────
@@ -205,6 +247,24 @@ export const usePredictionsStore = defineStore('predictions', () => {
         }
     }
 
+    async function updateQualifierMap(tournamentId: number, mapping: Record<string, string>): Promise<void> {
+        const authStore = useAuthStore()
+        const token = authStore.session?.access_token
+        if (!token) throw new Error('Not authenticated')
+        const res = await fetch(apiUrl(`/api/predictions/tournaments/${tournamentId}/qualifier-map`), {
+            method: 'PUT',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mapping }),
+        })
+        if (!res.ok) {
+            const data = await res.json().catch(() => ({}))
+            throw new Error(data.detail || `Request failed: ${res.statusText}`)
+        }
+        if (activeTournament.value?.id === tournamentId) {
+            await fetchTournament(activeTournament.value.slug)
+        }
+    }
+
     async function markFinished(tournamentId: number): Promise<void> {
         await _adminPost(`/api/predictions/tournaments/${tournamentId}/finish`)
         await fetchTournaments()
@@ -246,8 +306,8 @@ export const usePredictionsStore = defineStore('predictions', () => {
         loading, error, submittedIds,
         hasSubmitted, markSubmitted,
         fetchTournaments, fetchTournament, fetchEntries, submitPrediction,
-        setPick, clearPicks,
+        setPick, clearPicks, fetchBreakdown,
         createTournament, refreshResults, closePredictions, markFinished,
-        deleteEntry, deleteTournament,
+        deleteEntry, deleteTournament, updateQualifierMap,
     }
 })

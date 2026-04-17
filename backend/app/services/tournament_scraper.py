@@ -65,6 +65,68 @@ def _extract_trn_id(url: str) -> int:
 
 _TBD: dict = {"name": "TBD", "seed": None, "player_id": None}
 
+_QUALIFIER_RE = re.compile(r"^Qualifier\s*#?\s*(\d+)$", re.IGNORECASE)
+
+
+def build_qualifier_map(matches: list[dict]) -> dict[str, dict]:
+    """Build top-down "Qualifier #N" → real player map from qualifying results.
+
+    Iterates matches where section='qualifying' and round='Qualified' in
+    document order. Each match's player1 and player2 are emitted sequentially
+    (TBD skipped), mapped to 'Qualifier #1', 'Qualifier #2', etc.
+    """
+    qualifiers: list[dict] = []
+    for match in matches:
+        if match.get("section") != "qualifying" or match.get("round") != "Qualified":
+            continue
+        for slot in ("player1", "player2"):
+            player = match.get(slot) or {}
+            name = player.get("name")
+            if not name or name == "TBD":
+                continue
+            qualifiers.append(player)
+    return {f"Qualifier #{i + 1}": p for i, p in enumerate(qualifiers)}
+
+
+def apply_qualifier_map(matches: list[dict], qualifier_map: dict) -> list[dict]:
+    """Return new matches list with 'Qualifier #N' slots replaced by real players.
+
+    qualifier_map values may be a player dict {name, seed, player_id} (from
+    the scraper) or a bare name string (from admin override) — both accepted.
+    Only main-draw matches are substituted; qualifying matches are left alone.
+    """
+    if not qualifier_map:
+        return matches
+
+    def _resolve(player: dict) -> dict:
+        name = (player or {}).get("name", "")
+        if not name or not _QUALIFIER_RE.match(name.strip()):
+            return player
+        mapped = qualifier_map.get(name.strip())
+        if mapped is None:
+            return player
+        if isinstance(mapped, str):
+            return {"name": mapped, "seed": None, "player_id": None}
+        if isinstance(mapped, dict) and mapped.get("name"):
+            return {
+                "name": mapped["name"],
+                "seed": mapped.get("seed"),
+                "player_id": mapped.get("player_id"),
+            }
+        return player
+
+    out: list[dict] = []
+    for match in matches:
+        if match.get("section") == "main":
+            out.append({
+                **match,
+                "player1": _resolve(match.get("player1") or {}),
+                "player2": _resolve(match.get("player2") or {}),
+            })
+        else:
+            out.append(match)
+    return out
+
 
 def _parse_player_cell(td: Tag) -> dict:
     """Extract player info from a draw table <td> cell.
@@ -378,6 +440,9 @@ async def scrape_tournament_draw(url: str) -> dict:
 
     logger.info("Total matches parsed: %d", len(all_matches))
 
+    auto_qualifier_map = build_qualifier_map(all_matches)
+    logger.info("Auto qualifier map: %d slots", len(auto_qualifier_map))
+
     return {
         "name": meta["name"],
         "surface": meta["surface"],
@@ -386,4 +451,5 @@ async def scrape_tournament_draw(url: str) -> dict:
         "week": meta["week"],
         "year": meta["year"],
         "matches": all_matches,
+        "qualifier_map_auto": auto_qualifier_map,
     }
