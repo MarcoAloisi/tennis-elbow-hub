@@ -17,10 +17,13 @@ const nicknameInput = ref(store.myNickname)
 const submitError = ref<string | null>(null)
 const submitSuccess = ref(false)
 
-const tournament = computed(() => {
-    // Active = first open or closed tournament; else null
-    return store.tournaments.find(t => t.status !== 'finished') ?? null
-})
+const activeTournaments = computed(() =>
+    store.tournaments.filter(t => t.status !== 'finished')
+)
+const selectedTournamentId = ref<number | null>(null)
+const tournament = computed(() =>
+    activeTournaments.value.find(t => t.id === selectedTournamentId.value) ?? null
+)
 
 const isOpen = computed(() => tournament.value?.status === 'open')
 const isPredictionsClosed = computed(() => (tournament.value?.status ?? '') !== 'open')
@@ -41,15 +44,16 @@ const pastTournaments = computed(() =>
 
 onMounted(async () => {
     await store.fetchTournaments()
-    if (tournament.value) {
-        await Promise.all([
-            store.fetchTournament(tournament.value.slug),
-            store.fetchEntries(tournament.value.id),
-        ])
+    if (activeTournaments.value.length > 0) {
+        selectedTournamentId.value = activeTournaments.value[0].id
     }
 })
 
 watch(() => tournament.value?.id, async (id) => {
+    // Fires on initial selection and whenever user switches tournament
+    activeTab.value = 'prediction'
+    submitSuccess.value = false
+    submitError.value = null
     if (id) {
         await Promise.all([
             store.fetchTournament(tournament.value!.slug),
@@ -97,7 +101,10 @@ async function onAdminRefresh() {
             store.fetchTournament(tournament.value.slug),
             store.fetchEntries(tournament.value.id),
         ])
+    } else if (activeTournaments.value.length > 0) {
+        selectedTournamentId.value = activeTournaments.value[0].id
     } else {
+        selectedTournamentId.value = null
         store.activeTournament = null
         store.entries = []
     }
@@ -123,6 +130,20 @@ function formatDeadline(dt: string) {
             :tournament="store.activeTournament"
             @refresh="onAdminRefresh"
         />
+
+        <!-- Tournament picker (only when 2+ active) -->
+        <div v-if="activeTournaments.length > 1" class="tournament-picker">
+            <button
+                v-for="t in activeTournaments"
+                :key="t.id"
+                class="trn-pick-btn"
+                :class="{ active: t.id === selectedTournamentId }"
+                @click="selectedTournamentId = t.id"
+            >
+                <span class="trn-pick-name">{{ t.name }}</span>
+                <span class="trn-pick-status" :class="t.status">{{ t.status.toUpperCase() }}</span>
+            </button>
+        </div>
 
         <!-- Active tournament -->
         <div v-if="store.activeTournament" class="tournament-section">
@@ -298,7 +319,7 @@ function formatDeadline(dt: string) {
         </div>
 
         <!-- No active tournament -->
-        <div v-else-if="!store.loading" class="no-tournament">
+        <div v-else-if="!store.loading && activeTournaments.length === 0" class="no-tournament">
             <p>No active tournament at the moment. Check the archive below.</p>
         </div>
 
@@ -324,6 +345,24 @@ function formatDeadline(dt: string) {
 .prediction-view { min-height: 100%; display: flex; flex-direction: column; gap: var(--space-6); }
 .page-header h1 { font-size: var(--font-size-3xl); font-weight: var(--font-weight-bold); color: var(--color-text-primary); margin-bottom: var(--space-2); }
 .intro { color: var(--color-text-secondary); font-size: var(--font-size-base); }
+
+/* Tournament picker */
+.tournament-picker {
+    display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-2);
+}
+.trn-pick-btn {
+    display: flex; align-items: center; gap: var(--space-2);
+    background: var(--color-surface); border: 1px solid var(--color-border);
+    border-radius: var(--radius-md); padding: var(--space-2) var(--space-4);
+    cursor: pointer; font-size: var(--font-size-sm); color: var(--color-text-secondary);
+    transition: all var(--transition-fast);
+}
+.trn-pick-btn:hover { border-color: var(--color-accent); color: var(--color-text-primary); }
+.trn-pick-btn.active { border-color: var(--color-accent); color: var(--color-accent); background: var(--color-accent-light); font-weight: var(--font-weight-semibold); }
+.trn-pick-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
+.trn-pick-status { font-size: var(--font-size-xs); font-weight: var(--font-weight-bold); padding: 1px 6px; border-radius: var(--radius-full); }
+.trn-pick-status.open { background: rgba(34,197,94,0.1); color: var(--color-brand-live); }
+.trn-pick-status.closed { background: var(--color-bg-secondary); color: var(--color-text-muted); }
 
 /* Banner */
 .tournament-banner {
