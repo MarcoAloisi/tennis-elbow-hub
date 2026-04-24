@@ -30,6 +30,7 @@ import app.models.daily_stats  # noqa: F401, E402
 import app.models.match_stats  # noqa: F401, E402
 import app.models.finished_match  # noqa: F401, E402
 import app.models.prediction  # noqa: F401, E402
+from app.models.user_profile import UserProfile  # noqa: F401, E402
 
 # Alembic Config object
 config = context.config
