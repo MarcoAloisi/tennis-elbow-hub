@@ -22,6 +22,7 @@ export interface Profile {
   player_verified: boolean
   favorite_tennis_player: string | null
   favorite_tournament: string | null
+  approved: boolean
   created_at: string
   player_stats: PlayerStats | null
 }

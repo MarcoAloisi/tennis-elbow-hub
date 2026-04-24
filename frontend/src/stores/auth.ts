@@ -89,6 +89,9 @@ export const useAuthStore = defineStore('auth', () => {
 
             user.value = null
             session.value = null
+            // Clear router approval cache so next login re-fetches
+            const router = await import('../router')
+            router.clearApprovalCache()
         } catch (err: any) {
             error.value = err.message
             throw err

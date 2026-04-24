@@ -318,3 +318,47 @@ async def reject_player_link(
     await db.commit()
     return {"rejected": True}
 
+
+# ─── Signup Approvals ───────────────────────────────────────
+
+
+@router.get("/pending-signups")
+@limiter.limit("60/minute")
+async def list_pending_signups(
+    request: Request,
+    _admin: Any = Depends(require_admin),
+    db=Depends(get_db),
+):
+    """List user profiles pending admin signup approval."""
+    result = await db.execute(
+        select(UserProfile).where(UserProfile.approved == False)  # noqa: E712
+    )
+    profiles = result.scalars().all()
+    return [
+        {
+            "user_id": p.id,
+            "display_name": p.display_name,
+            "in_game_name": p.in_game_name,
+            "created_at": p.created_at,
+        }
+        for p in profiles
+    ]
+
+
+@router.post("/pending-signups/{user_id}/approve")
+@limiter.limit("60/minute")
+async def approve_signup(
+    request: Request,
+    user_id: str,
+    _admin: Any = Depends(require_admin),
+    db=Depends(get_db),
+):
+    """Approve a pending user signup."""
+    result = await db.execute(select(UserProfile).where(UserProfile.id == user_id))
+    profile = result.scalar_one_or_none()
+    if profile is None:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    profile.approved = True
+    await db.commit()
+    return {"approved": True, "user_id": user_id}
+

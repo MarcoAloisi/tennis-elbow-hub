@@ -20,6 +20,7 @@ const SignupView = () => import('../views/SignupView.vue')
 const ResetPasswordView = () => import('../views/ResetPasswordView.vue')
 const ProfileView = () => import('../views/ProfileView.vue')
 const PublicProfileView = () => import('../views/PublicProfileView.vue')
+const PendingApprovalView = () => import('../views/PendingApprovalView.vue')
 
 const routes: RouteRecordRaw[] = [
     {
@@ -47,6 +48,16 @@ const routes: RouteRecordRaw[] = [
         meta: {
             title: 'Sign Up',
             description: 'Create a new Tennis Elbow Hub account.'
+        }
+    },
+    {
+        path: '/pending-approval',
+        name: 'PendingApproval',
+        component: PendingApprovalView,
+        meta: {
+            title: 'Pending Approval',
+            description: 'Your account is awaiting admin approval.',
+            requiresAuth: true
         }
     },
     {
@@ -220,6 +231,10 @@ const routes: RouteRecordRaw[] = [
     }
 ]
 
+// Cache approval status per user to avoid fetching on every navigation
+let _approvalCache: { userId: string; approved: boolean } | null = null
+export function clearApprovalCache() { _approvalCache = null }
+
 const router = createRouter({
     history: createWebHistory(),
     routes,
@@ -252,6 +267,33 @@ router.beforeEach(async (to, from, next) => {
         const authStore = useAuthStore()
         if (!authStore.isAdmin) {
             return next('/')
+        }
+    }
+
+    // Approval guard: non-admin logged-in users must be approved
+    const publicPaths = ['/login', '/signup', '/reset-password', '/pending-approval', '/privacy-policy', '/terms-of-service', '/contact', '/']
+    if (!publicPaths.includes(to.path)) {
+        const { useAuthStore } = await import('../stores/auth')
+        const authStore = useAuthStore()
+        if (authStore.user && !authStore.isAdmin) {
+            const userId = authStore.user.id
+            if (_approvalCache?.userId !== userId) {
+                const { supabase } = await import('../config/supabase')
+                const { apiUrl } = await import('../config/api')
+                const { data } = await supabase.auth.getSession()
+                if (data.session) {
+                    const res = await fetch(apiUrl('/api/profile/me'), {
+                        headers: { Authorization: `Bearer ${data.session.access_token}` },
+                    })
+                    if (res.ok) {
+                        const profile = await res.json()
+                        _approvalCache = { userId, approved: profile.approved }
+                    }
+                }
+            }
+            if (_approvalCache?.approved === false) {
+                return next('/pending-approval')
+            }
         }
     }
 

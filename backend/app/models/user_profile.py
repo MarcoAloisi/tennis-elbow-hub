@@ -22,6 +22,7 @@ class UserProfile(Base):
     player_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     favorite_tennis_player: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     favorite_tournament: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    approved: Mapped[bool] = mapped_column(Boolean, server_default="true", default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -57,6 +58,7 @@ class UserProfileOut(BaseModel):
     player_verified: bool
     favorite_tennis_player: Optional[str]
     favorite_tournament: Optional[str]
+    approved: bool
     created_at: datetime
     player_stats: Optional[PlayerStatsOut] = None
 

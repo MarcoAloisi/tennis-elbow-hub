@@ -21,7 +21,12 @@ async def _get_or_create_profile(user: Any, db: AsyncSession) -> UserProfile:
     profile = result.scalar_one_or_none()
     if profile is None:
         display_name = (getattr(user, "user_metadata", None) or {}).get("display_name", "")
-        profile = UserProfile(id=user.id, display_name=display_name or "")
+        is_admin = (getattr(user, "app_metadata", None) or {}).get("role") == "admin"
+        profile = UserProfile(
+            id=user.id,
+            display_name=display_name or "",
+            approved=is_admin,
+        )
         db.add(profile)
         await db.commit()
         await db.refresh(profile)

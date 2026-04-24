@@ -2,7 +2,8 @@
 import { ref, onMounted } from 'vue'
 import { supabase } from '@/config/supabase'
 import { apiUrl } from '@/config/api'
-import { Shield, Check, X, RefreshCw, User } from 'lucide-vue-next'
+import { clearApprovalCache } from '@/router'
+import { Shield, Check, X, RefreshCw, User, UserCheck } from 'lucide-vue-next'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import ErrorAlert from '@/components/common/ErrorAlert.vue'
 
@@ -14,7 +15,15 @@ interface PendingVerification {
   created_at: string
 }
 
+interface PendingSignup {
+  user_id: string
+  display_name: string | null
+  in_game_name: string | null
+  created_at: string
+}
+
 const verifications = ref<PendingVerification[]>([])
+const signups = ref<PendingSignup[]>([])
 const isLoading = ref(false)
 const error = ref('')
 const actionLoading = ref<string | null>(null)
@@ -25,34 +34,35 @@ async function getAuthHeaders() {
   return { Authorization: `Bearer ${data.session?.access_token}` }
 }
 
-async function fetchVerifications() {
+async function fetchAll() {
   isLoading.value = true
   error.value = ''
   try {
     const headers = await getAuthHeaders()
-    const res = await fetch(apiUrl('/api/admin/profile-verifications'), { headers })
-    if (!res.ok) throw new Error(`Failed to load verifications (${res.status})`)
-    verifications.value = await res.json()
+    const [verRes, signupRes] = await Promise.all([
+      fetch(apiUrl('/api/admin/profile-verifications'), { headers }),
+      fetch(apiUrl('/api/admin/pending-signups'), { headers }),
+    ])
+    if (!verRes.ok) throw new Error(`Failed to load verifications (${verRes.status})`)
+    if (!signupRes.ok) throw new Error(`Failed to load pending signups (${signupRes.status})`)
+    verifications.value = await verRes.json()
+    signups.value = await signupRes.json()
   } catch (e: any) {
-    error.value = e.message || 'Failed to load pending verifications.'
+    error.value = e.message || 'Failed to load data.'
   } finally {
     isLoading.value = false
   }
 }
 
-async function approve(userId: string) {
+async function approveVerification(userId: string) {
   actionLoading.value = userId
   error.value = ''
   try {
     const headers = await getAuthHeaders()
-    const res = await fetch(apiUrl(`/api/admin/profile-verifications/${userId}/approve`), {
-      method: 'POST',
-      headers,
-    })
+    const res = await fetch(apiUrl(`/api/admin/profile-verifications/${userId}/approve`), { method: 'POST', headers })
     if (!res.ok) throw new Error(`Approve failed (${res.status})`)
     verifications.value = verifications.value.filter(v => v.user_id !== userId)
-    successMessage.value = 'Player link approved.'
-    setTimeout(() => { successMessage.value = '' }, 3000)
+    flash('Player link approved.')
   } catch (e: any) {
     error.value = e.message || 'Failed to approve.'
   } finally {
@@ -60,19 +70,15 @@ async function approve(userId: string) {
   }
 }
 
-async function reject(userId: string) {
+async function rejectVerification(userId: string) {
   actionLoading.value = userId
   error.value = ''
   try {
     const headers = await getAuthHeaders()
-    const res = await fetch(apiUrl(`/api/admin/profile-verifications/${userId}/reject`), {
-      method: 'POST',
-      headers,
-    })
+    const res = await fetch(apiUrl(`/api/admin/profile-verifications/${userId}/reject`), { method: 'POST', headers })
     if (!res.ok) throw new Error(`Reject failed (${res.status})`)
     verifications.value = verifications.value.filter(v => v.user_id !== userId)
-    successMessage.value = 'Player link rejected.'
-    setTimeout(() => { successMessage.value = '' }, 3000)
+    flash('Player link rejected.')
   } catch (e: any) {
     error.value = e.message || 'Failed to reject.'
   } finally {
@@ -80,13 +86,33 @@ async function reject(userId: string) {
   }
 }
 
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('en-GB', {
-    day: '2-digit', month: 'short', year: 'numeric',
-  })
+async function approveSignup(userId: string) {
+  actionLoading.value = userId
+  error.value = ''
+  try {
+    const headers = await getAuthHeaders()
+    const res = await fetch(apiUrl(`/api/admin/pending-signups/${userId}/approve`), { method: 'POST', headers })
+    if (!res.ok) throw new Error(`Approve failed (${res.status})`)
+    signups.value = signups.value.filter(s => s.user_id !== userId)
+    clearApprovalCache()
+    flash('User approved. They can now access the site.')
+  } catch (e: any) {
+    error.value = e.message || 'Failed to approve.'
+  } finally {
+    actionLoading.value = null
+  }
 }
 
-onMounted(fetchVerifications)
+function flash(msg: string) {
+  successMessage.value = msg
+  setTimeout(() => { successMessage.value = '' }, 4000)
+}
+
+function formatDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+onMounted(fetchAll)
 </script>
 
 <template>
@@ -96,18 +122,55 @@ onMounted(fetchVerifications)
         <Shield :size="24" class="title-icon" />
         <h1>Admin Panel</h1>
       </div>
-      <button class="btn-refresh" @click="fetchVerifications" :disabled="isLoading" title="Refresh">
+      <button class="btn-refresh" @click="fetchAll" :disabled="isLoading" title="Refresh">
         <RefreshCw :size="16" :class="{ spinning: isLoading }" />
         Refresh
       </button>
     </div>
 
     <ErrorAlert v-if="error" :message="error" @dismiss="error = ''" />
-
     <div v-if="successMessage" class="success-banner">{{ successMessage }}</div>
 
+    <!-- Pending Signups -->
     <section class="panel-section">
       <h2 class="section-title">
+        <UserCheck :size="20" />
+        Pending Signup Approvals
+        <span class="badge badge--orange" v-if="!isLoading">{{ signups.length }}</span>
+      </h2>
+
+      <LoadingSpinner v-if="isLoading" />
+
+      <div v-else-if="signups.length === 0" class="empty-state">
+        <Check :size="36" class="empty-icon" />
+        <p>No pending signups</p>
+      </div>
+
+      <div v-else class="card-list">
+        <div v-for="s in signups" :key="s.user_id" class="item-card">
+          <div class="card-info">
+            <div class="user-icon-wrap user-icon-wrap--orange">
+              <User :size="18" />
+            </div>
+            <div class="card-details">
+              <span class="display-name">{{ s.display_name || 'Unnamed user' }}</span>
+              <span class="meta">In-game name: <strong>{{ s.in_game_name || '—' }}</strong></span>
+              <span class="meta date">Signed up {{ formatDate(s.created_at) }}</span>
+            </div>
+          </div>
+          <div class="card-actions">
+            <button class="btn-approve" @click="approveSignup(s.user_id)" :disabled="actionLoading === s.user_id">
+              <Check :size="15" /> Approve
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Player Link Verifications -->
+    <section class="panel-section" style="margin-top: var(--space-6)">
+      <h2 class="section-title">
+        <Shield :size="20" />
         Pending Player Link Verifications
         <span class="badge" v-if="!isLoading">{{ verifications.length }}</span>
       </h2>
@@ -115,19 +178,15 @@ onMounted(fetchVerifications)
       <LoadingSpinner v-if="isLoading" />
 
       <div v-else-if="verifications.length === 0" class="empty-state">
-        <Check :size="40" class="empty-icon" />
+        <Check :size="36" class="empty-icon" />
         <p>No pending verifications</p>
       </div>
 
-      <div v-else class="verifications-list">
-        <div
-          v-for="v in verifications"
-          :key="v.user_id"
-          class="verification-card"
-        >
+      <div v-else class="card-list">
+        <div v-for="v in verifications" :key="v.user_id" class="item-card">
           <div class="card-info">
             <div class="user-icon-wrap">
-              <User :size="20" />
+              <User :size="18" />
             </div>
             <div class="card-details">
               <span class="display-name">{{ v.display_name || 'Unnamed user' }}</span>
@@ -137,21 +196,11 @@ onMounted(fetchVerifications)
             </div>
           </div>
           <div class="card-actions">
-            <button
-              class="btn-approve"
-              @click="approve(v.user_id)"
-              :disabled="actionLoading === v.user_id"
-              title="Approve player link"
-            >
-              <Check :size="16" /> Approve
+            <button class="btn-approve" @click="approveVerification(v.user_id)" :disabled="actionLoading === v.user_id">
+              <Check :size="15" /> Approve
             </button>
-            <button
-              class="btn-reject"
-              @click="reject(v.user_id)"
-              :disabled="actionLoading === v.user_id"
-              title="Reject player link"
-            >
-              <X :size="16" /> Reject
+            <button class="btn-reject" @click="rejectVerification(v.user_id)" :disabled="actionLoading === v.user_id">
+              <X :size="15" /> Reject
             </button>
           </div>
         </div>
@@ -188,9 +237,7 @@ onMounted(fetchVerifications)
   margin: 0;
 }
 
-.title-icon {
-  color: #6366f1;
-}
+.title-icon { color: #6366f1; }
 
 .btn-refresh {
   display: flex;
@@ -206,29 +253,16 @@ onMounted(fetchVerifications)
   transition: all var(--transition-fast);
 }
 
-.btn-refresh:hover:not(:disabled) {
-  color: var(--color-text-primary);
-  border-color: var(--color-accent);
-}
+.btn-refresh:hover:not(:disabled) { color: var(--color-text-primary); border-color: var(--color-accent); }
+.btn-refresh:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.btn-refresh:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.spinning {
-  animation: spin 0.8s linear infinite;
-}
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinning { animation: spin 0.8s linear infinite; }
 
 .success-banner {
-  background: var(--color-success-light, rgba(34, 197, 94, 0.1));
-  border: 1px solid var(--color-success, #22c55e);
-  color: var(--color-success, #22c55e);
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid #22c55e;
+  color: #22c55e;
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-md);
   margin-bottom: var(--space-4);
@@ -246,7 +280,7 @@ onMounted(fetchVerifications)
 .section-title {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
   font-size: var(--font-size-lg);
   font-weight: 600;
   color: var(--color-text-primary);
@@ -260,8 +294,10 @@ onMounted(fetchVerifications)
   font-weight: 700;
   padding: 2px 8px;
   border-radius: 999px;
-  min-width: 22px;
-  text-align: center;
+}
+
+.badge--orange {
+  background: #f59e0b;
 }
 
 .empty-state {
@@ -269,22 +305,19 @@ onMounted(fetchVerifications)
   flex-direction: column;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-8) 0;
+  padding: var(--space-6) 0;
   color: var(--color-text-muted);
 }
 
-.empty-icon {
-  color: #22c55e;
-  opacity: 0.6;
-}
+.empty-icon { color: #22c55e; opacity: 0.6; }
 
-.verifications-list {
+.card-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-3);
 }
 
-.verification-card {
+.item-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -308,48 +341,30 @@ onMounted(fetchVerifications)
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
-  background: rgba(99, 102, 241, 0.15);
+  background: rgba(99, 102, 241, 0.12);
   color: #6366f1;
   flex-shrink: 0;
 }
 
-.card-details {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+.user-icon-wrap--orange {
+  background: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
 }
 
-.display-name {
-  font-weight: 600;
-  color: var(--color-text-primary);
-  font-size: var(--font-size-base);
-}
+.card-details { display: flex; flex-direction: column; gap: 2px; }
 
-.meta {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-}
+.display-name { font-weight: 600; color: var(--color-text-primary); font-size: var(--font-size-base); }
 
-.player-claim {
-  color: #6366f1;
-}
+.meta { font-size: var(--font-size-sm); color: var(--color-text-secondary); }
+.player-claim { color: #6366f1; }
+.date { color: var(--color-text-muted); font-size: var(--font-size-xs); }
 
-.date {
-  color: var(--color-text-muted);
-  font-size: var(--font-size-xs);
-}
+.card-actions { display: flex; gap: var(--space-2); flex-shrink: 0; }
 
-.card-actions {
-  display: flex;
-  gap: var(--space-2);
-  flex-shrink: 0;
-}
-
-.btn-approve,
-.btn-reject {
+.btn-approve, .btn-reject {
   display: flex;
   align-items: center;
   gap: var(--space-1);
@@ -362,27 +377,9 @@ onMounted(fetchVerifications)
   border: none;
 }
 
-.btn-approve {
-  background: rgba(34, 197, 94, 0.15);
-  color: #22c55e;
-}
-
-.btn-approve:hover:not(:disabled) {
-  background: rgba(34, 197, 94, 0.25);
-}
-
-.btn-reject {
-  background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
-}
-
-.btn-reject:hover:not(:disabled) {
-  background: rgba(239, 68, 68, 0.25);
-}
-
-.btn-approve:disabled,
-.btn-reject:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+.btn-approve { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
+.btn-approve:hover:not(:disabled) { background: rgba(34, 197, 94, 0.25); }
+.btn-reject { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+.btn-reject:hover:not(:disabled) { background: rgba(239, 68, 68, 0.25); }
+.btn-approve:disabled, .btn-reject:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>
