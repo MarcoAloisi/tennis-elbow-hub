@@ -13,6 +13,7 @@ const ContactView = () => import('../views/ContactView.vue')
 const OutfitGalleryView = () => import('../views/OutfitGalleryView.vue')
 const LoginView = () => import('../views/LoginView.vue')
 const AdminPlayersView = () => import('../views/AdminPlayersView.vue')
+const AdminPanelView = () => import('../views/AdminPanelView.vue')
 const PredictionView = () => import('../views/PredictionView.vue')
 
 const SignupView = () => import('../views/SignupView.vue')
@@ -204,6 +205,16 @@ const routes: RouteRecordRaw[] = [
         meta: {
             title: 'Players Database',
             description: 'Admin-only players database with ELO ratings and match history.',
+            requiresAdmin: true
+        }
+    },
+    {
+        path: '/admin/panel',
+        name: 'AdminPanel',
+        component: AdminPanelView,
+        meta: {
+            title: 'Admin Panel',
+            description: 'Admin panel for managing player link verifications.',
             requiresAdmin: true
         }
     }

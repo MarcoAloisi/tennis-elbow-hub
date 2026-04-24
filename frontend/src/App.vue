@@ -1,13 +1,27 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { RouterView, RouterLink, useRoute, useRouter } from 'vue-router'
+type ElWithHandler = HTMLElement & { _clickOutsideHandler?: (e: MouseEvent) => void }
+const vClickOutside = {
+  mounted(el: ElWithHandler, binding: { value: () => void }) {
+    el._clickOutsideHandler = (event: MouseEvent) => {
+      if (!el.contains(event.target as Node)) binding.value()
+    }
+    document.addEventListener('click', el._clickOutsideHandler)
+  },
+  unmounted(el: ElWithHandler) {
+    if (el._clickOutsideHandler) {
+      document.removeEventListener('click', el._clickOutsideHandler)
+    }
+  },
+}
 import { useAuthStore } from './stores/auth'
 import ThemeToggle from './components/common/ThemeToggle.vue'
 import AdSidebar from './components/common/AdSidebar.vue'
 import KofiWidget from './components/common/KofiWidget.vue'
 import CookieConsent from './components/common/CookieConsent.vue'
 import { useModalAccessibility } from './composables/useModalAccessibility'
-import { Activity, BarChart2, Globe, Shirt, Clapperboard, LogOut, Database } from 'lucide-vue-next'
+import { Activity, BarChart2, Globe, Shirt, Clapperboard, LogOut, Database, Shield, ChevronDown, User } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
@@ -21,6 +35,8 @@ const showAds = computed(() => {
   const noAdRoutes = ['/', '/privacy-policy', '/terms-of-service', '/contact']
   return !noAdRoutes.includes(route.path)
 })
+
+const showUserMenu = ref(false)
 
 // Display name edit modal state
 const showNameModal = ref(false)
@@ -114,13 +130,30 @@ async function submitNameChange() {
           
           <div v-if="!authStore.loading" class="auth-buttons">
             <template v-if="authStore.user">
-              <span 
-                class="user-greeting is-clickable" 
-                @click="openNameModal" 
-                title="Click to set your Display Name"
-              >
-                Hi, {{ authStore.user?.user_metadata?.display_name || authStore.user?.email.split('@')[0] || 'Admin' }}
-              </span>
+              <div class="user-menu-wrapper" v-click-outside="() => { showUserMenu = false }">
+                <span
+                  class="user-greeting is-clickable"
+                  @click="showUserMenu = !showUserMenu"
+                  title="Account menu"
+                >
+                  Hi, {{ authStore.user?.user_metadata?.display_name || authStore.user?.email.split('@')[0] || 'Admin' }}
+                  <ChevronDown :size="14" class="menu-chevron" :class="{ rotated: showUserMenu }" />
+                </span>
+                <div v-if="showUserMenu" class="user-dropdown" @click="showUserMenu = false">
+                  <RouterLink to="/profile" class="dropdown-item">
+                    <User :size="15" /> My Profile
+                  </RouterLink>
+                  <template v-if="authStore.isAdmin">
+                    <div class="dropdown-divider"></div>
+                    <RouterLink to="/admin/players" class="dropdown-item dropdown-item--admin">
+                      <Database :size="15" /> Players DB
+                    </RouterLink>
+                    <RouterLink to="/admin/panel" class="dropdown-item dropdown-item--admin">
+                      <Shield :size="15" /> Admin Panel
+                    </RouterLink>
+                  </template>
+                </div>
+              </div>
               <button class="btn-logout" @click="authStore.logout()" title="Log Out" aria-label="Log out">
                 <LogOut class="logout-icon" :size="18" />
               </button>
@@ -319,6 +352,10 @@ async function submitNameChange() {
   background: rgba(239, 68, 68, 0.15); /* Red */
   color: #ef4444;
 }
+.icon-admin-panel {
+  background: rgba(99, 102, 241, 0.15); /* Indigo */
+  color: #6366f1;
+}
 
 [data-theme="dark"] .icon-live { color: #4ade80; }
 [data-theme="dark"] .icon-analysis { color: #c084fc; }
@@ -326,6 +363,7 @@ async function submitNameChange() {
 [data-theme="dark"] .icon-gallery { color: #f472b6; }
 [data-theme="dark"] .icon-guides { color: #fbbf24; }
 [data-theme="dark"] .icon-admin { color: #f87171; }
+[data-theme="dark"] .icon-admin-panel { color: #818cf8; }
 
 .nav-icon {
   /* Removed global size here since controlled by wrapper */
@@ -361,7 +399,67 @@ async function submitNameChange() {
 
 .user-greeting.is-clickable:hover {
   color: var(--color-text-primary);
-  text-decoration: underline;
+}
+
+.user-menu-wrapper {
+  position: relative;
+}
+
+.menu-chevron {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 2px;
+  transition: transform var(--transition-fast);
+}
+
+.menu-chevron.rotated {
+  transform: rotate(180deg);
+}
+
+.user-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  min-width: 160px;
+  z-index: var(--z-dropdown);
+  overflow: hidden;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  text-decoration: none;
+  transition: background var(--transition-fast), color var(--transition-fast);
+  white-space: nowrap;
+}
+
+.dropdown-item:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.dropdown-item--admin {
+  color: #6366f1;
+}
+
+.dropdown-item--admin:hover {
+  background: rgba(99, 102, 241, 0.08);
+  color: #6366f1;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: var(--space-1) 0;
 }
 
 .btn-login {
