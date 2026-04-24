@@ -103,19 +103,23 @@ async def upload_avatar(
     if len(content) > MAX_AVATAR_SIZE:
         raise HTTPException(status_code=422, detail="Image must be under 2MB")
 
-    ext = (image.filename or "avatar.png").split(".")[-1]
+    MIME_TO_EXT = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
+    ext = MIME_TO_EXT.get(image.content_type, "jpg")
     path = f"{user.id}/avatar.{ext}"
     supabase = get_supabase()
     try:
         supabase.storage.from_("avatars").remove([path])
     except Exception:
         pass
-    supabase.storage.from_("avatars").upload(
-        file=content,
-        path=path,
-        file_options={"content-type": image.content_type or "image/png"},
-    )
-    public_url = supabase.storage.from_("avatars").get_public_url(path)
+    try:
+        supabase.storage.from_("avatars").upload(
+            file=content,
+            path=path,
+            file_options={"content-type": image.content_type or "image/png"},
+        )
+        public_url = supabase.storage.from_("avatars").get_public_url(path)
+    except Exception:
+        raise HTTPException(status_code=422, detail="Failed to upload avatar. Please try again.")
 
     profile = await _get_or_create_profile(user, db)
     profile.avatar_url = public_url

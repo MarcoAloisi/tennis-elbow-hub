@@ -4,7 +4,7 @@ from typing import Optional
 from sqlalchemy import Boolean, Date, DateTime, String, Text, func
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from app.core.database import Base
 
 
@@ -60,5 +60,4 @@ class UserProfileOut(BaseModel):
     created_at: datetime
     player_stats: Optional[PlayerStatsOut] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
