@@ -11,6 +11,17 @@ const password = ref('')
 const isSubmitting = ref(false)
 const errorMessage = ref('')
 
+async function handleForgotPassword() {
+  const email = prompt('Enter your email address:')
+  if (!email) return
+  try {
+    await authStore.resetPassword(email)
+    alert('Password reset email sent! Check your inbox.')
+  } catch {
+    alert('Failed to send reset email. Please try again.')
+  }
+}
+
 const handleLogin = async () => {
   if (!email.value || !password.value) return
   
@@ -71,6 +82,11 @@ const handleLogin = async () => {
           <span v-else>Sign In</span>
         </button>
       </form>
+
+      <div class="auth-links">
+        <router-link to="/signup" class="auth-link">Don't have an account? Sign up</router-link>
+        <button type="button" class="auth-link-btn" @click="handleForgotPassword">Forgot password?</button>
+      </div>
     </div>
   </div>
 </template>
@@ -201,6 +217,27 @@ input:disabled {
 
 .btn-block {
   width: 100%;
+}
+
+.auth-links {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+.auth-link {
+  color: var(--color-brand-primary);
+  text-decoration: none;
+  font-size: 14px;
+}
+.auth-link-btn {
+  background: none;
+  border: none;
+  color: var(--color-brand-primary);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0;
 }
 </style>
 

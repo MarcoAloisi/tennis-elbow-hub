@@ -119,6 +119,36 @@ export const useAuthStore = defineStore('auth', () => {
         }
     }
 
+    const resetPassword = async (email: string): Promise<void> => {
+        loading.value = true
+        error.value = null
+        try {
+            const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: `${window.location.origin}/reset-password`,
+            })
+            if (err) throw err
+        } catch (e: any) {
+            error.value = e.message || 'Failed to send reset email'
+            throw e
+        } finally {
+            loading.value = false
+        }
+    }
+
+    const updatePassword = async (newPassword: string): Promise<void> => {
+        loading.value = true
+        error.value = null
+        try {
+            const { error: err } = await supabase.auth.updateUser({ password: newPassword })
+            if (err) throw err
+        } catch (e: any) {
+            error.value = e.message || 'Failed to update password'
+            throw e
+        } finally {
+            loading.value = false
+        }
+    }
+
     function clearError(): void {
         error.value = null
     }
@@ -134,6 +164,8 @@ export const useAuthStore = defineStore('auth', () => {
         login,
         logout,
         updateDisplayName,
+        resetPassword,
+        updatePassword,
         clearError
     }
 })
