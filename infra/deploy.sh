@@ -7,7 +7,9 @@ set -e
 cd /var/www/te4
 
 echo "Pulling latest code..."
-git pull
+git fetch origin
+git checkout ionos-migration
+git pull origin ionos-migration
 
 echo "Installing backend deps..."
 cd backend
