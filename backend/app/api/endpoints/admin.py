@@ -5,6 +5,7 @@ Provides endpoints for admin-only features, protected by the require_admin depen
 
 import csv
 import io
+from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -14,6 +15,7 @@ from app.api.deps import get_db, require_admin
 from app.core.limiter import limiter
 from app.core.logging import get_logger
 from app.models.player_alias import PlayerAlias
+from app.models.user_profile import UserProfile
 
 logger = get_logger("api.admin")
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -247,4 +249,71 @@ async def rename_canonical(
 
     await db.commit()
     return {"old_name": old_name, "new_name": new_name, "aliases_updated": updated_count}
+
+
+# ─── Profile Verification ───────────────────────────────────────
+
+
+@router.get("/profile-verifications")
+@limiter.limit("60/minute")
+async def list_pending_verifications(
+    request: Request,
+    _admin: Any = Depends(require_admin),
+    db=Depends(get_db),
+):
+    """List user profiles pending player name verification."""
+    result = await db.execute(
+        select(UserProfile).where(
+            UserProfile.player_name.isnot(None),
+            UserProfile.player_verified == False,  # noqa: E712
+        )
+    )
+    profiles = result.scalars().all()
+    return [
+        {
+            "user_id": p.id,
+            "display_name": p.display_name,
+            "in_game_name": p.in_game_name,
+            "player_name": p.player_name,
+            "created_at": p.created_at,
+        }
+        for p in profiles
+    ]
+
+
+@router.post("/profile-verifications/{user_id}/approve")
+@limiter.limit("60/minute")
+async def approve_player_link(
+    request: Request,
+    user_id: str,
+    _admin: Any = Depends(require_admin),
+    db=Depends(get_db),
+):
+    """Approve a user's player name link."""
+    result = await db.execute(select(UserProfile).where(UserProfile.id == user_id))
+    profile = result.scalar_one_or_none()
+    if profile is None:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    profile.player_verified = True
+    await db.commit()
+    return {"approved": True, "player_name": profile.player_name}
+
+
+@router.post("/profile-verifications/{user_id}/reject")
+@limiter.limit("60/minute")
+async def reject_player_link(
+    request: Request,
+    user_id: str,
+    _admin: Any = Depends(require_admin),
+    db=Depends(get_db),
+):
+    """Reject a user's player name link."""
+    result = await db.execute(select(UserProfile).where(UserProfile.id == user_id))
+    profile = result.scalar_one_or_none()
+    if profile is None:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    profile.player_name = None
+    profile.player_verified = False
+    await db.commit()
+    return {"rejected": True}
 
