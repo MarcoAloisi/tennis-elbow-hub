@@ -7,7 +7,7 @@ set -e
 cd /var/www/te4
 
 echo "Pulling latest code..."
-git pull origin main
+git pull
 
 echo "Installing backend deps..."
 cd backend

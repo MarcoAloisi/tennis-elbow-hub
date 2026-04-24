@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -52,6 +52,36 @@ async def _build_profile_out(profile: UserProfile) -> UserProfileOut:
         except Exception:
             pass
     return out
+
+
+@router.get("/search")
+@limiter.limit("30/minute")
+async def search_profiles(
+    request: Request,
+    q: str = Query(..., min_length=2, max_length=50),
+    _user: Any = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    """Search approved user profiles by display name."""
+    result = await db.execute(
+        select(UserProfile)
+        .where(
+            UserProfile.approved == True,  # noqa: E712
+            UserProfile.display_name.ilike(f"%{q}%"),
+        )
+        .limit(20)
+    )
+    profiles = result.scalars().all()
+    return [
+        {
+            "user_id": p.id,
+            "display_name": p.display_name,
+            "avatar_url": p.avatar_url,
+            "player_name": p.player_name if p.player_verified else None,
+            "player_verified": p.player_verified,
+        }
+        for p in profiles
+    ]
 
 
 @router.get("/me", response_model=UserProfileOut)

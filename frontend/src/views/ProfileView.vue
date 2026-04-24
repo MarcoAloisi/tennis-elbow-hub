@@ -131,14 +131,93 @@
       </form>
 
     </div>
+
+    <!-- Find a Player -->
+    <div class="search-section">
+      <h2 class="search-title">Find a Player</h2>
+      <div class="search-bar">
+        <Search :size="16" class="search-icon" />
+        <input
+          v-model="searchQuery"
+          @input="onSearchInput"
+          type="text"
+          placeholder="Search by display name…"
+          class="search-input"
+        />
+      </div>
+      <p v-if="searchError" class="search-error">{{ searchError }}</p>
+      <div v-if="searchLoading" class="search-loading">Searching…</div>
+      <div v-else-if="searchResults.length" class="search-results">
+        <div
+          v-for="r in searchResults"
+          :key="r.user_id"
+          class="search-result-card"
+          @click="router.push(`/profile/${r.user_id}`)"
+        >
+          <img
+            :src="r.avatar_url || `https://ui-avatars.com/api/?background=3BB143&color=fff&name=${encodeURIComponent(r.display_name)}`"
+            class="result-avatar"
+            alt=""
+          />
+          <div class="result-info">
+            <span class="result-name">{{ r.display_name }}</span>
+            <span v-if="r.player_verified && r.player_name" class="result-player">{{ r.player_name }} ✓</span>
+          </div>
+        </div>
+      </div>
+      <p v-else-if="searchQuery.length >= 2 && !searchLoading" class="search-empty">No players found.</p>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { Search } from 'lucide-vue-next'
 import { useProfile } from '@/composables/useProfile'
+import { apiUrl } from '@/config/api'
+import { supabase } from '@/config/supabase'
 
+const router = useRouter()
 const { profile, loading, error, fetchMyProfile, updateProfile, uploadAvatar, fetchPlayers } = useProfile()
+
+// User search
+interface SearchResult {
+  user_id: string
+  display_name: string
+  avatar_url: string | null
+  player_name: string | null
+  player_verified: boolean
+}
+const searchQuery = ref('')
+const searchResults = ref<SearchResult[]>([])
+const searchLoading = ref(false)
+const searchError = ref('')
+let searchTimeout: ReturnType<typeof setTimeout> | null = null
+
+async function doSearch() {
+  const q = searchQuery.value.trim()
+  if (q.length < 2) { searchResults.value = []; return }
+  searchLoading.value = true
+  searchError.value = ''
+  try {
+    const { data } = await supabase.auth.getSession()
+    const res = await fetch(apiUrl(`/api/profile/search?q=${encodeURIComponent(q)}`), {
+      headers: { Authorization: `Bearer ${data.session?.access_token}` },
+    })
+    if (!res.ok) throw new Error()
+    searchResults.value = await res.json()
+  } catch {
+    searchError.value = 'Search failed.'
+  } finally {
+    searchLoading.value = false
+  }
+}
+
+function onSearchInput() {
+  if (searchTimeout) clearTimeout(searchTimeout)
+  searchTimeout = setTimeout(doSearch, 350)
+}
 
 const editMode = ref(false)
 const saving = ref(false)
@@ -398,5 +477,99 @@ button[type="submit"] {
 button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* Search section */
+.search-section {
+  max-width: 700px;
+  margin: 2rem auto 0;
+  padding: 1.5rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+.search-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 1rem 0;
+}
+.search-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+.search-input {
+  width: 100%;
+  padding: 10px 12px 10px 36px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  font-size: 14px;
+  box-sizing: border-box;
+  transition: border-color var(--transition-fast);
+}
+.search-input:focus {
+  outline: none;
+  border-color: var(--color-brand-primary);
+}
+.search-loading, .search-empty, .search-error {
+  font-size: 14px;
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: 1rem 0;
+  margin: 0;
+}
+.search-error { color: var(--color-error); }
+.search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+.search-result-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.search-result-card:hover {
+  border-color: var(--color-brand-primary);
+  background: var(--color-bg-hover);
+}
+.result-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.result-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.result-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--color-text-primary);
+}
+.result-player {
+  font-size: 12px;
+  color: var(--color-brand-primary);
 }
 </style>
