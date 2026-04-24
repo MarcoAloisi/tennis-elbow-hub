@@ -15,6 +15,11 @@ const LoginView = () => import('../views/LoginView.vue')
 const AdminPlayersView = () => import('../views/AdminPlayersView.vue')
 const PredictionView = () => import('../views/PredictionView.vue')
 
+const SignupView = () => import('../views/SignupView.vue')
+const ResetPasswordView = () => import('../views/ResetPasswordView.vue')
+const ProfileView = () => import('../views/ProfileView.vue')
+const PublicProfileView = () => import('../views/PublicProfileView.vue')
+
 const routes: RouteRecordRaw[] = [
     {
         path: '/',
@@ -32,6 +37,44 @@ const routes: RouteRecordRaw[] = [
         meta: {
             title: 'Log In',
             description: 'Log in to your Tennis Elbow Hub account to upload and manage outfits.'
+        }
+    },
+    {
+        path: '/signup',
+        name: 'Signup',
+        component: SignupView,
+        meta: {
+            title: 'Sign Up',
+            description: 'Create a new Tennis Elbow Hub account.'
+        }
+    },
+    {
+        path: '/reset-password',
+        name: 'ResetPassword',
+        component: ResetPasswordView,
+        meta: {
+            title: 'Reset Password',
+            description: 'Reset your Tennis Elbow Hub account password.'
+        }
+    },
+    {
+        path: '/profile',
+        name: 'Profile',
+        component: ProfileView,
+        meta: {
+            title: 'Profile',
+            description: 'View and edit your Tennis Elbow Hub profile.',
+            requiresAuth: true
+        }
+    },
+    {
+        path: '/profile/:userId',
+        name: 'PublicProfile',
+        component: PublicProfileView,
+        meta: {
+            title: 'Profile',
+            description: 'View player profile.',
+            requiresAuth: true
         }
     },
     {
@@ -181,6 +224,15 @@ router.beforeEach(async (to, from, next) => {
     const descriptionMeta = document.querySelector('meta[name="description"]')
     if (descriptionMeta && to.meta.description) {
         descriptionMeta.setAttribute('content', to.meta.description as string)
+    }
+
+    // Auth route guard
+    if (to.meta.requiresAuth) {
+        const { useAuthStore } = await import('../stores/auth')
+        const authStore = useAuthStore()
+        if (!authStore.user) {
+            return next('/login')
+        }
     }
 
     // Admin route guard
