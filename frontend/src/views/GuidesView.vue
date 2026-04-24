@@ -122,8 +122,8 @@ function onFormSaved() {
         <h1>Guides</h1>
         <p class="subtitle">Tutorials and articles to help you master Tennis Elbow 4.</p>
       </div>
-      <button v-if="authStore.isAdmin" class="btn-primary" @click="openAddForm">
-        <span class="icon"><Plus :size="16" stroke-width="2.5" /></span> Add Guide
+      <button v-if="authStore.isAdmin" class="btn btn-primary" @click="openAddForm">
+        <Plus :size="15" stroke-width="2.5" /> Add Guide
       </button>
     </header>
 

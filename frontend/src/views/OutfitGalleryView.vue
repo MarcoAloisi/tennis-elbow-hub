@@ -223,8 +223,8 @@ const closeUploadModal = () => {
       </div>
       
       <!-- Upload Button (Only for logged-in users) -->
-      <button v-if="authStore.isAdmin" class="btn-primary" @click="openUploadModal">
-        <span class="icon"><Plus :size="16" stroke-width="2.5" /></span> Upload Outfit
+      <button v-if="authStore.isAdmin" class="btn btn-primary" @click="openUploadModal">
+        <Plus :size="15" stroke-width="2.5" /> Upload Outfit
       </button>
     </header>
 

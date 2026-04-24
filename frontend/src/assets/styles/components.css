@@ -11,35 +11,41 @@
     justify-content: center;
     gap: var(--space-2);
     padding: var(--space-3) var(--space-5);
+    font-family: var(--font-heading);
     font-weight: var(--font-weight-medium);
     font-size: var(--font-size-sm);
     border-radius: var(--radius-md);
+    border: none;
+    cursor: pointer;
     transition: all var(--transition-fast);
     white-space: nowrap;
+    line-height: 1;
 }
 
 .btn-primary {
     background: var(--color-brand-primary);
-    color: var(--color-text-inverse);
-    /* Black text on Neon Green usually */
+    color: #000;
     border: 1px solid transparent;
     font-weight: 700;
-    box-shadow: var(--shadow-sm);
+    letter-spacing: 0.01em;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0,0,0,0.06) inset;
 }
 
-/* Specific override for dark text on neon background if needed */
-[data-theme="dark"] .btn-primary {
-    color: #000000;
-    /* Force black text on neon green for readability */
+[data-theme="light"] .btn-primary {
+    color: #fff;
+    box-shadow: 0 1px 3px rgba(59, 177, 67, 0.3), 0 0 0 1px rgba(0,0,0,0.06) inset;
 }
 
 .btn-primary:hover {
+    filter: brightness(1.08);
     transform: translateY(-1px);
-    box-shadow: var(--shadow-md), var(--shadow-glow);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18), var(--shadow-glow);
 }
 
 .btn-primary:active {
+    filter: brightness(0.96);
     transform: translateY(0);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 .btn-secondary {
