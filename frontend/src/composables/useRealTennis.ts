@@ -47,6 +47,7 @@ export function useRealTennis() {
   let pollInterval: ReturnType<typeof setInterval> | null = null
 
   async function fetchScores() {
+    isLoading.value = true
     try {
       const res = await fetch(apiUrl('/api/real-tennis/scores'))
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -65,7 +66,6 @@ export function useRealTennis() {
   }
 
   onMounted(() => {
-    isLoading.value = true
     fetchScores()
     pollInterval = setInterval(fetchScores, POLL_INTERVAL_MS)
   })

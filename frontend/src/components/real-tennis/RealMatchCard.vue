@@ -19,7 +19,7 @@ function formatTime(ts: number | null): string {
           LIVE
         </span>
         <span v-else-if="match.status === 'upcoming'" class="badge badge-waiting">
-          {{ formatTime(match.start_timestamp) }}
+          {{ formatTime(match.start_timestamp) || 'TBD' }}
         </span>
         <span v-else class="badge badge-finished">✓ Finished</span>
 
