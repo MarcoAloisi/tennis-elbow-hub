@@ -3,77 +3,69 @@
 from fastapi.testclient import TestClient
 
 
-class TestTransformEvent:
-    def test_live_match(self):
-        from app.services.real_tennis_service import _transform_event
-        raw = {
-            "id": 123,
-            "tournament": {
-                "id": 1,
-                "name": "Wimbledon",
-                "category": {"name": "ATP"},
+def _make_comp(comp_id, state, p1_name, p2_name, p1_sets, p2_sets, date_str="2026-06-04T10:00Z"):
+    return {
+        "id": comp_id,
+        "date": date_str,
+        "status": {"type": {"state": state}},
+        "competitors": [
+            {
+                "order": 1,
+                "athlete": {"displayName": p1_name},
+                "linescores": [{"value": float(s)} for s in p1_sets],
             },
-            "roundInfo": {"name": "Quarter-finals"},
-            "homeTeam": {"name": "Djokovic"},
-            "awayTeam": {"name": "Alcaraz"},
-            "homeScore": {"period1": 6, "period2": 7},
-            "awayScore": {"period1": 4, "period2": 5},
-            "status": {"type": "inprogress"},
-            "startTimestamp": 1234567890,
-        }
-        result = _transform_event(raw)
-        assert result["id"] == 123
+            {
+                "order": 2,
+                "athlete": {"displayName": p2_name},
+                "linescores": [{"value": float(s)} for s in p2_sets],
+            },
+        ],
+    }
+
+
+class TestTransformCompetition:
+    def test_live_match(self):
+        from app.services.real_tennis_service import _transform_competition
+        comp = _make_comp("123", "in", "Djokovic", "Alcaraz", [6, 7], [4, 5])
+        result = _transform_competition(comp, "Wimbledon", "1", "ATP", "Men's Singles")
+        assert result["id"] == "123"
         assert result["player1"] == "Djokovic"
         assert result["player2"] == "Alcaraz"
         assert result["status"] == "live"
         assert result["score"]["sets"] == [[6, 4], [7, 5]]
         assert result["score"]["current_game"] is None
         assert result["tournament"]["name"] == "Wimbledon"
-        assert result["tournament"]["round"] == "Quarter-finals"
         assert result["tournament"]["category"] == "ATP"
+        assert result["tournament"]["round"] == "Men's Singles"
 
     def test_upcoming_match_has_empty_sets(self):
-        from app.services.real_tennis_service import _transform_event
-        raw = {
-            "id": 456,
-            "tournament": {"id": 2, "name": "US Open", "category": {"name": "WTA"}},
-            "roundInfo": {"name": "Round 1"},
-            "homeTeam": {"name": "Swiatek"},
-            "awayTeam": {"name": "Gauff"},
-            "homeScore": {},
-            "awayScore": {},
-            "status": {"type": "notstarted"},
-            "startTimestamp": 1700000000,
-        }
-        result = _transform_event(raw)
+        from app.services.real_tennis_service import _transform_competition
+        comp = _make_comp("456", "pre", "Swiatek", "Gauff", [], [])
+        result = _transform_competition(comp, "Roland Garros", "2", "WTA", "Women's Singles")
         assert result["status"] == "upcoming"
         assert result["score"]["sets"] == []
 
     def test_completed_match(self):
-        from app.services.real_tennis_service import _transform_event
-        raw = {
-            "id": 789,
-            "tournament": {"id": 1, "name": "Wimbledon", "category": {"name": "ATP"}},
-            "roundInfo": {},
-            "homeTeam": {"name": "Federer"},
-            "awayTeam": {"name": "Nadal"},
-            "homeScore": {"period1": 6, "period2": 3, "period3": 6},
-            "awayScore": {"period1": 4, "period2": 6, "period3": 4},
-            "status": {"type": "finished"},
-            "startTimestamp": 1700000000,
-        }
-        result = _transform_event(raw)
+        from app.services.real_tennis_service import _transform_competition
+        comp = _make_comp("789", "post", "Federer", "Nadal", [6, 3, 6], [4, 6, 4])
+        result = _transform_competition(comp, "Wimbledon", "1", "ATP", "Men's Singles")
         assert result["status"] == "completed"
         assert result["score"]["sets"] == [[6, 4], [3, 6], [6, 4]]
 
-    def test_missing_fields_handled_gracefully(self):
-        from app.services.real_tennis_service import _transform_event
-        raw = {"id": 999, "status": {"type": "notstarted"}}
-        result = _transform_event(raw)
-        assert result["player1"] == "Unknown"
-        assert result["player2"] == "Unknown"
-        assert result["score"]["sets"] == []
-        assert result["tournament"]["name"] == ""
+    def test_missing_id_returns_none(self):
+        from app.services.real_tennis_service import _transform_competition
+        comp = {"status": {"type": {"state": "pre"}}, "competitors": [
+            {"order": 1, "athlete": {"displayName": "A"}, "linescores": []},
+            {"order": 2, "athlete": {"displayName": "B"}, "linescores": []},
+        ]}
+        assert _transform_competition(comp, "T", "1", "ATP", "Singles") is None
+
+    def test_fewer_than_two_competitors_returns_none(self):
+        from app.services.real_tennis_service import _transform_competition
+        comp = {"id": "99", "status": {"type": {"state": "pre"}}, "competitors": [
+            {"order": 1, "athlete": {"displayName": "A"}, "linescores": []},
+        ]}
+        assert _transform_competition(comp, "T", "1", "ATP", "Singles") is None
 
 
 class TestExtractTournaments:
