@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onMounted, watch } from 'vue'
+import { onMounted, ref, watch } from 'vue'
+import RealTennisScores from '@/components/real-tennis/RealTennisScores.vue'
 import { useScoresStore } from '@/stores/scores'
 import { useWebSocket } from '@/composables/useWebSocket'
 import { wsUrl } from '@/config/api'
@@ -11,6 +12,7 @@ import MonthlyOverview from '@/components/scores/MonthlyOverview.vue'
 import { Activity } from 'lucide-vue-next'
 
 const store = useScoresStore()
+const activeTab = ref<'te4' | 'real'>('te4')
 
 // WebSocket for real-time updates
 const { data: wsData, isConnected, error: wsError } = useWebSocket(wsUrl('/api/scores/ws'))
@@ -105,60 +107,84 @@ function formatTime(isoString: string) {
     </div>
 
 
-    <!-- Monthly Stats & Top Players Section -->
-    <MonthlyOverview />
-
-    <!-- Filters -->
-    <FilterBar 
-      :filters="store.filters"
-      @update:filters="handleFilterUpdate"
-      @refresh="handleRefresh"
-    />
-
-    <!-- Error state -->
-    <ErrorAlert 
-      v-if="store.error || wsError"
-      :message="store.error || wsError"
-      type="error"
-      @dismiss="store.clearError()"
-    />
-
-    <!-- Loading state -->
-    <div v-if="store.isLoading && !store.servers.length" class="loading-state">
-      <LoadingSpinner size="lg" />
-      <p>Loading matches...</p>
+    <!-- Tab switcher -->
+    <div class="tab-switcher">
+      <button
+        class="tab-btn"
+        :class="{ active: activeTab === 'te4' }"
+        @click="activeTab = 'te4'"
+      >
+        TE4 Live
+      </button>
+      <button
+        class="tab-btn"
+        :class="{ active: activeTab === 'real' }"
+        @click="activeTab = 'real'"
+      >
+        Real Tennis
+      </button>
     </div>
 
-    <!-- Empty state -->
-    <div 
-      v-else-if="!store.filteredServers.length" 
-      class="empty-state"
-    >
-      <div class="empty-icon-wrapper">
-        <Activity class="empty-icon" :size="64" :stroke-width="1.5" />
-      </div>
-      <h3>No matches found</h3>
-      <p v-if="store.filters.searchQuery || store.filters.surface || store.filters.startedOnly">
-        Try adjusting your filters
-      </p>
-      <p v-else>
-        No live matches at the moment. Check back later!
-      </p>
-    </div>
+    <!-- TE4 content -->
+    <template v-if="activeTab === 'te4'">
+      <!-- Monthly Stats & Top Players Section -->
+      <MonthlyOverview />
 
-    <!-- Match grid -->
-    <div v-else class="matches-grid">
-      <MatchCard
-        v-for="server in store.filteredServers"
-        :key="server.creation_time_ms"
-        :server="server"
+      <!-- Filters -->
+      <FilterBar
+        :filters="store.filters"
+        @update:filters="handleFilterUpdate"
+        @refresh="handleRefresh"
       />
-    </div>
 
-    <!-- Last updated -->
-    <div v-if="store.lastUpdated" class="last-updated">
-      Last updated: {{ formatTime(store.lastUpdated) }}
-    </div>
+      <!-- Error state -->
+      <ErrorAlert
+        v-if="store.error || wsError"
+        :message="store.error || wsError"
+        type="error"
+        @dismiss="store.clearError()"
+      />
+
+      <!-- Loading state -->
+      <div v-if="store.isLoading && !store.servers.length" class="loading-state">
+        <LoadingSpinner size="lg" />
+        <p>Loading matches...</p>
+      </div>
+
+      <!-- Empty state -->
+      <div
+        v-else-if="!store.filteredServers.length"
+        class="empty-state"
+      >
+        <div class="empty-icon-wrapper">
+          <Activity class="empty-icon" :size="64" :stroke-width="1.5" />
+        </div>
+        <h3>No matches found</h3>
+        <p v-if="store.filters.searchQuery || store.filters.surface || store.filters.startedOnly">
+          Try adjusting your filters
+        </p>
+        <p v-else>
+          No live matches at the moment. Check back later!
+        </p>
+      </div>
+
+      <!-- Match grid -->
+      <div v-else class="matches-grid">
+        <MatchCard
+          v-for="server in store.filteredServers"
+          :key="server.creation_time_ms"
+          :server="server"
+        />
+      </div>
+
+      <!-- Last updated -->
+      <div v-if="store.lastUpdated" class="last-updated">
+        Last updated: {{ formatTime(store.lastUpdated) }}
+      </div>
+    </template>
+
+    <!-- Real Tennis content -->
+    <RealTennisScores v-else />
   </div>
 </template>
 
@@ -439,6 +465,40 @@ function formatTime(isoString: string) {
   .matches-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* Tab switcher */
+.tab-switcher {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: var(--space-2);
+}
+
+.tab-btn {
+  padding: var(--space-2) var(--space-5);
+  border-radius: var(--radius-full);
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  letter-spacing: 0.02em;
+}
+
+.tab-btn:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+
+.tab-btn.active {
+  color: var(--color-brand-primary);
+  border-color: var(--color-brand-primary);
+  background: var(--color-bg-secondary);
 }
 
 </style>
