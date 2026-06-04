@@ -19,6 +19,7 @@ _HEADERS = {
 }
 _CACHE_TTL = 30  # seconds
 _cache: dict[str, Any] = {"data": None, "fetched_at": 0.0}
+_fetch_lock = asyncio.Lock()
 
 
 def _transform_event(event: dict) -> dict:
@@ -84,6 +85,18 @@ async def fetch_real_tennis_scores() -> dict:
     if _cache["data"] is not None and (now - _cache["fetched_at"]) < _CACHE_TTL:
         return {**_cache["data"], "stale": False}
 
+    async with _fetch_lock:
+        # Re-check after acquiring the lock — another coroutine may have
+        # already populated the cache while we were waiting.
+        now = time.time()
+        if _cache["data"] is not None and (now - _cache["fetched_at"]) < _CACHE_TTL:
+            return {**_cache["data"], "stale": False}
+
+        return await _do_fetch(now)
+
+
+async def _do_fetch(now: float) -> dict:
+    """Perform the actual HTTP fetch and update the cache."""
     today = date.today().isoformat()
     try:
         async with httpx.AsyncClient(
@@ -109,12 +122,14 @@ async def fetch_real_tennis_scores() -> dict:
             "stale": True,
         }
 
-    live_ids = {e["id"] for e in live_events}
+    live_ids = {e["id"] for e in live_events if "id" in e}
     live_matches = [_transform_event(e) for e in live_events]
 
     upcoming: list[dict] = []
     completed: list[dict] = []
     for e in today_events:
+        if "id" not in e:
+            continue
         if e.get("id") in live_ids:
             continue
         m = _transform_event(e)
