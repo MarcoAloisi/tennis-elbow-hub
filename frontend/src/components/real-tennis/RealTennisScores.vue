@@ -205,7 +205,7 @@ const hasMatches = computed(
   height: 96px;
   border-radius: 50%;
   background: rgba(34, 197, 94, 0.1);
-  color: #22c55e;
+  color: var(--color-brand-live);
   margin-bottom: var(--space-6);
   box-shadow: 0 0 20px rgba(34, 197, 94, 0.2);
 }
