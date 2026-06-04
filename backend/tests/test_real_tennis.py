@@ -102,3 +102,53 @@ class TestExtractTournaments:
     def test_empty_input_returns_empty_list(self):
         from app.services.real_tennis_service import _extract_tournaments
         assert _extract_tournaments([]) == []
+
+
+class TestRealTennisEndpoint:
+    def test_endpoint_returns_correct_shape(self, client: TestClient) -> None:
+        from unittest.mock import AsyncMock, patch
+
+        mock_data = {
+            "live": [],
+            "upcoming": [],
+            "completed": [],
+            "tournaments": [],
+            "cached_at": "2026-06-04T12:00:00+00:00",
+            "stale": False,
+        }
+        with patch(
+            "app.api.endpoints.real_tennis.fetch_real_tennis_scores",
+            new_callable=AsyncMock,
+            return_value=mock_data,
+        ):
+            response = client.get("/api/real-tennis/scores")
+
+        assert response.status_code == 200
+        data = response.json()
+        for key in ("live", "upcoming", "completed", "tournaments", "stale"):
+            assert key in data
+        assert isinstance(data["live"], list)
+        assert isinstance(data["upcoming"], list)
+        assert isinstance(data["completed"], list)
+        assert isinstance(data["tournaments"], list)
+
+    def test_endpoint_propagates_stale_flag(self, client: TestClient) -> None:
+        from unittest.mock import AsyncMock, patch
+
+        mock_data = {
+            "live": [],
+            "upcoming": [],
+            "completed": [],
+            "tournaments": [],
+            "cached_at": None,
+            "stale": True,
+        }
+        with patch(
+            "app.api.endpoints.real_tennis.fetch_real_tennis_scores",
+            new_callable=AsyncMock,
+            return_value=mock_data,
+        ):
+            response = client.get("/api/real-tennis/scores")
+
+        assert response.status_code == 200
+        assert response.json()["stale"] is True
