@@ -89,6 +89,9 @@ class Settings(BaseSettings):
     openrouter_api_key: str = ""
     openrouter_model: str = "openai/gpt-oss-120b"
 
+    # AllSports API (real tennis scores)
+    allsports_api_key: str = ""
+
     @property
     def max_upload_size_bytes(self) -> int:
         """Get maximum upload size in bytes."""
