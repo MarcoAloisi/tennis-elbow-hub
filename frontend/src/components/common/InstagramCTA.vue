@@ -6,7 +6,7 @@ const visible = ref(false)
 
 onMounted(() => {
   if (!sessionStorage.getItem(DISMISSED_KEY)) {
-    setTimeout(() => { visible.value = true }, 5000)
+    visible.value = true
   }
 })
 
