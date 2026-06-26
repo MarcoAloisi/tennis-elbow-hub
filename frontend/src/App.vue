@@ -20,6 +20,7 @@ import ThemeToggle from './components/common/ThemeToggle.vue'
 import AdSidebar from './components/common/AdSidebar.vue'
 import KofiWidget from './components/common/KofiWidget.vue'
 import CookieConsent from './components/common/CookieConsent.vue'
+import InstagramCTA from './components/common/InstagramCTA.vue'
 import { useModalAccessibility } from './composables/useModalAccessibility'
 import { Activity, BarChart2, Globe, Shirt, Clapperboard, LogOut, Database, Shield, ChevronDown, User } from 'lucide-vue-next'
 
@@ -190,6 +191,9 @@ async function submitNameChange() {
 
     <!-- Ko-fi Widget -->
     <KofiWidget username="marcolinote4" />
+
+    <!-- Instagram CTA -->
+    <InstagramCTA />
 
     <!-- Display Name Edit Modal -->
     <div v-if="showNameModal" class="modal-overlay" @click.self="showNameModal = false" role="dialog" aria-modal="true" aria-label="Edit display name">
