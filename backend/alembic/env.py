@@ -24,7 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 # Add new model imports here as the project grows.
 from app.core.database import Base  # noqa: E402
 import app.models.guide  # noqa: F401, E402
-import app.models.outfit  # noqa: F401, E402
+from app.models.outfit import Outfit, OutfitRating  # noqa: F401, E402
 import app.models.player_alias  # noqa: F401, E402
 import app.models.daily_stats  # noqa: F401, E402
 import app.models.match_stats  # noqa: F401, E402

@@ -1,7 +1,7 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
-from sqlalchemy import DateTime, Integer, String, Text, Index
+from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, Index
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -27,6 +27,26 @@ class Outfit(Base):
     )
 
 
+class OutfitRating(Base):
+    """One rating (1-5) per user per outfit."""
+
+    __tablename__ = "outfit_ratings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    outfit_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("outfits.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[str] = mapped_column(String(50), nullable=False)
+    rating: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow
+    )
+
+    __table_args__ = (
+        UniqueConstraint("outfit_id", "user_id", name="uq_outfit_rating_user"),
+    )
+
+
 class OutfitBase(BaseModel):
     """Base schema for Outfit."""
     title: str
@@ -36,7 +56,6 @@ class OutfitBase(BaseModel):
 
 
 class OutfitCreate(OutfitBase):
-    """Schema for creating a new Outfit."""
     pass
 
 
@@ -45,6 +64,8 @@ class OutfitResponse(OutfitBase):
     id: int
     image_url: str
     created_at: datetime
+    avg_rating: float | None = None
+    rating_count: int = 0
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -56,3 +77,8 @@ class PaginatedOutfitResponse(BaseModel):
     page: int
     page_size: int
     total_pages: int
+
+
+class RatingIn(BaseModel):
+    """Request body for rating an outfit."""
+    rating: int = Field(..., ge=1, le=5)
