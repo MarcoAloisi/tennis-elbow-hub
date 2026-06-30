@@ -16,7 +16,7 @@ interface ScoreFilters {
 export const useScoresStore = defineStore('scores', () => {
     // State
     const servers = ref<any[]>([])
-    const isLoading = ref<boolean>(false)
+    const isLoading = ref<boolean>(true)
     const error = ref<string | null>(null)
     const lastUpdated = ref<string | null>(null)
     const filters = ref<ScoreFilters>({
