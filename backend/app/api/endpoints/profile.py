@@ -54,6 +54,20 @@ async def _build_profile_out(profile: UserProfile) -> UserProfileOut:
     return out
 
 
+@router.get("/players")
+@limiter.limit("60/minute")
+async def get_player_names(
+    request: Request,
+    _user: Any = Depends(get_current_user),
+) -> list[str]:
+    """Return all canonical player names for the profile linking dropdown."""
+    from app.services.stats_service import get_stats_service
+
+    stats_service = get_stats_service()
+    players = await stats_service.get_all_players_async()
+    return sorted(p["name"] for p in players)
+
+
 @router.get("/search")
 @limiter.limit("30/minute")
 async def search_profiles(

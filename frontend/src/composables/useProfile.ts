@@ -121,10 +121,9 @@ export function useProfile() {
   async function fetchPlayers(): Promise<string[]> {
     try {
       const headers = await authHeaders()
-      const res = await fetch(apiUrl('/api/admin/players'), { headers })
+      const res = await fetch(apiUrl('/api/profile/players'), { headers })
       if (!res.ok) return []
-      const data: { name: string }[] = await res.json()
-      return data.map((p) => p.name).sort()
+      return await res.json()
     } catch {
       return []
     }
