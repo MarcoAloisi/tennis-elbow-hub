@@ -3,7 +3,7 @@ import { computed, onMounted, watch } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
 import tourData from '@/data/onlineTours.json'
 import { useTourLogsStore } from '@/stores/tourLogs'
-import { ChartNoAxesCombined, Gamepad2, Film, MousePointerClick, Globe, Video, Trophy } from 'lucide-vue-next'
+import { ChartNoAxesCombined, Gamepad2, Film, MousePointerClick, Globe, Video, Trophy, Wrench } from 'lucide-vue-next'
 
 const route = useRoute()
 const tourLogsStore = useTourLogsStore()
@@ -189,6 +189,23 @@ watch(currentTourKey, (newKey) => {
               </div>
               <span class="link-arrow">→</span>
             </RouterLink>
+          </div>
+
+          <!-- Build Analyzer WIP (XKT only) -->
+          <div v-if="currentTourKey === 'xkt'" class="tour-stats-section">
+            <h3>Build Analyzer</h3>
+            <div class="link-card wip-card">
+              <span class="link-icon-wrapper mod-build">
+                <Wrench :size="24" stroke-width="2.5" />
+              </span>
+              <div class="tour-logs-content">
+                <span class="link-label">
+                  Build Analyzer
+                  <span class="wip-badge">Work in Progress</span>
+                </span>
+                <span class="link-sublabel">Analyze XKT player builds — coming soon.</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -680,6 +697,34 @@ watch(currentTourKey, (newKey) => {
   border-color: var(--color-warning);
 }
 .mod-predictions { color: var(--color-warning); background: rgba(245, 158, 11, 0.1); }
+
+.mod-build { color: #8b5cf6; background: rgba(139, 92, 246, 0.1); }
+
+.wip-card {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.wip-card:hover {
+  transform: none;
+  border-color: var(--color-border);
+  background: var(--color-bg-secondary);
+}
+
+.wip-badge {
+  display: inline-block;
+  margin-left: var(--space-2);
+  padding: 2px 8px;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.12);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: var(--radius-full);
+  vertical-align: middle;
+}
 
 /* Responsive */
 @media (max-width: 640px) {
