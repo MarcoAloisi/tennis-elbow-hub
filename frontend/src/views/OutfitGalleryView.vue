@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useOutfitsStore } from '@/stores/outfits'
 import { useAuthStore } from '@/stores/auth'
 import OutfitCard from '@/components/outfits/OutfitCard.vue'
@@ -71,10 +71,22 @@ onMounted(() => {
   outfitsStore.fetchOutfits()
   outfitsStore.fetchUploaders()
   window.addEventListener('paste', handlePaste)
+  // Fetch user's existing ratings if already logged in
+  if (authStore.user && authStore.session?.access_token) {
+    outfitsStore.fetchUserRatings(authStore.session.access_token)
+  }
 })
 
 onUnmounted(() => {
   window.removeEventListener('paste', handlePaste)
+})
+
+watch(() => authStore.user, (user) => {
+  if (user && authStore.session?.access_token) {
+    outfitsStore.fetchUserRatings(authStore.session.access_token)
+  } else {
+    outfitsStore.userRatings = {}
+  }
 })
 
 // Live search with debounce (replaces manual setTimeout pattern)
@@ -268,7 +280,11 @@ const closeUploadModal = () => {
     <!-- Gallery Grid -->
     <div class="gallery-grid" v-if="outfitsStore.outfits.length > 0">
       <div v-for="outfit in outfitsStore.outfits" :key="outfit.id" class="grid-item">
-        <OutfitCard :outfit="outfit" @edit="handleEditOutfit" />
+        <OutfitCard
+          :outfit="outfit"
+          :user-rating="outfitsStore.userRatings[outfit.id] ?? null"
+          @edit="handleEditOutfit"
+        />
       </div>
     </div>
     

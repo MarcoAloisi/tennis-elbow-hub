@@ -2,11 +2,16 @@
 import { computed, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useOutfitsStore } from '@/stores/outfits'
+import StarRating from '@/components/outfits/StarRating.vue'
 
 const props = defineProps({
   outfit: {
     type: Object,
     required: true
+  },
+  userRating: {
+    type: Number,
+    default: null
   }
 })
 
@@ -66,7 +71,15 @@ const formattedDate = computed(() => {
     
     <div class="card-content">
       <h3 class="outfit-title">{{ outfit.title }}</h3>
-      
+
+      <StarRating
+        :avg-rating="outfit.avg_rating ?? null"
+        :rating-count="outfit.rating_count ?? 0"
+        :user-rating="userRating"
+        :interactive="!!authStore.user"
+        @rate="(val) => outfitsStore.rateOutfit(outfit.id, val, authStore.session?.access_token ?? '')"
+      />
+
       <div class="meta-info">
         <span class="uploader">
           <span class="icon">👤</span> {{ outfit.uploader_name }}

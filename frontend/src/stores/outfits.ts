@@ -14,6 +14,8 @@ export const useOutfitsStore = defineStore('outfits', () => {
         totalPages: 1
     })
 
+    const userRatings = ref<Record<number, number>>({})
+
     interface FetchOutfitsParams {
         search?: string;
         uploader?: string;
@@ -158,17 +160,50 @@ export const useOutfitsStore = defineStore('outfits', () => {
         error.value = null
     }
 
+    async function fetchUserRatings(token: string) {
+        try {
+            const response = await fetch(apiUrl('/api/outfits/my-ratings'), {
+                headers: { Authorization: `Bearer ${token}` }
+            })
+            if (!response.ok) return
+            userRatings.value = await response.json()
+        } catch (err) {
+            console.error('Failed to fetch user ratings:', err)
+        }
+    }
+
+    async function rateOutfit(outfitId: number, rating: number, token: string) {
+        const response = await fetch(apiUrl(`/api/outfits/${outfitId}/rate`), {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ rating }),
+        })
+        if (!response.ok) throw new Error('Failed to rate outfit')
+        const updated = await response.json()
+        const index = outfits.value.findIndex((o: any) => o.id === outfitId)
+        if (index !== -1) {
+            outfits.value[index] = { ...outfits.value[index], ...updated }
+        }
+        userRatings.value[outfitId] = rating
+    }
+
     return {
         outfits,
         uploaders,
         loading,
         error,
         pagination,
+        userRatings,
         fetchOutfits,
         fetchUploaders,
         createOutfit,
         updateOutfit,
         deleteOutfit,
-        clearError
+        clearError,
+        fetchUserRatings,
+        rateOutfit
     }
 })
