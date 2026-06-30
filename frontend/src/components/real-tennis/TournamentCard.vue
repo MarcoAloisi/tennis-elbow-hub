@@ -6,7 +6,7 @@ defineProps<{
   active: boolean
 }>()
 
-defineEmits<{ select: [id: number] }>()
+defineEmits<{ select: [id: string] }>()
 </script>
 
 <template>

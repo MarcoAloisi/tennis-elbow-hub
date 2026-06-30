@@ -8,7 +8,7 @@ import ErrorAlert from '@/components/common/ErrorAlert.vue'
 import { Activity } from 'lucide-vue-next'
 
 const { live, upcoming, completed, tournaments, isLoading, error, stale, fetchScores } = useRealTennis()
-const selectedTournamentId = ref<number | null>(null)
+const selectedTournamentId = ref<string | null>(null)
 
 function filterByTournament(matches: RealTennisMatch[]): RealTennisMatch[] {
   if (selectedTournamentId.value === null) return matches
@@ -29,7 +29,7 @@ const hasMatches = computed(
     <ErrorAlert
       v-if="stale"
       type="warning"
-      message="Score data may be delayed — SofaScore temporarily unreachable"
+      message="Score data may be delayed — AllSports API temporarily unreachable"
       :dismissible="false"
     />
 

@@ -150,13 +150,27 @@ async def _do_fetch(now: float) -> dict:
             "tournaments": [], "cached_at": None, "stale": True,
         }
 
+    _FINISHED = {"finished", "ft", "after extra time", "aet", "ended"}
+
+    def _has_players(e: dict) -> bool:
+        return bool(e.get("event_home_team")) and bool(e.get("event_away_team"))
+
+    def _is_live_status(e: dict) -> bool:
+        return str(e.get("event_status") or "").strip().lower() not in _FINISHED | {"notstarted"}
+
     live_ids = {str(e.get("event_key", "")) for e in live_raw if e.get("event_key")}
-    live_matches = [_transform_event(e) for e in live_raw]
+    live_matches = [
+        _transform_event(e)
+        for e in live_raw
+        if _has_players(e) and _is_live_status(e)
+    ]
 
     upcoming: list[dict] = []
     completed: list[dict] = []
     for e in fixtures_raw:
         if str(e.get("event_key", "")) in live_ids:
+            continue
+        if not _has_players(e):
             continue
         m = _transform_event(e)
         if m["status"] == "upcoming":

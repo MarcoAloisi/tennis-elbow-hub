@@ -7,7 +7,7 @@ export interface RealTennisScore {
 }
 
 export interface RealTennisTournament {
-  id: number
+  id: string
   name: string
   category: string
   round: string
@@ -15,7 +15,7 @@ export interface RealTennisTournament {
 }
 
 export interface RealTennisMatch {
-  id: number
+  id: string
   player1: string
   player2: string
   score: RealTennisScore
