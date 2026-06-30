@@ -172,6 +172,10 @@ export const useOutfitsStore = defineStore('outfits', () => {
         }
     }
 
+    function clearUserRatings() {
+        userRatings.value = {}
+    }
+
     async function rateOutfit(outfitId: number, rating: number, token: string) {
         const response = await fetch(apiUrl(`/api/outfits/${outfitId}/rate`), {
             method: 'POST',
@@ -203,6 +207,7 @@ export const useOutfitsStore = defineStore('outfits', () => {
         updateOutfit,
         deleteOutfit,
         clearError,
+        clearUserRatings,
         fetchUserRatings,
         rateOutfit
     }

@@ -85,7 +85,7 @@ watch(() => authStore.user, (user) => {
   if (user && authStore.session?.access_token) {
     outfitsStore.fetchUserRatings(authStore.session.access_token)
   } else {
-    outfitsStore.userRatings = {}
+    outfitsStore.clearUserRatings()
   }
 })
 

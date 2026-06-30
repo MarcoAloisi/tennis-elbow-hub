@@ -47,6 +47,17 @@ const deleteOutfit = async () => {
   }
 }
 
+const rateError = ref<string | null>(null)
+
+async function handleRate(val: number) {
+  rateError.value = null
+  try {
+    await outfitsStore.rateOutfit(props.outfit.id, val, authStore.session?.access_token ?? '')
+  } catch {
+    rateError.value = 'Failed to submit rating. Please try again.'
+  }
+}
+
 // Format the date (e.g., "Feb 20, 2026")
 const formattedDate = computed(() => {
   if (!props.outfit.created_at) return ''
@@ -77,8 +88,9 @@ const formattedDate = computed(() => {
         :rating-count="outfit.rating_count ?? 0"
         :user-rating="userRating"
         :interactive="!!authStore.user"
-        @rate="(val) => outfitsStore.rateOutfit(outfit.id, val, authStore.session?.access_token ?? '')"
+        @rate="handleRate"
       />
+      <p v-if="rateError" class="rate-error">{{ rateError }}</p>
 
       <div class="meta-info">
         <span class="uploader">
@@ -312,5 +324,11 @@ const formattedDate = computed(() => {
 .btn-delete:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.rate-error {
+  font-size: var(--font-size-xs);
+  color: var(--color-error);
+  margin: 0 0 var(--space-2) 0;
 }
 </style>
