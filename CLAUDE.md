@@ -60,13 +60,14 @@ npm run test         # vitest
 ### Backend (`backend/app/`)
 
 - **`main.py`** — app factory. Mounts middleware (CORS, security headers, rate limiting), registers `api_router`, handles lifespan (DB init, scraper polling start/stop, stats flush on shutdown).
-- **`api/endpoints/`** — one file per feature: `live_scores.py`, `guides.py`, `outfits.py`, `match_analysis.py`, `tour_logs.py`, `admin.py`, `predictions.py`, `contact.py`.
+- **`api/endpoints/`** — one file per feature: `live_scores.py`, `guides.py`, `outfits.py`, `match_analysis.py`, `tour_logs.py`, `admin.py`, `predictions.py`, `contact.py`, `presence.py`.
 - **`api/router.py`** — mounts all endpoint routers.
 - **`api/deps.py`** — shared FastAPI dependencies: `get_db` (async DB session), `get_current_user` (Supabase JWT), `require_admin` (checks `app_metadata.role == "admin"`).
 - **`core/config.py`** — `Settings` via `pydantic-settings`, loaded from `.env`.
 - **`core/database.py`** — async SQLAlchemy engine + session factory. Uses `statement_cache_size=0` for Supabase pgbouncer compatibility.
 - **`models/`** — SQLAlchemy ORM models + Pydantic schemas (co-located per feature).
 - **`services/scraper.py`** — polls live scores URL, broadcasts via WebSocket `ConnectionManager`.
+- **`services/presence.py`** — tracks site-wide online guest/registered counts, broadcasts via presence WebSocket.
 - **`services/stats_service.py`** — in-memory stats accumulation, periodic DB flush.
 - **`services/analyzer.py` + `parser.py`** — parse uploaded match log HTML (multilingual: EN/ES/PL), extract stats.
 
@@ -125,6 +126,7 @@ const headers = { Authorization: `Bearer ${data.session?.access_token}` }
 - **`/docs`**: only enabled when `DEBUG=true` or `APP_ENV=development`.
 - **Match log parser**: handles English, Spanish, and Polish stat labels. `def`/`vs`/`Przegrana` as winner separators.
 - **Scraper User-Agent**: must always be `TennisTracker/1.0` — never change this value in any scraper (`scraper.py`, `tournament_scraper.py`). Managames whitelists this UA.
+- **Presence state**: in-memory only in `services/presence.py`, single-process — not safe to assume shared counts across multiple backend instances/workers.
 
 ## Environment Variables
 

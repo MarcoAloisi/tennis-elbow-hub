@@ -19,6 +19,7 @@ export default defineConfig(({ mode }) => {
         '/api': {
           target: env.VITE_API_URL || 'http://localhost:8000',
           changeOrigin: true,
+          ws: true,
         },
         '/ws': {
           target: env.VITE_API_URL?.replace('https', 'wss').replace('http', 'ws') || 'ws://localhost:8000',

@@ -5,9 +5,49 @@ with support for different log levels based on environment.
 """
 
 import logging
+import re
 import sys
 
 from app.core.config import get_settings
+
+# Matches a `token=...` query-string value up to the next `&`, quote, or
+# whitespace, so it can be redacted wherever it shows up in a log line.
+_TOKEN_QUERY_PARAM_RE = re.compile(r"token=[^&\"\s]+")
+
+
+def _redact_token(value: object) -> object:
+    """Redact a `token=...` query-string value in a string, leave other values untouched."""
+    if isinstance(value, str) and "token=" in value:
+        return _TOKEN_QUERY_PARAM_RE.sub("token=***REDACTED***", value)
+    return value
+
+
+class _RedactTokenFilter(logging.Filter):
+    """Redacts presence-token query strings from uvicorn's access log.
+
+    The presence WebSocket endpoint necessarily carries its auth token as a
+    `?token=...` URL query param (browsers can't set WS handshake headers).
+    nginx's `access_log off` on that location keeps nginx from persisting it,
+    but uvicorn's own `uvicorn.access` logger independently logs every
+    accepted connection's path (including the query string) to stdout, which
+    lands in the systemd journal. This filter redacts it before emission.
+
+    uvicorn's exact message/args format can vary, so instead of matching a
+    specific message string, this inspects every positional/keyword arg
+    attached to the record (uvicorn logs the path as one of the `%s` args)
+    and redacts any `token=...` found in a string arg, plus the raw message
+    itself as a fallback.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.args:
+            if isinstance(record.args, dict):
+                record.args = {k: _redact_token(v) for k, v in record.args.items()}
+            else:
+                record.args = tuple(_redact_token(a) for a in record.args)
+        if isinstance(record.msg, str):
+            record.msg = _redact_token(record.msg)
+        return True
 
 
 def setup_logging() -> logging.Logger:
@@ -38,6 +78,14 @@ def setup_logging() -> logging.Logger:
 
     # Prevent duplicate logs
     logger.propagate = False
+
+    # Redact presence-token query strings from uvicorn's access log, which
+    # is otherwise untouched by the app's own logging config (see
+    # _RedactTokenFilter docstring). Guard against double-registration in
+    # case setup_logging() ever runs more than once in a process.
+    uvicorn_access_logger = logging.getLogger("uvicorn.access")
+    if not any(isinstance(f, _RedactTokenFilter) for f in uvicorn_access_logger.filters):
+        uvicorn_access_logger.addFilter(_RedactTokenFilter())
 
     return logger
 

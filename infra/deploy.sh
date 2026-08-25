@@ -21,5 +21,8 @@ echo "Running migrations..."
 echo "Restarting backend..."
 sudo systemctl restart te4-backend
 
+echo "Reloading nginx..."
+sudo nginx -t && sudo systemctl reload nginx
+
 echo "Done. Check status:"
 sudo systemctl status te4-backend --no-pager
