@@ -106,3 +106,56 @@ async def test_broadcast_counts_sends_to_all_and_cleans_up_failed_sockets():
     assert good.sent == ['{"registered_count": 1, "guest_count": 1}']
     assert manager.is_online("user-1") is False
     assert manager.counts == {"registered_count": 0, "guest_count": 1}
+
+
+import pytest
+from fastapi.testclient import TestClient
+
+from app.main import app
+from app.services.presence import presence_manager
+
+client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def reset_presence_manager():
+    presence_manager.registered.clear()
+    presence_manager.guests.clear()
+    yield
+    presence_manager.registered.clear()
+    presence_manager.guests.clear()
+
+
+def test_presence_ws_guest_connect_receives_counts():
+    with client.websocket_connect("/api/presence/ws") as ws:
+        data = ws.receive_json()
+        assert data == {"registered_count": 0, "guest_count": 1}
+
+
+def test_presence_ws_invalid_token_counts_as_guest(monkeypatch):
+    monkeypatch.setattr("app.api.endpoints.presence.get_user_from_token", lambda token: None)
+    with client.websocket_connect("/api/presence/ws?token=bad-token") as ws:
+        data = ws.receive_json()
+        assert data == {"registered_count": 0, "guest_count": 1}
+
+
+def test_presence_ws_valid_token_counts_as_registered(monkeypatch):
+    class FakeUser:
+        id = "user-123"
+
+    monkeypatch.setattr("app.api.endpoints.presence.get_user_from_token", lambda token: FakeUser())
+    with client.websocket_connect("/api/presence/ws?token=good-token") as ws:
+        data = ws.receive_json()
+        assert data == {"registered_count": 1, "guest_count": 0}
+        assert presence_manager.is_online("user-123") is True
+
+
+def test_presence_ws_disconnect_updates_counts():
+    with client.websocket_connect("/api/presence/ws") as ws:
+        ws.receive_json()  # initial broadcast, ignored
+
+    # First connection is fully closed by now. A second connection's
+    # initial broadcast should reflect that the first one is gone.
+    with client.websocket_connect("/api/presence/ws") as ws2:
+        data = ws2.receive_json()
+        assert data == {"registered_count": 0, "guest_count": 1}

@@ -22,6 +22,7 @@ from app.core.limiter import limiter
 from app.core.logging import get_logger, setup_logging
 from app.core.security import get_security_headers
 from app.services.scraper import get_scraper_service
+from app.services.presence import presence_manager
 
 # Initialize logging
 setup_logging()
@@ -60,10 +61,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     
     await scraper.start_polling(interval=interval)
 
+    await presence_manager.start_periodic_broadcast()
+
     yield
 
     # Shutdown
     logger.info("Shutting down...")
+
+    await presence_manager.stop_periodic_broadcast()
 
     # Stop background polling
     scraper = get_scraper_service()

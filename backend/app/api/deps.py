@@ -52,6 +52,23 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 # ─── Authentication & Authorization ──────────────────────────────────
 
 
+def get_user_from_token(token: str) -> Any | None:
+    """Validate a Supabase JWT and return the user, or None if it's invalid/expired.
+
+    Unlike get_current_user, this never raises. Callers that should fail
+    open on a bad token (e.g. presence tracking, which is a headcount, not
+    an access gate) call this directly instead of the get_current_user
+    dependency.
+    """
+    try:
+        supabase = get_supabase()
+        user_response = supabase.auth.get_user(token)
+        return user_response.user if user_response and user_response.user else None
+    except Exception:
+        logger.exception("Token validation failed")
+        return None
+
+
 def get_current_user(authorization: Annotated[str, Header()]) -> Any:
     """Verify the JWT token and return the Supabase user.
 
@@ -70,25 +87,14 @@ def get_current_user(authorization: Annotated[str, Header()]) -> Any:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing or invalid Authorization header",
         )
-    token = parts[1]
-    supabase = get_supabase()
 
-    try:
-        user_response = supabase.auth.get_user(token)
-        if not user_response or not user_response.user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid or expired token",
-            )
-        return user_response.user
-    except HTTPException:
-        raise
-    except Exception:
-        logger.exception("Authentication failed")
+    user = get_user_from_token(parts[1])
+    if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication failed",
+            detail="Invalid or expired token",
         )
+    return user
 
 
 def require_admin(user: Any = Depends(get_current_user)) -> Any:
