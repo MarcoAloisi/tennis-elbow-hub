@@ -75,6 +75,8 @@ stats.db
 .claude/
 .playwright-mcp/
 .superpowers/brainstorm/
+.superpowers/sdd/
+.worktrees/
 
 skills-lock.json
 .skills-lock.json
