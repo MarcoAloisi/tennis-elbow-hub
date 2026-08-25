@@ -52,15 +52,15 @@ Live Scores and the Players DB **popup** use this same identity. Clicking `Ambie
 
 ### Backend: clustering in `stats_service` only
 
-No new tables. Do **not** clone the existing match-parse loop a fourth time (`get_top_players_async`, `get_all_players_async`, and `get_player_details_async` already each walk `finished_matches` with the same `< 5` games / `vs` / bot filters). Extract one private helper that yields appearances `(canonical_name, player_elo, opponent, score, date, winner, …)` and reuse it.
+No new tables. Do **not** add a `clustered=` flag to `get_all_players_async()` — profile (`GET /api/profile/players`) and Monthly Overview callers stay on the current signature. Leave `get_all_players_async` and `get_top_players_async` **untouched**.
 
-- `get_all_players_async(clustered: bool = False)`:
-  - `False` (default) — today's one-row-per-canonical-name behavior. **Required** so `GET /api/profile/players` and profile stats stay unique names / name-merged. Do not silently cluster that path.
-  - `True` — one row per cluster. Admin list + CSV pass `True`.
-- `get_player_details_async(name, elo=None)`:
-  - `elo` provided → cluster-scoped payload (same keys as today: `name`, `wins`, `losses`, `win_rate`, `total_matches`, `matches_last_7_days`, `matches_last_30_days`, `best_win`, `worst_loss`, `recent_matches`). Do not add unused fields.
-  - `elo` omitted → today's name-merged behavior (`GET /api/profile/{id}` already calls it this way; it currently does not get `latest_elo` from this method — leave that alone).
-- `ELO_BAND` and the sort/split helper live next to `_resolve_name`.
+Add `get_player_clusters_async()` for the admin table/CSV only (same row shape as today, one row per cluster).
+
+`get_player_details_async(name, elo=None)`:
+- `elo` provided → cluster-scoped payload (same keys as today: `name`, `wins`, `losses`, `win_rate`, `total_matches`, `matches_last_7_days`, `matches_last_30_days`, `best_win`, `worst_loss`, `recent_matches`). Do not add unused fields.
+- `elo` omitted → today's name-merged behavior (`GET /api/profile/{id}` already calls it this way; it currently does not get `latest_elo` from this method — leave that alone).
+
+Private helpers: `ELO_BAND`, sort/split, and **one** appearance walk shared by `get_player_clusters_async` and `get_player_details_async` only. Do not rewrite the other two scanners in this change.
 
 `get_top_players_async` is **not** clustered.
 
@@ -70,26 +70,26 @@ Add `GET /api/players/{name:path}?elo=2100` in a small `app/api/endpoints/player
 
 - Auth: `get_current_user` (any logged-in account).
 - Rate limit: `30/minute`.
-- Query `elo` is required, integer.
+- Query `elo` is required, integer, `ge=1`. Frontend does not call this when live/row ELO is missing or `≤ 0`.
 - 401 if missing/invalid token.
 - 200 with empty stats if no cluster matches.
 
-**Do not** add a second clustered wrapper on `GET /api/admin/players/{name}`. Leave that admin route as it is (name-merged, admin-only). The UI will stop calling it; `usePlayerDetails` moves to `/api/players/…`. Keeping both in sync is duplicate surface for no caller.
+Remove `GET /api/admin/players/{name}` once `usePlayerDetails` points at `/api/players/…`. It is the only frontend caller today. Leaving it would keep a name-merged admin URL that disagrees with the clustered popup.
 
-`GET /api/admin/players` and `/csv` stay `require_admin` and call `get_all_players_async(clustered=True)`.
+`GET /api/admin/players` and `/csv` stay `require_admin` and call `get_player_clusters_async()`.
 
-`GET /api/profile/players` keeps calling `get_all_players_async()` with the default (unclustered). No extra dedupe patch.
+`GET /api/profile/players` keeps calling `get_all_players_async()`. No dedupe patch.
 
 ### Frontend
 
-- Extract the existing Players DB detail modal markup + its scoped styles into `frontend/src/components/players/PlayerDetailsModal.vue`. Do **not** copy the modal into `LiveScoresView`. Empty state: when `total_matches === 0`, show **“No recorded matches yet.”** in that same modal (not a second modal).
-- Guest signup prompt is **inline in `LiveScoresView`** (title, two links, close). Do not add `GuestSignupPrompt.vue` for ~30 lines. Reuse the global `.modal-overlay` pattern already used on this site. Copy: **See stats for {name}**; they need an account to view wins, losses, and recent matches; primary **Sign up** → `/signup`; secondary **Log in** → `/login`.
-- Only one of those two overlays is open at a time. `useModalAccessibility` queries `document.querySelector('[role="dialog"]')` globally — pass a distinct `containerSelector` for whichever overlay is open, or it will trap focus on the wrong dialog.
+- **Cut** (do not copy) the Players DB detail modal markup + `.player-modal*` styles into `frontend/src/components/players/PlayerDetailsModal.vue`. Use the global `.modal-overlay` in `components.css` — AdminPlayersView already re-declares that overlay locally; do not take a third copy. Empty state: when `total_matches === 0` **or** live `elo` is missing/`≤ 0`, show **“No recorded matches yet.”** in that same modal. If `elo ≤ 0`, skip the fetch.
+- Guest signup prompt is **inline in `LiveScoresView`** (title, two links, close). Do not add `GuestSignupPrompt.vue`. Copy: **See stats for {name}**; they need an account to view wins, losses, and recent matches; primary **Sign up** → `/signup`; secondary **Log in** → `/login`.
+- Only one of those two overlays is open at a time. `useModalAccessibility` queries `document.querySelector('[role="dialog"]')` globally — pass a distinct `containerSelector` for whichever overlay is open.
 - `usePlayerDetails`: point at `/api/players/{name}?elo=`; `fetchPlayerDetails(playerName, elo)`; 401 message becomes session-expired, not “admin access required”; ignore stale responses with a request-id counter (not AbortController).
-- `MatchCard.vue`: singles names are `<button type="button">` (hover underline, focusable), `@click.stop` emit `select-player` `{ name, elo }` — p1 `server.elo`, p2 `server.other_elo`. Not clickable when `mode_display` contains `"doubles"` (case-insensitive) **or** that side’s parsed list has more than one name (`/` pairs). Real Tennis is a different component — untouched.
+- `MatchCard.vue`: singles names are `<button type="button">` styled to match today’s `.player-name` text (reset native button chrome). `@click.stop` emit `select-player` `{ name, elo }` — p1 `server.elo`, p2 `server.other_elo`. Not clickable when `mode_display` contains `"doubles"` (case-insensitive) **or** that side’s parsed list has more than one name (`/` pairs). Real Tennis is a different component — untouched.
 - `LiveScoresView.vue`: `useAuthStore().user` for guest vs logged-in (this view does not import auth today). Guest → prompt, no fetch. Logged-in → shared modal + fetch.
-- `AdminPlayersView.vue` table: `:key="\`${player.name}-${player.latest_elo}\`"` (today `:key="player.name"` **will break** once two Ambience rows exist). `openPlayerModal(player.name, player.latest_elo)`.
-- Nickname mapper `<option v-for="p in allPlayers" :key="p.name">` must iterate **unique names**, not clustered rows (otherwise duplicate keys + two identical datalist options). Derive `uniquePlayerNames` from `allPlayers` with a `Set`. Mapper save/delete/rename APIs unchanged.
+- `AdminPlayersView.vue` table: `:key="\`${player.name}-${player.latest_elo}\`"` (today `:key="player.name"` **will break** once two Ambience rows exist). `openPlayerModal(name, elo)` — table rows pass `player.latest_elo`. **KPI cards today call `openPlayerModal(highestEloPlayer)` with name only** — they must pass the matching ELO (`highestElo` / `lowestElo`, already on the composable).
+- Nickname mapper `<option>` loops must iterate **unique names**, not clustered rows. Add a `uniquePlayerNames` computed on `useAdminPlayers` (Set of `allPlayers` names) and use that in the two datalists. Mapper save/delete/rename APIs unchanged.
 - KPI “total players” / `avgMatchesPlayed` will count **clusters**, not people. Accept that; do not add a second counter.
 
 ## Data flow
@@ -106,10 +106,10 @@ Players DB row click (admin)
        → same cluster popup
 
 Players DB table / CSV
-  → GET /api/admin/players  (clustered=True)
+  → GET /api/admin/players  (get_player_clusters_async)
 
 Profile link dropdown
-  → GET /api/profile/players  (unclustered get_all_players)
+  → GET /api/profile/players  (unchanged get_all_players_async)
 ```
 
 ## Error handling
@@ -130,9 +130,10 @@ Backend (pytest, matching existing `backend/tests/`):
 - `GET /api/players/{name}?elo=` without token → 401.
 - Admin list/CSV still 403 for non-admin.
 - Unmatched ELO → 200 with zeros / empty lists, no `error` key.
-- `get_all_players_async()` default still unique names; details without `elo` still name-merged.
+- `get_all_players_async()` still unique names; `get_player_clusters_async()` splits; details without `elo` still name-merged.
+- `GET /api/admin/players/{name}` is gone (404).
 
-Frontend: no new test framework. Verify in the browser: singles click, doubles not clickable, guest prompt, logged-in popup, duplicate-name rows in Players DB, mapper still unique names.
+Frontend: no new test framework. Verify in the browser: singles click, doubles not clickable, guest prompt, logged-in popup, duplicate-name rows in Players DB, mapper still unique names, highest/lowest ELO KPI opens the matching cluster.
 
 ## Success criteria
 
