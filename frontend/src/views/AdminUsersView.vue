@@ -8,10 +8,12 @@ import ErrorAlert from '@/components/common/ErrorAlert.vue'
 
 interface AdminUser {
   user_id: string
+  email: string | null
   display_name: string | null
   in_game_name: string | null
   player_name: string | null
   approved: boolean
+  is_admin: boolean
   created_at: string
   online: boolean
 }
@@ -60,7 +62,9 @@ onMounted(fetchUsers)
         <tr>
           <th>Status</th>
           <th>Display Name</th>
+          <th>Email</th>
           <th>In-Game Name</th>
+          <th>Role</th>
           <th>Approved</th>
           <th>Joined</th>
         </tr>
@@ -75,7 +79,9 @@ onMounted(fetchUsers)
             ></span>
           </td>
           <td>{{ u.display_name || '—' }}</td>
+          <td>{{ u.email || '—' }}</td>
           <td>{{ u.in_game_name || '—' }}</td>
+          <td>{{ u.is_admin ? 'Admin' : 'User' }}</td>
           <td>{{ u.approved ? 'Yes' : 'No' }}</td>
           <td>{{ new Date(u.created_at).toLocaleDateString() }}</td>
         </tr>

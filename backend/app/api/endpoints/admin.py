@@ -3,6 +3,7 @@
 Provides endpoints for admin-only features, protected by the require_admin dependency.
 """
 
+import asyncio
 import csv
 import io
 from typing import Any
@@ -12,7 +13,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import delete, select
 
-from app.api.deps import get_db, require_admin
+from app.api.deps import get_db, get_supabase, require_admin
 from app.core.limiter import limiter
 from app.core.logging import get_logger
 from app.models.player_alias import PlayerAlias
@@ -365,11 +366,70 @@ async def approve_signup(
 
 # ─── Registered Users ───────────────────────────────────────
 
+_AUTH_USERS_PAGE_SIZE = 200
+
+
+def _list_all_auth_users() -> list[Any]:
+    """Page through GoTrue admin users. Sync — call via asyncio.to_thread."""
+    supabase = get_supabase()
+    users: list[Any] = []
+    page = 1
+    while True:
+        batch = supabase.auth.admin.list_users(page=page, per_page=_AUTH_USERS_PAGE_SIZE)
+        if not batch:
+            break
+        users.extend(batch)
+        if len(batch) < _AUTH_USERS_PAGE_SIZE:
+            break
+        page += 1
+    return users
+
+
+def merge_auth_user_with_profile(
+    user: Any,
+    profile: UserProfile | None,
+    *,
+    online: bool,
+) -> dict[str, Any]:
+    """Build one admin-users row from an Auth user plus optional profile.
+
+    Admins (and anyone created in the Supabase dashboard) often have no
+    user_profiles row because that row is created lazily on GET /profile/me,
+    which the approval guard skips for admins.
+    """
+    user_meta = getattr(user, "user_metadata", None) or {}
+    app_meta = getattr(user, "app_metadata", None) or {}
+    is_admin = app_meta.get("role") == "admin"
+    display_name = None
+    if profile and profile.display_name:
+        display_name = profile.display_name
+    elif user_meta.get("display_name"):
+        display_name = user_meta["display_name"]
+
+    if profile is not None:
+        approved = profile.approved
+        created_at = profile.created_at
+    else:
+        approved = is_admin
+        created_at = getattr(user, "created_at", None)
+
+    return {
+        "user_id": user.id,
+        "email": getattr(user, "email", None),
+        "display_name": display_name,
+        "in_game_name": profile.in_game_name if profile else None,
+        "player_name": profile.player_name if profile else None,
+        "approved": approved,
+        "is_admin": is_admin,
+        "created_at": created_at,
+        "online": online,
+    }
+
 
 @router.get(
     "/users",
     summary="List all registered users",
-    description="List every registered user with their live online status. Admin only.",
+    description="List every registered Auth user with their live online status. Admin only.",
 )
 @limiter.limit("30/minute")
 async def list_users(
@@ -377,21 +437,31 @@ async def list_users(
     _admin: Any = Depends(require_admin),
     db=Depends(get_db),
 ) -> list[dict]:
-    """List all registered users with a live online/offline flag."""
+    """List all registered users with a live online/offline flag.
+
+    Source of truth is Supabase Auth (every account), left-joined with
+    user_profiles for display fields. Profiles-only would miss admins.
+    """
     from app.services.presence import presence_manager
 
-    result = await db.execute(select(UserProfile).order_by(UserProfile.created_at.desc()))
-    profiles = result.scalars().all()
-    return [
-        {
-            "user_id": p.id,
-            "display_name": p.display_name,
-            "in_game_name": p.in_game_name,
-            "player_name": p.player_name,
-            "approved": p.approved,
-            "created_at": p.created_at,
-            "online": presence_manager.is_online(p.id),
-        }
-        for p in profiles
+    auth_users = await asyncio.to_thread(_list_all_auth_users)
+    result = await db.execute(select(UserProfile))
+    profiles_by_id = {p.id: p for p in result.scalars().all()}
+
+    rows = [
+        merge_auth_user_with_profile(
+            user,
+            profiles_by_id.get(user.id),
+            online=presence_manager.is_online(user.id),
+        )
+        for user in auth_users
     ]
+    def _created_key(value: Any) -> str:
+        if value is None:
+            return ""
+        iso = getattr(value, "isoformat", None)
+        return iso() if callable(iso) else str(value)
+
+    rows.sort(key=lambda r: _created_key(r["created_at"]), reverse=True)
+    return rows
 
