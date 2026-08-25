@@ -1,6 +1,12 @@
 """Tests for PresenceManager — in-memory site-wide online tracking."""
 
-from app.services.presence import PresenceManager
+import pytest
+from fastapi.testclient import TestClient
+
+from app.main import app
+from app.services.presence import PresenceManager, presence_manager
+
+client = TestClient(app)
 
 
 class FakeWebSocket:
@@ -106,15 +112,6 @@ async def test_broadcast_counts_sends_to_all_and_cleans_up_failed_sockets():
     assert good.sent == ['{"registered_count": 1, "guest_count": 1}']
     assert manager.is_online("user-1") is False
     assert manager.counts == {"registered_count": 0, "guest_count": 1}
-
-
-import pytest
-from fastapi.testclient import TestClient
-
-from app.main import app
-from app.services.presence import presence_manager
-
-client = TestClient(app)
 
 
 @pytest.fixture(autouse=True)
