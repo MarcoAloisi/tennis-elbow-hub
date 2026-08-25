@@ -16,6 +16,7 @@ const vClickOutside = {
   },
 }
 import { useAuthStore } from './stores/auth'
+import { usePresenceStore } from './stores/presence'
 import ThemeToggle from './components/common/ThemeToggle.vue'
 import AdSidebar from './components/common/AdSidebar.vue'
 import KofiWidget from './components/common/KofiWidget.vue'
@@ -27,6 +28,7 @@ import { Activity, BarChart2, Globe, Shirt, Clapperboard, LogOut, Database, Shie
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const presenceStore = usePresenceStore()
 
 onMounted(() => {
   authStore.initAuth()
@@ -219,6 +221,7 @@ async function submitNameChange() {
     <!-- Footer -->
     <footer class="app-footer">
       <p>Tennis Elbow Hub &copy; 2026 — Tennis Elbow 4 Live Scores & Analysis</p>
+      <p class="footer-presence">{{ presenceStore.registeredCount }} members · {{ presenceStore.guestCount }} guests online</p>
       <div class="footer-links">
         <RouterLink to="/">About</RouterLink>
         <span class="footer-sep">·</span>
@@ -559,6 +562,12 @@ async function submitNameChange() {
   border-top: 1px solid var(--color-border);
   position: relative;
   z-index: var(--z-dropdown);
+}
+
+.footer-presence {
+  margin-top: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
 }
 
 .footer-links {
