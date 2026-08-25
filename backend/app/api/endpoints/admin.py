@@ -415,7 +415,6 @@ def merge_auth_user_with_profile(
 
     return {
         "user_id": user.id,
-        "email": getattr(user, "email", None),
         "display_name": display_name,
         "in_game_name": profile.in_game_name if profile else None,
         "player_name": profile.player_name if profile else None,

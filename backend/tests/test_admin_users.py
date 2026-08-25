@@ -26,12 +26,11 @@ def test_merge_admin_without_profile_is_listed():
     )
     row = merge_auth_user_with_profile(user, None, online=True)
     assert row["user_id"] == "admin-1"
-    assert row["email"] == "admin@example.com"
     assert row["display_name"] == "Boss"
     assert row["is_admin"] is True
     assert row["approved"] is True
     assert row["online"] is True
-    assert row["in_game_name"] is None
+    assert "email" not in row
 
 
 def test_merge_regular_user_prefers_profile_fields():
@@ -55,3 +54,4 @@ def test_merge_regular_user_prefers_profile_fields():
     assert row["approved"] is False
     assert row["is_admin"] is False
     assert row["created_at"] == "2026-02-01T00:00:00Z"
+    assert "email" not in row
