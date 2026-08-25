@@ -154,6 +154,9 @@ async function submitNameChange() {
                     <RouterLink to="/admin/panel" class="dropdown-item dropdown-item--admin">
                       <Shield :size="15" /> Admin Panel
                     </RouterLink>
+                    <RouterLink to="/admin/users" class="dropdown-item dropdown-item--admin">
+                      <User :size="15" /> Registered Users
+                    </RouterLink>
                   </template>
                 </div>
               </div>

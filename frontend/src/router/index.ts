@@ -14,6 +14,7 @@ const OutfitGalleryView = () => import('../views/OutfitGalleryView.vue')
 const LoginView = () => import('../views/LoginView.vue')
 const AdminPlayersView = () => import('../views/AdminPlayersView.vue')
 const AdminPanelView = () => import('../views/AdminPanelView.vue')
+const AdminUsersView = () => import('../views/AdminUsersView.vue')
 const PredictionView = () => import('../views/PredictionView.vue')
 
 const SignupView = () => import('../views/SignupView.vue')
@@ -226,6 +227,16 @@ const routes: RouteRecordRaw[] = [
         meta: {
             title: 'Admin Panel',
             description: 'Admin panel for managing player link verifications.',
+            requiresAdmin: true
+        }
+    },
+    {
+        path: '/admin/users',
+        name: 'AdminUsers',
+        component: AdminUsersView,
+        meta: {
+            title: 'Registered Users',
+            description: 'Admin-only list of registered users with live online status.',
             requiresAdmin: true
         }
     }
