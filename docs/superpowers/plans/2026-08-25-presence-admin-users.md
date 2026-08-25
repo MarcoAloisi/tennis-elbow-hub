@@ -385,18 +385,23 @@ Expected: PASS (same 401/422 assertions as before — behavior is unchanged, onl
 
 - [ ] **Step 3: Write the failing WebSocket tests**
 
-Append to `backend/tests/test_presence.py`:
+First, update the imports at the *top* of `backend/tests/test_presence.py` (merge with the existing ones — do not add a second import block mid-file, that trips `ruff`'s E402):
 
 ```python
+"""Tests for PresenceManager — in-memory site-wide online tracking."""
+
 import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.services.presence import presence_manager
+from app.services.presence import PresenceManager, presence_manager
 
 client = TestClient(app)
+```
 
+Then append the rest to the bottom of the file:
 
+```python
 @pytest.fixture(autouse=True)
 def reset_presence_manager():
     presence_manager.registered.clear()
@@ -559,11 +564,11 @@ api_router.include_router(presence.router)
 
 - [ ] **Step 7: Start and stop the periodic broadcast loop from the app lifespan**
 
-Modify `backend/app/main.py`. Add the import alongside the existing scraper import (line 24):
+Modify `backend/app/main.py`. Add the import alongside the existing scraper import (line 24), keeping alphabetical order (`presence` sorts before `scraper` — `ruff`'s import-sort check enforces this):
 
 ```python
-from app.services.scraper import get_scraper_service
 from app.services.presence import presence_manager
+from app.services.scraper import get_scraper_service
 ```
 
 Then in the `lifespan` function, add the startup call right after `await scraper.start_polling(interval=interval)` (currently line 61, right before `yield`):
@@ -593,6 +598,9 @@ And add the shutdown call right after `logger.info("Shutting down...")` (current
 
 Run: `cd backend && pytest tests/test_presence.py -v`
 Expected: PASS (11 tests total: 7 from Task 1 + 4 from this task). These tests don't exercise `main.py`'s lifespan (this repo's tests use a bare `TestClient(app)`, not the `with TestClient(app) as client:` form, so startup/shutdown handlers never run) — that's consistent with every other test in this suite and is why `init_db()` doesn't fire during test runs either. The lifespan wiring itself is covered by Task 8's manual verification.
+
+Also run: `cd backend && ruff check app/api/deps.py app/api/endpoints/presence.py app/api/router.py app/main.py tests/test_presence.py`
+Expected: no violations (this is CLAUDE.md's documented lint gate — run it on every file this task touches).
 
 - [ ] **Step 9: Commit**
 
