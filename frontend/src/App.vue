@@ -23,12 +23,14 @@ import KofiWidget from './components/common/KofiWidget.vue'
 import CookieConsent from './components/common/CookieConsent.vue'
 import InstagramCTA from './components/common/InstagramCTA.vue'
 import { useModalAccessibility } from './composables/useModalAccessibility'
+import { useAdSense } from './composables/useAdSense'
 import { Activity, BarChart2, Globe, Shirt, Clapperboard, LogOut, Database, Shield, ChevronDown, User } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const presenceStore = usePresenceStore()
+const { adsAllowed } = useAdSense()
 
 onMounted(() => {
   authStore.initAuth()
@@ -36,7 +38,7 @@ onMounted(() => {
 
 const showAds = computed(() => {
   const noAdRoutes = ['/', '/privacy-policy', '/terms-of-service', '/contact']
-  return !noAdRoutes.includes(route.path)
+  return adsAllowed.value && !noAdRoutes.includes(route.path)
 })
 
 const showUserMenu = ref(false)
