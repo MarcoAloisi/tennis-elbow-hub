@@ -17,7 +17,7 @@ export const usePresenceStore = defineStore('presence', () => {
     // maxReconnectAttempts: Infinity — this connection represents the
     // visitor's whole session, unlike a page-scoped widget where giving up
     // after a few tries and telling the user to refresh is acceptable.
-    const { data, connect, disconnect } = useWebSocket(buildUrl, { maxReconnectAttempts: Infinity })
+    const { data, isConnected, connect, disconnect } = useWebSocket(buildUrl, { maxReconnectAttempts: Infinity })
 
     watch(data, (message: any) => {
         if (!message) return
@@ -38,5 +38,5 @@ export const usePresenceStore = defineStore('presence', () => {
         }
     )
 
-    return { registeredCount, guestCount }
+    return { registeredCount, guestCount, isConnected }
 })

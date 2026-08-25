@@ -224,7 +224,7 @@ async function submitNameChange() {
     <!-- Footer -->
     <footer class="app-footer">
       <p>Tennis Elbow Hub &copy; 2026 — Tennis Elbow 4 Live Scores & Analysis</p>
-      <p class="footer-presence">{{ presenceStore.registeredCount }} members · {{ presenceStore.guestCount }} guests online</p>
+      <p v-if="presenceStore.isConnected" class="footer-presence">{{ presenceStore.registeredCount }} members · {{ presenceStore.guestCount }} guests online</p>
       <div class="footer-links">
         <RouterLink to="/">About</RouterLink>
         <span class="footer-sep">·</span>
