@@ -134,10 +134,14 @@ class ScraperService:
         """
         raw_data = await self.fetch_raw_data()
 
-        servers: list[GameServer] = []
-        if raw_data:
-            servers = list(parse_server_data(raw_data))
-            logger.info(f"Parsed {len(servers)} servers")
+        if raw_data is None:
+            # Transient fetch failure - keep last known good data instead of
+            # broadcasting an empty list to connected clients.
+            logger.warning("Fetch failed, keeping previous cache")
+            return self._cache or GameServerList(servers=[], total=0, timestamp=datetime.now(timezone.utc).isoformat())
+
+        servers = list(parse_server_data(raw_data))
+        logger.info(f"Parsed {len(servers)} servers")
 
         # Track finished matches for stats
         if track_stats and servers:
