@@ -18,7 +18,7 @@ export function useWebSocket(url, options: { maxReconnectAttempts?: number } = {
      * Connect to WebSocket server
      */
     function connect() {
-        if (socket?.readyState === WebSocket.OPEN) {
+        if (socket?.readyState === WebSocket.OPEN || socket?.readyState === WebSocket.CONNECTING) {
             return
         }
 
@@ -85,6 +85,7 @@ export function useWebSocket(url, options: { maxReconnectAttempts?: number } = {
             clearTimeout(reconnectTimeout)
         }
         if (socket) {
+            socket.onclose = null
             socket.close()
             socket = null
         }
