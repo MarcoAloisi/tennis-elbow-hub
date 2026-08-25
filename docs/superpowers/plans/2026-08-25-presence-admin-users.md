@@ -304,7 +304,7 @@ Note: `start_periodic_broadcast`/`stop_periodic_broadcast` aren't unit tested he
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `cd backend && pytest tests/test_presence.py -v`
-Expected: PASS (8 tests)
+Expected: PASS (7 tests)
 
 - [ ] **Step 5: Commit**
 
@@ -592,7 +592,7 @@ And add the shutdown call right after `logger.info("Shutting down...")` (current
 - [ ] **Step 8: Run all presence tests to verify they pass**
 
 Run: `cd backend && pytest tests/test_presence.py -v`
-Expected: PASS (12 tests total: 8 from Task 1 + 4 from this task). These tests don't exercise `main.py`'s lifespan (this repo's tests use a bare `TestClient(app)`, not the `with TestClient(app) as client:` form, so startup/shutdown handlers never run) — that's consistent with every other test in this suite and is why `init_db()` doesn't fire during test runs either. The lifespan wiring itself is covered by Task 8's manual verification.
+Expected: PASS (11 tests total: 7 from Task 1 + 4 from this task). These tests don't exercise `main.py`'s lifespan (this repo's tests use a bare `TestClient(app)`, not the `with TestClient(app) as client:` form, so startup/shutdown handlers never run) — that's consistent with every other test in this suite and is why `init_db()` doesn't fire during test runs either. The lifespan wiring itself is covered by Task 8's manual verification.
 
 - [ ] **Step 9: Commit**
 
