@@ -3,7 +3,7 @@
  */
 import { ref, onMounted, onUnmounted } from 'vue'
 
-export function useWebSocket(url) {
+export function useWebSocket(url, options: { maxReconnectAttempts?: number } = {}) {
     const data = ref(null)
     const isConnected = ref(false)
     const error = ref(null)
@@ -11,7 +11,7 @@ export function useWebSocket(url) {
 
     let socket = null
     let reconnectTimeout = null
-    const MAX_RECONNECT_ATTEMPTS = 5
+    const MAX_RECONNECT_ATTEMPTS = options.maxReconnectAttempts ?? 5
     const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000]
 
     /**
@@ -23,10 +23,15 @@ export function useWebSocket(url) {
         }
 
         try {
+            // Resolve the URL fresh on every (re)connect — lets callers pass
+            // a function so a changed token (or anything else) is picked up
+            // without the composable needing to know why the URL changed.
+            const rawUrl = typeof url === 'function' ? url() : url
+
             // Build WebSocket URL
-            const wsUrl = url.startsWith('ws')
-                ? url
-                : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}${url}`
+            const wsUrl = rawUrl.startsWith('ws')
+                ? rawUrl
+                : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}${rawUrl}`
 
             socket = new WebSocket(wsUrl)
 
