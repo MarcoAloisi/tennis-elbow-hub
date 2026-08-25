@@ -64,6 +64,11 @@ def get_user_from_token(token: str) -> Any | None:
         supabase = get_supabase()
         user_response = supabase.auth.get_user(token)
         return user_response.user if user_response and user_response.user else None
+    except HTTPException:
+        # Raised by get_supabase() when Supabase config is missing/broken —
+        # a genuine server-side outage, not an invalid token. Let it
+        # propagate so callers (get_current_user) report 500, not 401.
+        raise
     except Exception:
         logger.exception("Token validation failed")
         return None

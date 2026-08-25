@@ -27,7 +27,13 @@ async def _resolve_user_id(websocket: WebSocket) -> str | None:
     token = websocket.query_params.get("token")
     if not token:
         return None
-    user = await asyncio.to_thread(get_user_from_token, token)
+    try:
+        user = await asyncio.to_thread(get_user_from_token, token)
+    except Exception:
+        # Presence must fail open to guest even during a Supabase outage
+        # (get_user_from_token now re-raises HTTPException for that case) —
+        # a headcount should never go down because auth is having a bad day.
+        return None
     return user.id if user else None
 
 
