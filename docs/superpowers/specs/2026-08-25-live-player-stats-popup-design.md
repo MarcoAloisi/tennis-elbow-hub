@@ -39,12 +39,9 @@ Constant: `ELO_BAND = 200`.
    - 2100 Ambience and 1200 Ambience with a gap `> 200` stay **two** clusters.
    - This is the same result as union-find on a line, with a short loop instead of a disjoint-set structure.
 3. **Matches with missing or `≤ 0` ELO** are excluded from clustering and from cluster-scoped details. They still count in name-merged profile stats (`elo` omitted). A name whose recorded matches all lack ELO does **not** appear as a clustered Players DB row.
-4. **Cluster fields.** `latest_elo` / `last_match_date` come from the most recent match in the cluster (by match date). `total_matches` is completed W+L in that cluster.
-5. **Lookup by a live or row ELO `E`.** Pick clusters where `cluster_min - 200 ≤ E ≤ cluster_max + 200`.
-   - None → empty payload (zeros / empty lists, **no `error` field**), HTTP 200.
-   - One → that cluster's full stats (not a sliding window around `E`).
-   - Two or more (gap between nearby clusters) → nearest cluster, distance = 0 if `E` is inside `[min, max]`, else distance to the nearer edge. Exact tie → more matches, then higher `latest_elo`.
-6. **No name-only fallback** when `E` is missing or `0`. Empty payload instead.
+4. **Cluster fields.** `latest_elo` / `last_match_date` come from the most recent match in the cluster (by match date). List `total_matches` counts appearances the same way `get_all_players_async` does today (5+ game matches, including unknown winner). Do **not** switch the table to W+L — the popup already uses W+L (`wins + losses`); that pre-existing table-vs-popup difference stays.
+5. **Lookup by a live or row ELO `E`.** Pick the cluster with the smallest distance from `E` to `[cluster_min, cluster_max]` (0 if inside). If that distance is `> 200`, empty payload (zeros / empty lists, **no `error` field**), HTTP 200. Exact tie → more matches, then higher `latest_elo`. Show the **whole cluster**, not a sliding window around `E`.
+6. **No name-only fallback** when `E` is missing or `0`. Empty payload instead (frontend skips the fetch).
 
 Live Scores and the Players DB **popup** use this same identity. Clicking `Ambience` at 2100 on a live card shows the same numbers as clicking the 2100 Ambience **table row**.
 
@@ -52,15 +49,16 @@ Live Scores and the Players DB **popup** use this same identity. Clicking `Ambie
 
 ### Backend: clustering in `stats_service` only
 
-No new tables. Do **not** add a `clustered=` flag to `get_all_players_async()` — profile (`GET /api/profile/players`) and Monthly Overview callers stay on the current signature. Leave `get_all_players_async` and `get_top_players_async` **untouched**.
+No new tables. Do **not** add a `clustered=` flag to `get_all_players_async()`. Leave `get_all_players_async` and `get_top_players_async` **untouched** (profile dropdown + Monthly Overview).
 
 Add `get_player_clusters_async()` for the admin table/CSV only (same row shape as today, one row per cluster).
 
 `get_player_details_async(name, elo=None)`:
-- `elo` provided → cluster-scoped payload (same keys as today: `name`, `wins`, `losses`, `win_rate`, `total_matches`, `matches_last_7_days`, `matches_last_30_days`, `best_win`, `worst_loss`, `recent_matches`). Do not add unused fields.
-- `elo` omitted → today's name-merged behavior (`GET /api/profile/{id}` already calls it this way; it currently does not get `latest_elo` from this method — leave that alone).
+- `elo` omitted → **keep the current loop as-is** (profile depends on this). Do not rewrite it through a new shared scanner.
+- `elo` provided → run that same loop, then keep only the matches in the chosen cluster (drop `player_elo` missing/`≤ 0` first), and recompute the existing payload keys from that subset. `match_entry` already has `player_elo`.
+- Do not add unused fields. Empty cluster → zeros / empty lists, no `error` key (the exception path today returns `{"name", "error"}` — do not reuse that for “no cluster”).
 
-Private helpers: `ELO_BAND`, sort/split, and **one** appearance walk shared by `get_player_clusters_async` and `get_player_details_async` only. Do not rewrite the other two scanners in this change.
+Private helper: `ELO_BAND` + sort/split + “pick cluster for E”, used by `get_player_clusters_async` and the details `elo` branch. **Do not** extract a new full-table appearance walker that replaces the details loop — that would silently change profile stats.
 
 `get_top_players_async` is **not** clustered.
 
@@ -82,13 +80,14 @@ Remove `GET /api/admin/players/{name}` once `usePlayerDetails` points at `/api/p
 
 ### Frontend
 
-- **Cut** (do not copy) the Players DB detail modal markup + `.player-modal*` styles into `frontend/src/components/players/PlayerDetailsModal.vue`. Use the global `.modal-overlay` in `components.css` — AdminPlayersView already re-declares that overlay locally; do not take a third copy. Empty state: when `total_matches === 0` **or** live `elo` is missing/`≤ 0`, show **“No recorded matches yet.”** in that same modal. If `elo ≤ 0`, skip the fetch.
-- Guest signup prompt is **inline in `LiveScoresView`** (title, two links, close). Do not add `GuestSignupPrompt.vue`. Copy: **See stats for {name}**; they need an account to view wins, losses, and recent matches; primary **Sign up** → `/signup`; secondary **Log in** → `/login`.
-- Only one of those two overlays is open at a time. `useModalAccessibility` queries `document.querySelector('[role="dialog"]')` globally — pass a distinct `containerSelector` for whichever overlay is open.
+- **Cut** (do not copy) the Players DB detail modal into `frontend/src/components/players/PlayerDetailsModal.vue`. Keep its **own** overlay styles (`align-items: flex-start`, scrollable) — the global `.modal-overlay` in `components.css` is `align-items: center` and would clip this tall dialog. Guest prompt (short) can use the global overlay.
+- The modal **owns** fetch, loading, empty state, and `useModalAccessibility`. Props: `open`, `name`, `elo`. Emit `close`. Both views only set those props — do not call `usePlayerDetails` from `LiveScoresView` and `AdminPlayersView` (duplicate wiring). `usePlayerDetails` is used once, inside the modal.
+- Empty state: `total_matches === 0` or `elo` missing/`≤ 0` → **“No recorded matches yet.”** If `elo ≤ 0`, skip the fetch.
+- Guest signup prompt is **inline in `LiveScoresView`**. Do not add `GuestSignupPrompt.vue`. Copy: **See stats for {name}**; they need an account to view wins, losses, and recent matches; primary **Sign up** → `/signup`; secondary **Log in** → `/login`. Own `useModalAccessibility` with a distinct `containerSelector`. Only one overlay open at a time.
 - `usePlayerDetails`: point at `/api/players/{name}?elo=`; `fetchPlayerDetails(playerName, elo)`; 401 message becomes session-expired, not “admin access required”; ignore stale responses with a request-id counter (not AbortController).
 - `MatchCard.vue`: singles names are `<button type="button">` styled to match today’s `.player-name` text (reset native button chrome). `@click.stop` emit `select-player` `{ name, elo }` — p1 `server.elo`, p2 `server.other_elo`. Not clickable when `mode_display` contains `"doubles"` (case-insensitive) **or** that side’s parsed list has more than one name (`/` pairs). Real Tennis is a different component — untouched.
-- `LiveScoresView.vue`: `useAuthStore().user` for guest vs logged-in (this view does not import auth today). Guest → prompt, no fetch. Logged-in → shared modal + fetch.
-- `AdminPlayersView.vue` table: `:key="\`${player.name}-${player.latest_elo}\`"` (today `:key="player.name"` **will break** once two Ambience rows exist). `openPlayerModal(name, elo)` — table rows pass `player.latest_elo`. **KPI cards today call `openPlayerModal(highestEloPlayer)` with name only** — they must pass the matching ELO (`highestElo` / `lowestElo`, already on the composable).
+- `LiveScoresView.vue`: `useAuthStore().user` for guest vs logged-in (this view does not import auth today). Guest → prompt, no fetch. Logged-in → `<PlayerDetailsModal>`.
+- `AdminPlayersView.vue` table: `:key="\`${player.name}-${player.latest_elo}\`"` (today `:key="player.name"` **will break** once two Ambience rows exist). Drop local modal markup, `usePlayerDetails`, and the duplicate overlay CSS. `openPlayerModal(name, elo)` — table rows pass `player.latest_elo`. **KPI cards today call `openPlayerModal(highestEloPlayer)` with name only** — they must pass the matching ELO (`highestElo` / `lowestElo`, already on the composable).
 - Nickname mapper `<option>` loops must iterate **unique names**, not clustered rows. Add a `uniquePlayerNames` computed on `useAdminPlayers` (Set of `allPlayers` names) and use that in the two datalists. Mapper save/delete/rename APIs unchanged.
 - KPI “total players” / `avgMatchesPlayed` will count **clusters**, not people. Accept that; do not add a second counter.
 
@@ -99,7 +98,7 @@ Live Scores, singles name click
   → guest? inline signup prompt (no fetch)
   → logged in? GET /api/players/{name}?elo={liveElo}  + Bearer
        → alias resolve → sort/split clusters → pick by E → popup
-       → no cluster / elo 0 → empty popup "No recorded matches yet."
+       → no cluster / elo ≤ 0 → empty popup "No recorded matches yet." (no fetch if elo ≤ 0)
 
 Players DB row click (admin)
   → GET /api/players/{name}?elo={row.latest_elo}  + Bearer
