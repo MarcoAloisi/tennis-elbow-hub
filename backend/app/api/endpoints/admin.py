@@ -362,3 +362,36 @@ async def approve_signup(
     await db.commit()
     return {"approved": True, "user_id": user_id}
 
+
+# ─── Registered Users ───────────────────────────────────────
+
+
+@router.get(
+    "/users",
+    summary="List all registered users",
+    description="List every registered user with their live online status. Admin only.",
+)
+@limiter.limit("30/minute")
+async def list_users(
+    request: Request,
+    _admin: Any = Depends(require_admin),
+    db=Depends(get_db),
+) -> list[dict]:
+    """List all registered users with a live online/offline flag."""
+    from app.services.presence import presence_manager
+
+    result = await db.execute(select(UserProfile).order_by(UserProfile.created_at.desc()))
+    profiles = result.scalars().all()
+    return [
+        {
+            "user_id": p.id,
+            "display_name": p.display_name,
+            "in_game_name": p.in_game_name,
+            "player_name": p.player_name,
+            "approved": p.approved,
+            "created_at": p.created_at,
+            "online": presence_manager.is_online(p.id),
+        }
+        for p in profiles
+    ]
+
