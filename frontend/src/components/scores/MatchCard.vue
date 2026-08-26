@@ -9,6 +9,21 @@ const props = defineProps({
   }
 })
 
+const emit = defineEmits(['select-player'])
+
+const isSinglesMatch = computed(() => {
+  const mode = (props.server.game_info?.mode_display || '').toLowerCase()
+  return !mode.includes('doubles')
+})
+
+function sideClickable(names) {
+  return isSinglesMatch.value && Array.isArray(names) && names.length === 1
+}
+
+function onSelectPlayer(name, elo) {
+  emit('select-player', { name, elo: typeof elo === 'number' ? elo : 0 })
+}
+
 // ============ MATCH DURATION ============
 const now = ref(Date.now())
 let durationInterval = null
@@ -247,9 +262,17 @@ const isOnlineMode = computed(() => {
         <div class="player-info">
           <div class="name-container">
             <div class="names-wrapper">
-              <span v-for="(name, idx) in players.player1" :key="idx" class="player-name">
-                {{ name }}
-              </span>
+              <template v-for="(name, idx) in players.player1" :key="idx">
+                <button
+                  v-if="sideClickable(players.player1)"
+                  type="button"
+                  class="player-name clickable"
+                  @click.stop="onSelectPlayer(name, server.elo)"
+                >
+                  {{ name }}
+                </button>
+                <span v-else class="player-name">{{ name }}</span>
+              </template>
             </div>
             <span class="host-badge" title="Match Host">HOST</span>
           </div>
@@ -279,9 +302,17 @@ const isOnlineMode = computed(() => {
         <div class="player-info">
           <div class="name-container">
             <div class="names-wrapper">
-              <span v-for="(name, idx) in players.player2" :key="idx" class="player-name">
-                {{ name }}
-              </span>
+              <template v-for="(name, idx) in players.player2" :key="idx">
+                <button
+                  v-if="sideClickable(players.player2)"
+                  type="button"
+                  class="player-name clickable"
+                  @click.stop="onSelectPlayer(name, server.other_elo)"
+                >
+                  {{ name }}
+                </button>
+                <span v-else class="player-name">{{ name }}</span>
+              </template>
             </div>
           </div>
           <span class="player-elo">elo: {{ server.other_elo }}</span>
@@ -451,6 +482,23 @@ const isOnlineMode = computed(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.2;
+}
+
+button.player-name {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  max-width: 100%;
+}
+button.player-name.clickable:hover,
+button.player-name.clickable:focus-visible {
+  color: var(--color-accent);
+  text-decoration: underline;
 }
 
 .player-elo {
