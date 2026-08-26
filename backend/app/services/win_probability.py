@@ -9,6 +9,8 @@ interpretation.
 
 import math
 
+from app.services.score_parser import LiveMatchState
+
 
 def _race_to_win_prob(p: float, target: int, a: int, b: int) -> float:
     """Probability the player with per-point win rate `p` wins a race to
@@ -135,3 +137,78 @@ def implied_set_win_rate(p0: float, sets_to_win: int) -> float:
         else:
             hi = mid
     return (lo + hi) / 2
+
+
+SERVE_BONUS = 0.08  # heuristic starting point, not fitted — tune once real outcome data exists
+
+
+def _serve_adjusted_point_rate(g: float, server: int | None) -> float:
+    """Player-1-perspective per-point win rate for the live game/tiebreak,
+    boosted if p1 is serving, reduced if p2 is serving. Unadjusted (plain g)
+    if the server marker is missing/ambiguous."""
+    if server == 1:
+        return min(g + SERVE_BONUS, 0.999)
+    if server == 2:
+        return max(g - SERVE_BONUS, 0.001)
+    return g
+
+
+def _game_to_set_with_current_game(
+    game_prob_a: float, g: float, games_a: int, games_b: int, games_per_set: int
+) -> float:
+    """Threads the live (possibly serve-adjusted) current-game win prob into
+    the set recursion; every game beyond the current one reverts to the
+    plain symmetric g, matching what implied_game_win_rate was solved
+    against."""
+    if games_a >= games_per_set or games_b >= games_per_set:
+        # Terminal case: if we're exactly at games_per_set all, the current
+        # game (the tiebreak) determines the entire set.
+        if games_a == games_per_set and games_b == games_per_set:
+            return game_prob_a
+        # Otherwise, the set is already over (one player has won).
+        return game_to_set_prob(g, games_a, games_b, games_per_set)
+    win_next = game_to_set_prob(g, games_a + 1, games_b, games_per_set)
+    lose_next = game_to_set_prob(g, games_a, games_b + 1, games_per_set)
+    return game_prob_a * win_next + (1 - game_prob_a) * lose_next
+
+
+def _set_to_match_with_current_set(
+    set_prob_a: float, s: float, sets_a: int, sets_b: int, sets_to_win: int
+) -> float:
+    """Same threading as _game_to_set_with_current_game, one level up."""
+    if sets_a >= sets_to_win or sets_b >= sets_to_win:
+        return set_to_match_prob(s, sets_a, sets_b, sets_to_win)
+    win_next = set_to_match_prob(s, sets_a + 1, sets_b, sets_to_win)
+    lose_next = set_to_match_prob(s, sets_a, sets_b + 1, sets_to_win)
+    return set_prob_a * win_next + (1 - set_prob_a) * lose_next
+
+
+def live_win_probability(
+    g: float, s: float, live_state: LiveMatchState, sets_to_win: int
+) -> dict[str, float]:
+    """Combines the cached (g, s) with the current tick's live_state into
+    the final {p1, p2} win probability. is_tiebreak routes to the real
+    race-to-7 point score; otherwise the current game's real point score is
+    used. Either way, only the CURRENT game/tiebreak gets the serve-bonus
+    adjustment — everything beyond it uses the plain symmetric rate that the
+    (g, s) inversion assumed."""
+    sets_a, sets_b = live_state.sets_won
+    games_a, games_b = live_state.current_set_games
+
+    if live_state.current_points_numeric is not None:
+        pts_a, pts_b = live_state.current_points_numeric
+        p_adj = _serve_adjusted_point_rate(g, live_state.server)
+        if live_state.is_tiebreak:
+            game_prob_a = point_to_tiebreak_prob(p_adj, pts_a, pts_b)
+        else:
+            game_prob_a = point_to_game_prob(p_adj, pts_a, pts_b)
+    else:
+        game_prob_a = g
+
+    set_prob_a = _game_to_set_with_current_game(
+        game_prob_a, g, games_a, games_b, live_state.games_per_set
+    )
+    match_prob_a = _set_to_match_with_current_set(set_prob_a, s, sets_a, sets_b, sets_to_win)
+
+    p1 = round(match_prob_a, 4)
+    return {"p1": p1, "p2": round(1 - p1, 4)}

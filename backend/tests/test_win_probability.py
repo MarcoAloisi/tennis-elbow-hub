@@ -1,7 +1,9 @@
+from app.services.score_parser import LiveMatchState
 from app.services.win_probability import (
     game_to_set_prob,
     implied_game_win_rate,
     implied_set_win_rate,
+    live_win_probability,
     point_to_game_prob,
     point_to_tiebreak_prob,
     set_to_match_prob,
@@ -112,3 +114,89 @@ def test_implied_game_win_rate_symmetric_at_half():
 
 def test_implied_set_win_rate_symmetric_at_half():
     assert abs(implied_set_win_rate(0.5, 2) - 0.5) < 1e-4
+
+
+def _state(**overrides) -> LiveMatchState:
+    base = dict(
+        sets=[("0", "0")],
+        sets_won=(0, 0),
+        current_set_games=(0, 0),
+        current_points=("00", "00"),
+        current_points_numeric=(0, 0),
+        server=1,
+        is_tiebreak=False,
+        games_per_set=6,
+    )
+    base.update(overrides)
+    return LiveMatchState(**base)
+
+
+def test_symmetric_rates_start_at_fifty_fifty():
+    result = live_win_probability(0.5, 0.5, _state(server=None), sets_to_win=2)
+    assert abs(result["p1"] - 0.5) < 1e-3
+    assert abs(result["p2"] - 0.5) < 1e-3
+    assert abs(result["p1"] + result["p2"] - 1.0) < 1e-9
+
+
+def test_serve_bonus_favors_the_current_server():
+    with_serve = live_win_probability(0.5, 0.5, _state(server=1), sets_to_win=2)
+    no_serve = live_win_probability(0.5, 0.5, _state(server=None), sets_to_win=2)
+    assert with_serve["p1"] > no_serve["p1"]
+
+
+def test_leading_two_sets_to_love_is_near_certain():
+    result = live_win_probability(
+        0.55, 0.6, _state(sets_won=(2, 0), current_set_games=(0, 0), server=None),
+        sets_to_win=2,
+    )
+    assert result["p1"] > 0.99
+
+
+def test_blowout_decider_lead_swings_harder_than_early_close_game():
+    blowout = live_win_probability(
+        0.5, 0.5,
+        _state(sets_won=(1, 1), current_set_games=(5, 2), server=1,
+               current_points=("40", "15"), current_points_numeric=(3, 1)),
+        sets_to_win=2,
+    )
+    close_early = live_win_probability(
+        0.5, 0.5,
+        _state(sets_won=(0, 0), current_set_games=(1, 0), server=1,
+               current_points=("40", "15"), current_points_numeric=(3, 1)),
+        sets_to_win=2,
+    )
+    assert (blowout["p1"] - 0.5) > (close_early["p1"] - 0.5)
+
+
+def test_live_tiebreak_uses_real_point_score_not_coin_flip():
+    near_tiebreak_win = live_win_probability(
+        0.5, 0.5,
+        _state(sets_won=(0, 0), current_set_games=(6, 6), server=1, is_tiebreak=True,
+               current_points=("6", "2"), current_points_numeric=(6, 2)),
+        sets_to_win=2,
+    )
+    assert near_tiebreak_win["p1"] > 0.9
+
+
+def test_monotonicity_more_points_only_helps():
+    behind = live_win_probability(
+        0.5, 0.5,
+        _state(current_points=("00", "40"), current_points_numeric=(0, 3)),
+        sets_to_win=2,
+    )
+    ahead = live_win_probability(
+        0.5, 0.5,
+        _state(current_points=("40", "00"), current_points_numeric=(3, 0)),
+        sets_to_win=2,
+    )
+    assert ahead["p1"] > behind["p1"]
+
+
+def test_probabilities_always_sum_to_one():
+    result = live_win_probability(
+        0.62, 0.58,
+        _state(sets_won=(1, 0), current_set_games=(3, 4), server=2,
+               current_points=("30", "40"), current_points_numeric=(2, 3)),
+        sets_to_win=2,
+    )
+    assert abs(result["p1"] + result["p2"] - 1.0) < 1e-9
