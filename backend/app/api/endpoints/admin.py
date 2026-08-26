@@ -40,7 +40,7 @@ async def get_all_players(
     from app.services.stats_service import get_stats_service
 
     stats_service = get_stats_service()
-    return await stats_service.get_all_players_async()
+    return await stats_service.get_player_clusters_async()
 
 
 @router.get(
@@ -57,7 +57,7 @@ async def get_all_players_csv(
     from app.services.stats_service import get_stats_service
 
     stats_service = get_stats_service()
-    players = await stats_service.get_all_players_async()
+    players = await stats_service.get_player_clusters_async()
 
     output = io.StringIO()
     writer = csv.writer(output)
@@ -78,24 +78,6 @@ async def get_all_players_csv(
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=players_database.csv"},
     )
-
-
-@router.get(
-    "/players/{player_name:path}",
-    summary="Get detailed player stats",
-    description="Get detailed match history, W/L record, best win, worst loss, and activity for a player. Admin only.",
-)
-@limiter.limit("30/minute")
-async def get_player_details(
-    request: Request,
-    player_name: str,
-    _admin=Depends(require_admin),
-) -> dict:
-    """Get detailed stats for a specific player."""
-    from app.services.stats_service import get_stats_service
-
-    stats_service = get_stats_service()
-    return await stats_service.get_player_details_async(player_name)
 
 
 # ─── Nickname / Alias Mapping ───────────────────────────────────────
