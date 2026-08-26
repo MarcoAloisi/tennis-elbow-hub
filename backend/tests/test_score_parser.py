@@ -18,14 +18,14 @@ def test_mid_set_score():
     assert state.current_set_games == (1, 1)
     assert state.current_points == ("00", "40")
     assert state.current_points_numeric == (0, 3)
-    assert state.server == 1
+    assert state.server == 2
     assert state.is_tiebreak is False
     assert state.games_per_set == 6
 
 
-def test_server_marker_on_p2_side():
+def test_server_marker_on_p1_side():
     state = parse_live_state("6/3 -- •40:15", 6)
-    assert state.server == 2
+    assert state.server == 1
     assert state.current_points == ("40", "15")
 
 
@@ -48,7 +48,7 @@ def test_tiebreak_point_counts_as_raw_ints():
     state = parse_live_state("6/6 -- 3:5•", 6)
     assert state.is_tiebreak is True
     assert state.current_points_numeric == (3, 5)
-    assert state.server == 1
+    assert state.server == 2
 
 
 def test_no_current_game_segment():

@@ -48,38 +48,54 @@ def parse_live_state(score: str, games_per_set: int) -> LiveMatchState | None:
 
     effective_games_per_set = games_per_set if games_per_set > 0 else 6
 
-    # Completed sets are those where one player >= games_per_set games.
-    # Winner decided by comparing game counts.
+    # Helper to check if a set is won by a player (with win-by-2 margin)
+    def is_set_won(p1_games: int, p2_games: int) -> int | None:
+        """Returns 1 if P1 won, 2 if P2 won, None if set is in progress."""
+        # Standard win: reach games_per_set with 2+ game margin
+        if p1_games >= effective_games_per_set and p1_games - p2_games >= 2:
+            return 1
+        if p2_games >= effective_games_per_set and p2_games - p1_games >= 2:
+            return 2
+        # Tiebreak win: exactly games_per_set + 1 while opponent has games_per_set
+        if p1_games == effective_games_per_set + 1 and p2_games == effective_games_per_set:
+            return 1
+        if p2_games == effective_games_per_set + 1 and p1_games == effective_games_per_set:
+            return 2
+        return None
+
     sets_won = [0, 0]
-    for p1_raw, p2_raw in sets:
+    current_set_games = (0, 0)
+
+    for i, (p1_raw, p2_raw) in enumerate(sets):
         p1_n, p2_n = _parse_int(p1_raw), _parse_int(p2_raw)
         if p1_n is None or p2_n is None:
             continue
-        # Only count as a completed set if one player has >= games_per_set games
-        if p1_n >= effective_games_per_set or p2_n >= effective_games_per_set:
-            if p1_n > p2_n:
-                sets_won[0] += 1
-            elif p2_n > p1_n:
-                sets_won[1] += 1
 
-    # Current set games: (0, 0) if last set is completed, otherwise the last set's games
-    last_p1, last_p2 = sets[-1]
-    last_p1_n = _parse_int(last_p1) or 0
-    last_p2_n = _parse_int(last_p2) or 0
-    if last_p1_n >= effective_games_per_set or last_p2_n >= effective_games_per_set:
-        # Last set is completed, so current set hasn't started
-        current_set_games = (0, 0)
-    else:
-        # Last set is in progress
-        current_set_games = (last_p1_n, last_p2_n)
+        winner = is_set_won(p1_n, p2_n)
+        is_last_set = i == len(sets) - 1
+
+        if winner:
+            # This set is completed
+            if winner == 1:
+                sets_won[0] += 1
+            else:
+                sets_won[1] += 1
+            if is_last_set:
+                # Last set is complete, so next set hasn't started
+                current_set_games = (0, 0)
+        else:
+            # This set is in progress
+            if is_last_set:
+                # Last set is the current set
+                current_set_games = (p1_n, p2_n)
 
     server: int | None = None
     current_raw = current_part.strip()
     if current_raw.startswith("•"):
-        server = 2
+        server = 1
         current_raw = current_raw[1:]
     elif current_raw.endswith("•"):
-        server = 1
+        server = 2
         current_raw = current_raw[:-1]
 
     current_points: tuple[str, str] | None = None
