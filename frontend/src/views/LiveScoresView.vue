@@ -1,18 +1,33 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
+import { RouterLink } from 'vue-router'
 import RealTennisScores from '@/components/real-tennis/RealTennisScores.vue'
 import { useScoresStore } from '@/stores/scores'
+import { useAuthStore } from '@/stores/auth'
 import { useWebSocket } from '@/composables/useWebSocket'
+import { useModalAccessibility } from '@/composables/useModalAccessibility'
 import { wsUrl } from '@/config/api'
 import MatchCard from '@/components/scores/MatchCard.vue'
 import FilterBar from '@/components/scores/FilterBar.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import ErrorAlert from '@/components/common/ErrorAlert.vue'
 import MonthlyOverview from '@/components/scores/MonthlyOverview.vue'
+import PlayerDetailsModal from '@/components/players/PlayerDetailsModal.vue'
 import { Activity } from 'lucide-vue-next'
 
 const store = useScoresStore()
+const authStore = useAuthStore()
 const activeTab = ref<'te4' | 'real'>('te4')
+const showDetails = ref(false)
+const detailsName = ref('')
+const detailsElo = ref(0)
+const showSignupPrompt = ref(false)
+const signupPlayerName = ref('')
+
+useModalAccessibility(showSignupPrompt, {
+  onClose: () => { showSignupPrompt.value = false },
+  containerSelector: '#live-signup-prompt',
+})
 
 // WebSocket for real-time updates
 const { data: wsData, isConnected, error: wsError } = useWebSocket(wsUrl('/api/scores/ws'))
@@ -49,6 +64,20 @@ function formatTime(isoString: string) {
   if (!isoString) return ''
   const date = new Date(isoString)
   return date.toLocaleTimeString()
+}
+
+function onSelectPlayer(payload: { name: string; elo: number }) {
+  if (authStore.loading) return
+  if (!authStore.user) {
+    signupPlayerName.value = payload.name
+    showDetails.value = false
+    showSignupPrompt.value = true
+    return
+  }
+  showSignupPrompt.value = false
+  detailsName.value = payload.name
+  detailsElo.value = payload.elo
+  showDetails.value = true
 }
 </script>
 
@@ -174,6 +203,7 @@ function formatTime(isoString: string) {
           v-for="server in store.filteredServers"
           :key="server.creation_time_ms"
           :server="server"
+          @select-player="onSelectPlayer"
         />
       </div>
 
@@ -185,6 +215,32 @@ function formatTime(isoString: string) {
 
     <!-- Real Tennis content -->
     <RealTennisScores v-else />
+
+    <PlayerDetailsModal
+      :open="showDetails"
+      :name="detailsName"
+      :elo="detailsElo"
+      @close="showDetails = false"
+    />
+
+    <div
+      v-if="showSignupPrompt"
+      id="live-signup-prompt"
+      class="modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Sign up to see player stats"
+      @click.self="showSignupPrompt = false"
+    >
+      <div class="signup-prompt-card">
+        <h2>See stats for {{ signupPlayerName }}</h2>
+        <p>Sign up to view wins, losses, and recent matches for this player.</p>
+        <div class="signup-prompt-actions">
+          <RouterLink to="/signup" class="btn btn-primary">Sign up</RouterLink>
+          <RouterLink to="/login" class="btn btn-secondary">Log in</RouterLink>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -499,6 +555,22 @@ function formatTime(isoString: string) {
   color: var(--color-brand-primary);
   border-color: var(--color-brand-primary);
   background: var(--color-bg-secondary);
+}
+
+.signup-prompt-card {
+  padding: var(--space-6);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.signup-prompt-actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.signup-prompt-actions a {
+  text-decoration: none;
 }
 
 </style>
