@@ -171,7 +171,7 @@ def test_blowout_decider_lead_swings_harder_than_early_close_game():
 def test_live_tiebreak_uses_real_point_score_not_coin_flip():
     near_tiebreak_win = live_win_probability(
         0.5, 0.5,
-        _state(sets_won=(0, 0), current_set_games=(6, 6), server=1, is_tiebreak=True,
+        _state(sets_won=(1, 0), current_set_games=(6, 6), server=1, is_tiebreak=True,
                current_points=("6", "2"), current_points_numeric=(6, 2)),
         sets_to_win=2,
     )
