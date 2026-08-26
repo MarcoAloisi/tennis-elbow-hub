@@ -659,7 +659,79 @@ class StatsService:
             logger.error(f"Failed to fetch all players: {e}")
             return []
 
-    async def get_player_details_async(self, player_name: str) -> dict[str, Any]:
+    async def get_player_clusters_async(self) -> list[dict[str, Any]]:
+        """One row per (canonical name, ELO cluster) for the admin table/CSV."""
+        try:
+            alias_map = await self._load_alias_map()
+            session_factory = get_session_factory()
+            async with session_factory() as session:
+                result = await session.execute(
+                    select(
+                        FinishedMatch.match_name,
+                        FinishedMatch.p1_elo,
+                        FinishedMatch.p2_elo,
+                        FinishedMatch.date,
+                        FinishedMatch.score,
+                    ).order_by(FinishedMatch.created_at.asc())
+                )
+                match_records = result.all()
+
+            appearances: list[dict[str, Any]] = []
+
+            def _is_real(n: str) -> bool:
+                return bool(n) and n != "Unknown" and n != "1210967164" and not n.startswith("[.")
+
+            def _enough_games(score: str | None) -> bool:
+                total_games = 0
+                if score:
+                    for s in score.split():
+                        if "/" in s:
+                            parts = s.split("/")
+                            g1_str = "".join(c for c in parts[0] if c.isdigit())
+                            g2_str = "".join(
+                                c for c in parts[1].split("(")[0] if c.isdigit()
+                            )
+                            if g1_str and g2_str:
+                                try:
+                                    total_games += int(g1_str) + int(g2_str)
+                                except ValueError:
+                                    pass
+                return total_games >= self.MIN_GAMES_THRESHOLD
+
+            for row in match_records:
+                name = row.match_name
+                if not name or not _enough_games(row.score):
+                    continue
+                if " vs " in name:
+                    p1, p2 = name.split(" vs ", 1)
+                    p1 = self._resolve_name(p1.strip(), alias_map)
+                    p2 = self._resolve_name(p2.strip(), alias_map)
+                    if _is_real(p1) and row.p1_elo is not None and row.p1_elo > 0:
+                        appearances.append(
+                            {"name": p1, "player_elo": row.p1_elo, "date": row.date}
+                        )
+                    if _is_real(p2) and row.p2_elo is not None and row.p2_elo > 0:
+                        appearances.append(
+                            {"name": p2, "player_elo": row.p2_elo, "date": row.date}
+                        )
+                else:
+                    resolved = self._resolve_name(name.strip(), alias_map)
+                    if _is_real(resolved) and row.p1_elo is not None and row.p1_elo > 0:
+                        appearances.append(
+                            {
+                                "name": resolved,
+                                "player_elo": row.p1_elo,
+                                "date": row.date,
+                            }
+                        )
+            return cluster_list_rows(appearances)
+        except Exception as e:
+            logger.error(f"Failed to fetch player clusters: {e}")
+            return []
+
+    async def get_player_details_async(
+        self, player_name: str, elo: int | None = None
+    ) -> dict[str, Any]:
         """Get detailed match history and stats for a specific player.
 
         Returns matches played, wins, losses, best win (highest ELO opponent beaten),
@@ -774,6 +846,18 @@ class StatsService:
                             matches_last_7 += 1
                         if row.date >= month_ago:
                             matches_last_30 += 1
+
+                if elo is not None:
+                    rated = [
+                        m for m in matches
+                        if m.get("player_elo") and m["player_elo"] > 0
+                    ]
+                    chosen = _pick_cluster(_split_elo_clusters(rated), elo)
+                    if not chosen:
+                        return empty_player_details(player_name)
+                    return _details_from_matches(
+                        player_name, chosen, self._get_today()
+                    )
 
                 completed_matches = wins + losses
                 return {
