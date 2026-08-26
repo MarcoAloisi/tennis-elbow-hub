@@ -414,9 +414,14 @@ def test_set_does_not_go_past_games_per_set_plus_one():
 
 def test_non_default_games_per_set_changes_terminal_case():
     # A match configured for a shorter set (e.g. games_per_set=4) must use
-    # that value, not a hardcoded 6.
-    short_set = game_to_set_prob(0.5, 3, 3, 4)
-    long_set = game_to_set_prob(0.5, 3, 3, 6)
+    # that value, not a hardcoded 6. g=0.5 is deliberately NOT used here: at
+    # a symmetric point-win-rate, (3,3) resolves to exactly 0.5 whether it's
+    # the games_per_set=4 terminal case OR a mid-recursion tied state in a
+    # games_per_set=6 set (by the same complementary-symmetry argument as
+    # the deuce closed form) — the two would coincidentally match and this
+    # test would not actually be checking what its name claims.
+    short_set = game_to_set_prob(0.65, 3, 3, 4)
+    long_set = game_to_set_prob(0.65, 3, 3, 6)
     assert short_set != long_set
 
 
@@ -853,7 +858,7 @@ def test_form_edge_no_data_is_neutral():
 
 
 def test_form_edge_difference():
-    assert form_edge(0.7, 0.4) == 0.30000000000000004 or abs(form_edge(0.7, 0.4) - 0.3) < 1e-9
+    assert abs(form_edge(0.7, 0.4) - 0.3) < 1e-9
 
 
 def test_pre_match_probability_symmetric_elo_and_no_data_is_half():
@@ -952,34 +957,47 @@ git commit -m "feat: add pre-match ELO/H2H/form blend for win probability"
 
 ```python
 # backend/tests/test_game_server_live_state.py
-from app.services.parser import parse_server_entry
+from app.services.parser import parse_server_data
 
-
+# Reuses the exact wire-format sample from conftest.py's sample_server_data
+# fixture (GameInfo=0x1B198E41, which decodes to games_per_set=6) rather
+# than hand-rolling a new one — GameServer's numeric fields (elo, port,
+# GameInfo, ...) are parsed via safe_int_from_hex, i.e. HEX, not decimal,
+# so a hand-written "elo=1600"-style token would silently parse as 0x1600
+# (5632). Going through the real tokenizer with known-good data sidesteps
+# that entirely.
 _SAMPLE = (
     '0 E9FD "RBI vs TestPlayer" 1B198E41 96 415 3 "XKT v4.2d" '
     '"6/3 4/6 1/1 -- 00:40•" 393 0 1 "BlueGreenCement" 69760194'
 )
 
 
+def _parse_one(raw: str):
+    servers = list(parse_server_data(raw))
+    assert len(servers) == 1
+    return servers[0]
+
+
 def test_live_state_is_present_on_every_server():
-    server = parse_server_entry(_SAMPLE)
+    server = _parse_one(_SAMPLE)
     assert server.live_state is not None
     assert server.live_state.sets == [("6", "3"), ("4", "6"), ("1", "1")]
     assert server.live_state.server == 1
 
 
 def test_live_state_uses_games_per_set_from_game_info():
-    server = parse_server_entry(_SAMPLE)
-    assert server.live_state.games_per_set == server.game_info.games_per_set or server.live_state.games_per_set == 6
+    server = _parse_one(_SAMPLE)
+    assert server.game_info.games_per_set == 6
+    assert server.live_state.games_per_set == 6
 
 
 def test_win_probability_defaults_to_none():
-    server = parse_server_entry(_SAMPLE)
+    server = _parse_one(_SAMPLE)
     assert server.win_probability is None
 
 
 def test_win_probability_is_settable_and_serializes():
-    server = parse_server_entry(_SAMPLE)
+    server = _parse_one(_SAMPLE)
     server.win_probability = {"p1": 0.62, "p2": 0.38}
     dumped = server.model_dump()
     assert dumped["win_probability"] == {"p1": 0.62, "p2": 0.38}
@@ -1114,27 +1132,43 @@ git commit -m "feat: add surface and mod columns to finished_matches"
 
 ```python
 # backend/tests/test_stats_service_identity.py
-from app.models.game_server import GameServer
-from app.services.parser import parse_server_entry
+from app.models.game_server import GameInfo, GameServer, PlayerConfig, SkillMode, ControlMode
 from app.services.stats_service import _match_identity_key
+
+
+def _make_server(match_name: str, port: int = 1, creation_time_ms: int = 100) -> GameServer:
+    """Constructs a GameServer directly, bypassing wire-format parsing —
+    this test only cares about the identity fields, not the hex tokenizer,
+    and GameServer's numeric wire fields are parsed as hex by the real
+    parser (safe_int_from_hex), so hand-written decimal-looking raw strings
+    would silently parse wrong. Direct construction sidesteps that."""
+    return GameServer(
+        ip="0.0.0.0",
+        port=port,
+        match_name=match_name,
+        game_info=GameInfo(
+            trial=0, player_config=PlayerConfig.SINGLES, nb_set=2,
+            skill_mode=SkillMode.INTERMEDIATE, games_per_set=6,
+            control_mode=ControlMode.KEYBOARD, preview=0, tiredness=False,
+        ),
+        max_ping=96, elo=1500, nb_game=3, tag_line="", score="0/0 -- 0:0",
+        other_elo=1500, give_up_rate=0, reputation=0, surface_name="Clay",
+        creation_time_ms=creation_time_ms, is_started=True,
+    )
 
 
 def test_identity_key_excludes_match_name():
     """A name resolving mid-match (e.g. 'Waiting' -> real name) must not
     change the identity key — that's what makes the win-probability cache
     (and the existing rename-detection logic) survive it."""
-    a = '0 1 "Waiting vs Bob" 1B198E41 96 415 3 "" "0/0 -- 0:0" 0 0 0 "Clay" 100'
-    b = '0 1 "Alice vs Bob" 1B198E41 96 415 3 "" "0/0 -- 0:0" 0 0 0 "Clay" 100'
-    server_a = parse_server_entry(a)
-    server_b = parse_server_entry(b)
+    server_a = _make_server("Waiting vs Bob")
+    server_b = _make_server("Alice vs Bob")
     assert _match_identity_key(server_a) == _match_identity_key(server_b)
 
 
 def test_identity_key_differs_on_port():
-    a = '0 1 "Alice vs Bob" 1B198E41 96 415 3 "" "0/0 -- 0:0" 0 0 0 "Clay" 100'
-    b = '0 2 "Alice vs Bob" 1B198E41 96 415 3 "" "0/0 -- 0:0" 0 0 0 "Clay" 100'
-    server_a = parse_server_entry(a)
-    server_b = parse_server_entry(b)
+    server_a = _make_server("Alice vs Bob", port=1)
+    server_b = _make_server("Alice vs Bob", port=2)
     assert _match_identity_key(server_a) != _match_identity_key(server_b)
 ```
 
@@ -1536,15 +1570,26 @@ git commit -m "feat: add recent-form win-rate helper"
 # backend/tests/test_win_prob_cache.py
 import pytest
 
-from app.services.parser import parse_server_entry
+from app.models.game_server import GameInfo, GameServer, PlayerConfig, SkillMode, ControlMode
 from app.services.stats_service import StatsService
 
 
-def _server(elo=1500, other_elo=1500, port=1):
-    raw = (
-        f'0 {port} "Alice vs Bob" 1B198E41 96 {elo} 3 "" "0/0 -- 0:0" 0 {other_elo} 0 "Clay" 100'
+def _server(match_name="Alice vs Bob", elo=1500, other_elo=1500, port=1) -> GameServer:
+    """Direct construction, not wire parsing — see the note in
+    test_stats_service_identity.py's _make_server for why."""
+    return GameServer(
+        ip="0.0.0.0",
+        port=port,
+        match_name=match_name,
+        game_info=GameInfo(
+            trial=0, player_config=PlayerConfig.SINGLES, nb_set=2,
+            skill_mode=SkillMode.INTERMEDIATE, games_per_set=6,
+            control_mode=ControlMode.KEYBOARD, preview=0, tiredness=False,
+        ),
+        max_ping=96, elo=elo, nb_game=3, tag_line="", score="0/0 -- 0:0",
+        other_elo=other_elo, give_up_rate=0, reputation=0, surface_name="Clay",
+        creation_time_ms=100, is_started=True,
     )
-    return parse_server_entry(raw)
 
 
 @pytest.mark.asyncio
@@ -1584,12 +1629,8 @@ async def test_cache_survives_name_change(monkeypatch: pytest.MonkeyPatch):
 
     monkeypatch.setattr(service, "_fetch_resolved_appearances_async", _fake_fetch)
 
-    waiting = parse_server_entry(
-        '0 1 "Waiting vs Bob" 1B198E41 96 1500 3 "" "0/0 -- 0:0" 0 1500 0 "Clay" 100'
-    )
-    resolved = parse_server_entry(
-        '0 1 "Alice vs Bob" 1B198E41 96 1500 3 "" "0/0 -- 0:0" 0 1500 0 "Clay" 100'
-    )
+    waiting = _server(match_name="Waiting vs Bob")
+    resolved = _server(match_name="Alice vs Bob")
 
     first = await service.get_or_compute_pre_match_rates(waiting)
     second = await service.get_or_compute_pre_match_rates(resolved)
@@ -1698,6 +1739,27 @@ import pytest
 
 from app.services.scraper import ScraperService
 
+# GameServer's numeric wire tokens (Elo, GameInfo, ...) are parsed via
+# safe_int_from_hex — i.e. HEX, not decimal. "64" here is 0x64 = 100
+# decimal, "32" is 0x32 = 50 decimal (p1 favored). GameInfo "0" decodes to
+# PlayerConfig.SINGLES (all bitfield bits zero); "8" is verified against
+# test_parser.py's test_parse_doubles_mode to decode to
+# PlayerConfig.COMPETITIVE_DOUBLES (bits 2-4 = 010 = 2).
+_SINGLES_GAME_INFO = "0"
+_DOUBLES_GAME_INFO = "8"
+
+
+def _raw_entry(match_name: str, game_info: str, elo: str, other_elo: str) -> str:
+    """Builds a 14-token wire-format entry from named fields, in the exact
+    order parse_server_entry expects — avoids hand-counting positional
+    tokens (a single off-by-one here silently mismatches Elo/OtherElo/
+    GiveUpRate/Reputation with no error, only a wrong parsed value)."""
+    fields = [
+        "0", "1", f'"{match_name}"', game_info, "60", elo, "3", '""',
+        '"0/0 -- 0:0"', other_elo, "0", "0", '"Clay"', "64",
+    ]
+    return " ".join(fields)
+
 
 def _async_return(value):
     async def _inner(*args, **kwargs):
@@ -1708,9 +1770,7 @@ def _async_return(value):
 @pytest.mark.asyncio
 async def test_singles_match_gets_win_probability(monkeypatch: pytest.MonkeyPatch):
     service = ScraperService()
-    raw = (
-        '0 1 "Alice vs Bob" 1B198E41 96 1600 3 "" "0/0 -- 0:0" 0 1400 0 "Clay" 100'
-    )
+    raw = _raw_entry("Alice vs Bob", _SINGLES_GAME_INFO, elo="64", other_elo="32")
     monkeypatch.setattr(service, "fetch_raw_data", _async_return(raw))
 
     result = await service.fetch_servers(track_stats=False)
@@ -1723,10 +1783,7 @@ async def test_singles_match_gets_win_probability(monkeypatch: pytest.MonkeyPatc
 @pytest.mark.asyncio
 async def test_doubles_match_has_no_win_probability(monkeypatch: pytest.MonkeyPatch):
     service = ScraperService()
-    # PlayerCfg bits set to competitive doubles (value 2) inside GameInfo.
-    raw = (
-        '0 1 "A/B vs C/D" 1B198849 96 1600 3 "" "0/0 -- 0:0" 0 1400 0 "Clay" 100'
-    )
+    raw = _raw_entry("A/B vs C/D", _DOUBLES_GAME_INFO, elo="64", other_elo="32")
     monkeypatch.setattr(service, "fetch_raw_data", _async_return(raw))
 
     result = await service.fetch_servers(track_stats=False)
@@ -1737,7 +1794,7 @@ async def test_doubles_match_has_no_win_probability(monkeypatch: pytest.MonkeyPa
 @pytest.mark.asyncio
 async def test_missing_elo_has_no_win_probability(monkeypatch: pytest.MonkeyPatch):
     service = ScraperService()
-    raw = '0 1 "Alice vs Bob" 1B198E41 96 0 3 "" "0/0 -- 0:0" 0 1400 0 "Clay" 100'
+    raw = _raw_entry("Alice vs Bob", _SINGLES_GAME_INFO, elo="0", other_elo="32")
     monkeypatch.setattr(service, "fetch_raw_data", _async_return(raw))
 
     result = await service.fetch_servers(track_stats=False)
@@ -1748,9 +1805,7 @@ async def test_missing_elo_has_no_win_probability(monkeypatch: pytest.MonkeyPatc
 @pytest.mark.asyncio
 async def test_live_state_always_present_regardless_of_win_probability(monkeypatch: pytest.MonkeyPatch):
     service = ScraperService()
-    raw = (
-        '0 1 "A/B vs C/D" 1B198849 96 1600 3 "" "0/0 -- 0:0" 0 1400 0 "Clay" 100'
-    )
+    raw = _raw_entry("A/B vs C/D", _DOUBLES_GAME_INFO, elo="64", other_elo="32")
     monkeypatch.setattr(service, "fetch_raw_data", _async_return(raw))
 
     result = await service.fetch_servers(track_stats=False)
