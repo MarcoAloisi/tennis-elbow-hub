@@ -160,13 +160,11 @@ def _game_to_set_with_current_game(
     the set recursion; every game beyond the current one reverts to the
     plain symmetric g, matching what implied_game_win_rate was solved
     against."""
-    if games_a >= games_per_set or games_b >= games_per_set:
-        # Terminal case: if we're exactly at games_per_set all, the current
-        # game (the tiebreak) determines the entire set.
-        if games_a == games_per_set and games_b == games_per_set:
-            return game_prob_a
-        # Otherwise, the set is already over (one player has won).
-        return game_to_set_prob(g, games_a, games_b, games_per_set)
+    if games_a == games_per_set and games_b == games_per_set:
+        # Tied at games_per_set-all: this IS the (possibly live) tiebreak —
+        # game_prob_a already reflects the real tiebreak point score via
+        # point_to_tiebreak_prob upstream, if one is available.
+        return game_prob_a
     win_next = game_to_set_prob(g, games_a + 1, games_b, games_per_set)
     lose_next = game_to_set_prob(g, games_a, games_b + 1, games_per_set)
     return game_prob_a * win_next + (1 - game_prob_a) * lose_next

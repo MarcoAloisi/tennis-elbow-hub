@@ -200,3 +200,28 @@ def test_probabilities_always_sum_to_one():
         sets_to_win=2,
     )
     assert abs(result["p1"] + result["p2"] - 1.0) < 1e-9
+
+
+def test_set_at_six_five_boundary_uses_live_points():
+    """Regression test for boundary case: 6-5 in games must use current
+    game probability (not discard it as 'set already over'). At 6-5 with
+    p1 serving at 40-15, result should be meaningfully higher than without
+    a server advantage. Before the fix, this would have returned identical
+    values (the live signal was discarded entirely)."""
+    with_server = live_win_probability(
+        0.5, 0.5,
+        _state(current_set_games=(6, 5), server=1,
+               current_points=("40", "15"), current_points_numeric=(3, 1)),
+        sets_to_win=2,
+    )
+    no_server = live_win_probability(
+        0.5, 0.5,
+        _state(current_set_games=(6, 5), server=None,
+               current_points=("40", "15"), current_points_numeric=(3, 1)),
+        sets_to_win=2,
+    )
+    # At 6-5, p1 needs to win just one more game to close the set.
+    # The serve bonus should make a measurable difference.
+    assert with_server["p1"] > no_server["p1"]
+    # Verify the margin is meaningful (before the fix, these were identical).
+    assert with_server["p1"] - no_server["p1"] > 0.01
