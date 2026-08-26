@@ -60,7 +60,7 @@ npm run test         # vitest
 ### Backend (`backend/app/`)
 
 - **`main.py`** — app factory. Mounts middleware (CORS, security headers, rate limiting), registers `api_router`, handles lifespan (DB init, scraper polling start/stop, stats flush on shutdown).
-- **`api/endpoints/`** — one file per feature: `live_scores.py`, `guides.py`, `outfits.py`, `match_analysis.py`, `tour_logs.py`, `admin.py`, `predictions.py`, `contact.py`, `presence.py`.
+- **`api/endpoints/`** — one file per feature: `live_scores.py`, `guides.py`, `outfits.py`, `match_analysis.py`, `tour_logs.py`, `admin.py`, `players.py`, `predictions.py`, `contact.py`, `presence.py`.
 - **`api/router.py`** — mounts all endpoint routers.
 - **`api/deps.py`** — shared FastAPI dependencies: `get_db` (async DB session), `get_current_user` (Supabase JWT), `require_admin` (checks `app_metadata.role == "admin"`).
 - **`core/config.py`** — `Settings` via `pydantic-settings`, loaded from `.env`.
@@ -97,6 +97,7 @@ Auth → Supabase JWT → deps.py get_current_user / require_admin
 3. Add `@limiter.limit("60/minute")` + `request: Request` param to every public route
 4. Mount in `backend/app/api/router.py`
 5. Paginate any list endpoint: `page: int = Query(default=1, ge=1)`, `page_size: int = Query(default=50, ge=1, le=200)`
+6. Logged-in (non-admin) routes use `Depends(get_current_user)`. Player details: `GET /api/players/{name}?elo=` with required `elo` (`Query(..., ge=1)`). Do not use `/api/admin/players/{name}` (removed).
 
 ### New DB model
 
@@ -114,6 +115,12 @@ const res = await fetch(apiUrl('/api/feature'))
 // Auth header
 const { data } = await supabase.auth.getSession()
 const headers = { Authorization: `Bearer ${data.session?.access_token}` }
+
+// Clustered player details — any logged-in user; required `elo` (ge=1)
+await fetch(
+  apiUrl(`/api/players/${encodeURIComponent(name)}?elo=${elo}`),
+  { headers },
+)
 ```
 
 ## Gotchas
@@ -121,7 +128,8 @@ const headers = { Authorization: `Bearer ${data.session?.access_token}` }
 - **Player names**: raw `match_name` values are lowercased for alias lookup in `player_aliases` table; canonical names preserve original casing.
 - **Score filtering**: matches with < 5 total games are dropped (`StatsService.MIN_GAMES_THRESHOLD`).
 - **Bot players**: names starting with `[.` are filtered from DB views.
-- **Admin players endpoint**: returns all players unpagedg (~200KB JSON). Admin-only; client filters.
+- **Admin players endpoint**: returns all players unpaged (~200KB JSON). Admin-only; client filters. List rows are **one per ELO cluster** (same name may appear twice). Nickname mapper autocomplete uses unique names.
+- **Player details**: `GET /api/players/{name}?elo=` — any logged-in user, cluster-scoped details. Do not use `/api/admin/players/{name}` (removed).
 - **pgbouncer**: `statement_cache_size=0` is mandatory in `database.py` — do not remove.
 - **`/docs`**: only enabled when `DEBUG=true` or `APP_ENV=development`.
 - **Match log parser**: handles English, Spanish, and Polish stat labels. `def`/`vs`/`Przegrana` as winner separators.
