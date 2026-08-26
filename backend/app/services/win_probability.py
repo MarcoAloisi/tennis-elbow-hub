@@ -54,3 +54,58 @@ def point_to_tiebreak_prob(p: float, a: int, b: int) -> float:
 
 def logistic(x: float) -> float:
     return 1.0 / (1.0 + math.exp(-x))
+
+
+def game_to_set_prob(g: float, games_a: int, games_b: int, games_per_set: int) -> float:
+    """Probability of winning the set from game score (games_a, games_b),
+    treating each remaining game as i.i.d. Bernoulli(g).
+
+    Terminal case at games_per_set-all resolves via a single Bernoulli(g)
+    trial standing in for a hypothetical, not-yet-reached tiebreak — TE4
+    caps a set at a breaker, so this recursion must terminate there rather
+    than run an unbounded ad-set. This approximation only applies to a
+    tiebreak that might happen later in the chain; a tiebreak the match is
+    actually inside right now uses point_to_tiebreak_prob on the real point
+    score instead (see live_win_probability in Task 5).
+    """
+    memo: dict[tuple[int, int], float] = {}
+
+    def _rec(a: int, b: int) -> float:
+        key = (a, b)
+        if key in memo:
+            return memo[key]
+        if a >= games_per_set and a - b >= 2:
+            result = 1.0
+        elif b >= games_per_set and b - a >= 2:
+            result = 0.0
+        elif a == games_per_set and b == games_per_set:
+            result = g
+        else:
+            result = g * _rec(a + 1, b) + (1 - g) * _rec(a, b + 1)
+        memo[key] = result
+        return result
+
+    return _rec(games_a, games_b)
+
+
+def set_to_match_prob(s: float, sets_a: int, sets_b: int, sets_to_win: int) -> float:
+    """Probability of winning the match from set score, treating each
+    remaining set as i.i.d. Bernoulli(s). No win-by-2 concept at this level
+    — first to `sets_to_win` wins outright.
+    """
+    memo: dict[tuple[int, int], float] = {}
+
+    def _rec(a: int, b: int) -> float:
+        key = (a, b)
+        if key in memo:
+            return memo[key]
+        if a >= sets_to_win:
+            result = 1.0
+        elif b >= sets_to_win:
+            result = 0.0
+        else:
+            result = s * _rec(a + 1, b) + (1 - s) * _rec(a, b + 1)
+        memo[key] = result
+        return result
+
+    return _rec(sets_a, sets_b)
