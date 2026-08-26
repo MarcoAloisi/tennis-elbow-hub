@@ -1,11 +1,15 @@
 from app.services.score_parser import LiveMatchState
 from app.services.win_probability import (
+    H2HRecord,
+    form_edge,
     game_to_set_prob,
+    h2h_edge,
     implied_game_win_rate,
     implied_set_win_rate,
     live_win_probability,
     point_to_game_prob,
     point_to_tiebreak_prob,
+    pre_match_probability,
     set_to_match_prob,
 )
 
@@ -228,7 +232,6 @@ def test_set_at_six_five_boundary_uses_live_points():
 
 
 # Task 6 tests: pre-match probability (H2H + form + ELO blend)
-from app.services.win_probability import H2HRecord, form_edge, h2h_edge, pre_match_probability
 
 
 def test_h2h_edge_no_history_is_neutral():
