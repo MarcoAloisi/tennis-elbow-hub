@@ -109,3 +109,29 @@ def set_to_match_prob(s: float, sets_a: int, sets_b: int, sets_to_win: int) -> f
         return result
 
     return _rec(sets_a, sets_b)
+
+
+def implied_game_win_rate(s: float, games_per_set: int) -> float:
+    """Binary-search inverse of game_to_set_prob(g, 0, 0, games_per_set) — g
+    is monotonic and continuous in game_to_set_prob's output, so this is
+    well-defined."""
+    lo, hi = 0.0, 1.0
+    for _ in range(60):
+        mid = (lo + hi) / 2
+        if game_to_set_prob(mid, 0, 0, games_per_set) < s:
+            lo = mid
+        else:
+            hi = mid
+    return (lo + hi) / 2
+
+
+def implied_set_win_rate(p0: float, sets_to_win: int) -> float:
+    """Binary-search inverse of set_to_match_prob(s, 0, 0, sets_to_win)."""
+    lo, hi = 0.0, 1.0
+    for _ in range(60):
+        mid = (lo + hi) / 2
+        if set_to_match_prob(mid, 0, 0, sets_to_win) < p0:
+            lo = mid
+        else:
+            hi = mid
+    return (lo + hi) / 2

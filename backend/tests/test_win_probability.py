@@ -1,5 +1,7 @@
 from app.services.win_probability import (
     game_to_set_prob,
+    implied_game_win_rate,
+    implied_set_win_rate,
     point_to_game_prob,
     point_to_tiebreak_prob,
     set_to_match_prob,
@@ -90,3 +92,23 @@ def test_match_win_from_two_sets_up_in_best_of_three():
 
 def test_best_of_five_needs_three_sets():
     assert set_to_match_prob(0.5, 2, 0, 3) < 1.0
+
+
+def test_implied_game_win_rate_round_trip():
+    for g in (0.3, 0.5, 0.65, 0.8):
+        s = game_to_set_prob(g, 0, 0, 6)
+        assert abs(implied_game_win_rate(s, 6) - g) < 1e-4
+
+
+def test_implied_set_win_rate_round_trip():
+    for s in (0.3, 0.5, 0.65, 0.8):
+        p0 = set_to_match_prob(s, 0, 0, 2)
+        assert abs(implied_set_win_rate(p0, 2) - s) < 1e-4
+
+
+def test_implied_game_win_rate_symmetric_at_half():
+    assert abs(implied_game_win_rate(0.5, 6) - 0.5) < 1e-4
+
+
+def test_implied_set_win_rate_symmetric_at_half():
+    assert abs(implied_set_win_rate(0.5, 2) - 0.5) < 1e-4
