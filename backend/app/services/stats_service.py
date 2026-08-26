@@ -794,6 +794,168 @@ class StatsService:
             return {"name": player_name, "error": str(e)}
 
 
+ELO_BAND = 200
+
+
+def empty_player_details(name: str) -> dict[str, Any]:
+    """Cluster miss / no rated matches — never include `error`."""
+    return {
+        "name": name,
+        "total_matches": 0,
+        "wins": 0,
+        "losses": 0,
+        "win_rate": 0,
+        "matches_last_7_days": 0,
+        "matches_last_30_days": 0,
+        "best_win": None,
+        "worst_loss": None,
+        "recent_matches": [],
+    }
+
+
+def _split_elo_clusters(matches: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
+    rated = [m for m in matches if m.get("player_elo") and m["player_elo"] > 0]
+    if not rated:
+        return []
+    ordered = sorted(rated, key=lambda m: m["player_elo"])
+    clusters: list[list[dict[str, Any]]] = [[ordered[0]]]
+    for match in ordered[1:]:
+        if match["player_elo"] - clusters[-1][-1]["player_elo"] > ELO_BAND:
+            clusters.append([match])
+        else:
+            clusters[-1].append(match)
+    return clusters
+
+
+def _cluster_interval_distance(elo: int, cluster: list[dict[str, Any]]) -> int:
+    elos = [m["player_elo"] for m in cluster]
+    lo, hi = min(elos), max(elos)
+    if lo <= elo <= hi:
+        return 0
+    if elo < lo:
+        return lo - elo
+    return elo - hi
+
+
+def _parse_match_date(raw: object) -> date | None:
+    if raw is None:
+        return None
+    if isinstance(raw, datetime):
+        return raw.date()
+    if isinstance(raw, date):
+        return raw
+    try:
+        return date.fromisoformat(str(raw)[:10])
+    except ValueError:
+        return None
+
+
+def _latest_in_cluster(
+    cluster: list[dict[str, Any]],
+) -> tuple[dict[str, Any], date | None]:
+    dated_ok: list[tuple[dict[str, Any], date]] = []
+    for app in cluster:
+        parsed = _parse_match_date(app.get("date"))
+        if parsed is not None:
+            dated_ok.append((app, parsed))
+    if dated_ok:
+        return max(dated_ok, key=lambda pair: pair[1])
+    return cluster[-1], None
+
+
+def _cluster_latest_elo(cluster: list[dict[str, Any]]) -> int:
+    latest, _ = _latest_in_cluster(cluster)
+    return int(latest["player_elo"])
+
+
+def _pick_cluster(clusters: list[list[dict[str, Any]]], elo: int) -> list[dict[str, Any]]:
+    if not clusters:
+        return []
+    ranked = sorted(
+        clusters,
+        key=lambda c: (
+            _cluster_interval_distance(elo, c),
+            -len(c),
+            -_cluster_latest_elo(c),
+        ),
+    )
+    best = ranked[0]
+    if _cluster_interval_distance(elo, best) > ELO_BAND:
+        return []
+    return best
+
+
+def _details_from_matches(
+    name: str, matches: list[dict[str, Any]], today: date
+) -> dict[str, Any]:
+    week_ago = today - timedelta(days=7)
+    month_ago = today - timedelta(days=30)
+    ordered = sorted(
+        matches,
+        key=lambda m: _parse_match_date(m.get("date")) or date.min,
+        reverse=True,
+    )
+    wins = 0
+    losses = 0
+    best_win: dict[str, Any] | None = None
+    worst_loss: dict[str, Any] | None = None
+    matches_last_7 = 0
+    matches_last_30 = 0
+    for match_entry in ordered:
+        result = match_entry.get("result")
+        opponent_elo = match_entry.get("opponent_elo")
+        if result == "W":
+            wins += 1
+            if opponent_elo and opponent_elo > 0:
+                if best_win is None or opponent_elo > (best_win.get("opponent_elo") or 0):
+                    best_win = match_entry
+        elif result == "L":
+            losses += 1
+            if opponent_elo and opponent_elo > 0:
+                if worst_loss is None or opponent_elo < (worst_loss.get("opponent_elo") or 9999):
+                    worst_loss = match_entry
+        match_day = _parse_match_date(match_entry.get("date"))
+        if match_day:
+            if match_day >= week_ago:
+                matches_last_7 += 1
+            if match_day >= month_ago:
+                matches_last_30 += 1
+    completed = wins + losses
+    return {
+        "name": name,
+        "total_matches": completed,
+        "wins": wins,
+        "losses": losses,
+        "win_rate": round(wins / completed * 100, 1) if completed > 0 else 0,
+        "matches_last_7_days": matches_last_7,
+        "matches_last_30_days": matches_last_30,
+        "best_win": best_win,
+        "worst_loss": worst_loss,
+        "recent_matches": ordered[:10],
+    }
+
+
+def cluster_list_rows(appearances: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """One row per (canonical name, ELO cluster). total_matches = appearance count."""
+    by_name: dict[str, list[dict[str, Any]]] = {}
+    for row in appearances:
+        by_name.setdefault(row["name"], []).append(row)
+    out: list[dict[str, Any]] = []
+    for name, apps in by_name.items():
+        for cluster in _split_elo_clusters(apps):
+            latest_app, latest_day = _latest_in_cluster(cluster)
+            out.append(
+                {
+                    "name": name,
+                    "latest_elo": latest_app["player_elo"],
+                    "total_matches": len(cluster),
+                    "last_match_date": latest_day.isoformat() if latest_day else None,
+                }
+            )
+    out.sort(key=lambda r: r["total_matches"], reverse=True)
+    return out
+
+
 # Singleton instance
 _stats_service: StatsService | None = None
 
