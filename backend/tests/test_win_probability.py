@@ -225,3 +225,60 @@ def test_set_at_six_five_boundary_uses_live_points():
     assert with_server["p1"] > no_server["p1"]
     # Verify the margin is meaningful (before the fix, these were identical).
     assert with_server["p1"] - no_server["p1"] > 0.01
+
+
+# Task 6 tests: pre-match probability (H2H + form + ELO blend)
+from app.services.win_probability import H2HRecord, form_edge, h2h_edge, pre_match_probability
+
+
+def test_h2h_edge_no_history_is_neutral():
+    record = H2HRecord(wins_a=0, wins_b=0, total=0, specific_wins_a=0, specific_wins_b=0, specific_total=0)
+    assert h2h_edge(record) == 0.0
+
+
+def test_h2h_edge_favors_more_wins():
+    record = H2HRecord(wins_a=3, wins_b=1, total=4, specific_wins_a=0, specific_wins_b=0, specific_total=0)
+    assert h2h_edge(record) > 0
+
+
+def test_h2h_edge_shrinkage_dampens_small_samples():
+    small = H2HRecord(wins_a=1, wins_b=0, total=1, specific_wins_a=0, specific_wins_b=0, specific_total=0)
+    large = H2HRecord(wins_a=15, wins_b=0, total=15, specific_wins_a=0, specific_wins_b=0, specific_total=0)
+    assert h2h_edge(small) < h2h_edge(large)
+
+
+def test_h2h_edge_specific_blend_uses_matching_shrinkage():
+    # A thin specific record (2-0) blended at weight min(2,4)/4=0.5 should
+    # land between the overall and specific shrunk edges, not overshoot
+    # because of mismatched shrinkage.
+    record = H2HRecord(wins_a=5, wins_b=5, total=10, specific_wins_a=2, specific_wins_b=0, specific_total=2)
+    overall = (5 - 5) / (10 + 4)
+    specific = (2 - 0) / (2 + 4)
+    expected = 0.5 * overall + 0.5 * specific
+    assert abs(h2h_edge(record) - expected) < 1e-9
+
+
+def test_h2h_edge_no_specific_data_ignores_blend():
+    record = H2HRecord(wins_a=2, wins_b=1, total=3, specific_wins_a=0, specific_wins_b=0, specific_total=0)
+    assert h2h_edge(record) == (2 - 1) / (3 + 4)
+
+
+def test_form_edge_no_data_is_neutral():
+    assert form_edge(None, None) == 0.0
+    assert form_edge(0.7, None) == 0.0
+    assert form_edge(None, 0.7) == 0.0
+
+
+def test_form_edge_difference():
+    assert abs(form_edge(0.7, 0.4) - 0.3) < 1e-9
+
+
+def test_pre_match_probability_symmetric_elo_and_no_data_is_half():
+    record = H2HRecord(0, 0, 0, 0, 0, 0)
+    assert abs(pre_match_probability(1500, 1500, record, 0.0) - 0.5) < 1e-9
+
+
+def test_pre_match_probability_higher_elo_favored():
+    record = H2HRecord(0, 0, 0, 0, 0, 0)
+    p = pre_match_probability(1700, 1500, record, 0.0)
+    assert p > 0.5

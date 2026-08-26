@@ -8,6 +8,7 @@ interpretation.
 """
 
 import math
+from dataclasses import dataclass
 
 from app.services.score_parser import LiveMatchState
 
@@ -210,3 +211,51 @@ def live_win_probability(
 
     p1 = round(match_prob_a, 4)
     return {"p1": p1, "p2": round(1 - p1, 4)}
+
+
+# Task 6: Pre-match probability blend (H2H + form + ELO)
+
+
+@dataclass(frozen=True)
+class H2HRecord:
+    wins_a: int
+    wins_b: int
+    total: int
+    specific_wins_a: int
+    specific_wins_b: int
+    specific_total: int
+
+
+def _shrunk_edge(wins_a: int, wins_b: int, total: int) -> float:
+    return (wins_a - wins_b) / (total + 4)
+
+
+def h2h_edge(record: H2HRecord) -> float:
+    """Laplace-shrunk H2H edge, blended smoothly with a surface/mod-specific
+    edge (identically shrunk) when specific data exists — no hard on/off
+    threshold, so the signal doesn't jump as specific matches accumulate."""
+    overall = _shrunk_edge(record.wins_a, record.wins_b, record.total)
+    if record.specific_total == 0:
+        return overall
+    specific = _shrunk_edge(record.specific_wins_a, record.specific_wins_b, record.specific_total)
+    weight = min(record.specific_total, 4) / 4
+    return (1 - weight) * overall + weight * specific
+
+
+def form_edge(form_a: float | None, form_b: float | None) -> float:
+    """Difference in recent (last-30-day) win rate. 0.0 (no signal) if
+    either player has no recent matches."""
+    if form_a is None or form_b is None:
+        return 0.0
+    return form_a - form_b
+
+
+def pre_match_probability(
+    elo_a: int, elo_b: int, h2h: H2HRecord, form_edge_value: float
+) -> float:
+    """P0 = logistic(0.6*ELOdiff/400 + 0.25*h2h_edge + 0.15*form_edge).
+    Weights are hand-set starting points, not fitted — no labeled outcome
+    data exists yet to calibrate against."""
+    elo_term = (elo_a - elo_b) / 400.0
+    x = 0.6 * elo_term + 0.25 * h2h_edge(h2h) + 0.15 * form_edge_value
+    return logistic(x)
