@@ -42,7 +42,10 @@ export function usePlayerDetails() {
     return { Authorization: `Bearer ${token}` }
   }
 
-  async function fetchPlayerDetails(playerName: string): Promise<void> {
+  let requestId = 0
+
+  async function fetchPlayerDetails(playerName: string, elo: number): Promise<void> {
+    const thisRequest = ++requestId
     isLoading.value = true
     error.value = null
     details.value = null
@@ -50,12 +53,14 @@ export function usePlayerDetails() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(
-        apiUrl(`/api/admin/players/${encodeURIComponent(playerName)}`),
+        apiUrl(`/api/players/${encodeURIComponent(playerName)}?elo=${elo}`),
         { headers }
       )
 
-      if (response.status === 401 || response.status === 403) {
-        throw new Error('Unauthorized — admin access required')
+      if (thisRequest !== requestId) return
+
+      if (response.status === 401) {
+        throw new Error('Session expired — log in again.')
       }
       if (!response.ok) {
         throw new Error(`HTTP error ${response.status}`)
@@ -63,16 +68,21 @@ export function usePlayerDetails() {
 
       details.value = await response.json()
     } catch (e: any) {
+      if (thisRequest !== requestId) return
       error.value = e.message
       console.error('Failed to fetch player details:', e)
     } finally {
-      isLoading.value = false
+      if (thisRequest === requestId) {
+        isLoading.value = false
+      }
     }
   }
 
   function clearDetails(): void {
+    requestId++
     details.value = null
     error.value = null
+    isLoading.value = false
   }
 
   return {

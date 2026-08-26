@@ -144,6 +144,12 @@ export function useAdminPlayers() {
     players.value.filter(p => !p.name.includes('&'))
   )
 
+  const uniquePlayerNames = computed(() =>
+    [...new Set(cleanPlayers.value.map(p => p.name))].sort((a, b) =>
+      a.localeCompare(b)
+    )
+  )
+
   const filteredAndSortedPlayers = computed(() => {
     let result = [...cleanPlayers.value]
 
@@ -260,6 +266,7 @@ export function useAdminPlayers() {
   return {
     players: filteredAndSortedPlayers,
     allPlayers: cleanPlayers,
+    uniquePlayerNames,
     isLoading,
     error,
     lastRefreshed,
