@@ -600,9 +600,8 @@ button.player-name.clickable:focus-visible {
    Deliberately NOT --color-accent/--color-brand-primary: that's already
    the .serving-dot color, and a player serving is a constant, recurring
    state on a live card - reusing it here would put two same-colored
-   dots with unrelated meanings in the same row. Amber/purple instead:
-   distinct from each other, from the green serving-dot, and from the
-   surface-badge colors used elsewhere on the card header. */
+   dots with unrelated meanings in the same row. Azul/Teal are explicit
+   design choices (not existing design tokens), used as raw hex. */
 .winprob-marker {
   width: 8px;
   height: 8px;
@@ -611,11 +610,11 @@ button.player-name.clickable:focus-visible {
 }
 
 .winprob-marker-p1 {
-  background-color: var(--color-warning);
+  background-color: #60A5FA; /* Azul */
 }
 
 .winprob-marker-p2 {
-  background-color: var(--color-surface-indoor);
+  background-color: #2DD4BF; /* Teal */
 }
 
 /* 5. Win Probability Bar - compact proportion strip below both rows,
@@ -650,11 +649,11 @@ button.player-name.clickable:focus-visible {
 }
 
 .win-probability-segment-p1 {
-  background-color: var(--color-warning);
+  background-color: #60A5FA; /* Azul */
 }
 
 .win-probability-segment-p2 {
-  background-color: var(--color-surface-indoor);
+  background-color: #2DD4BF; /* Teal */
 }
 
 
