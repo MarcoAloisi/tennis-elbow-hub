@@ -275,6 +275,11 @@ const isOnlineMode = computed(() => {
         <div class="points-column" :class="{ 'has-points': server.is_started }">
           <span class="point-score">{{ scoreDisplay.points.p1 }}</span>
         </div>
+
+        <!-- Win % P1 -->
+        <div v-if="winProbability" class="winprob-column">
+          <span class="winprob-value">{{ Math.round(winProbability.p1 * 100) }}%</span>
+        </div>
       </div>
 
       <!-- Row 2: Player 2 -->
@@ -314,20 +319,25 @@ const isOnlineMode = computed(() => {
         <div class="points-column" :class="{ 'has-points': server.is_started }">
           <span class="point-score">{{ scoreDisplay.points.p2 }}</span>
         </div>
+
+        <!-- Win % P2 -->
+        <div v-if="winProbability" class="winprob-column">
+          <span class="winprob-value">{{ Math.round(winProbability.p2 * 100) }}%</span>
+        </div>
       </div>
 
-      <!-- Win Probability Bar -->
+      <!-- Win Probability Bar: a compact proportion strip under both rows.
+           Each player's own % is shown inline in their row above (the
+           source of truth) - this bar is a visual accent only, not a
+           second place numbers are read from, so there's no ambiguity
+           about which side belongs to which player. -->
       <div
         v-if="winProbability"
-        class="win-probability-container"
+        class="win-probability-bar"
         role="img"
         :aria-label="`${Math.round(winProbability.p1 * 100)}% vs ${Math.round(winProbability.p2 * 100)}%`"
       >
-        <span class="win-probability-label win-probability-label-p1">{{ Math.round(winProbability.p1 * 100) }}%</span>
-        <span class="win-probability-label win-probability-label-p2">{{ Math.round(winProbability.p2 * 100) }}%</span>
-        <div class="win-probability-bar">
-          <div class="win-probability-fill" :style="{ width: `${winProbability.p1 * 100}%` }"></div>
-        </div>
+        <div class="win-probability-fill" :style="{ width: `${winProbability.p1 * 100}%` }"></div>
       </div>
     </div>
 
@@ -586,18 +596,31 @@ button.player-name.clickable:focus-visible {
   letter-spacing: var(--letter-spacing-tight);
 }
 
-/* 5. Win Probability Bar */
-.win-probability-container {
-  position: relative;
-  margin-top: 26px;
+/* 4b. Win % Column - one per player row, so each percentage sits directly
+   on the row it belongs to (same alignment convention as sets/points). */
+.winprob-column {
+  width: 40px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-left: 8px;
 }
 
+.winprob-value {
+  font-family: var(--font-data); /* JetBrains Mono */
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+/* 5. Win Probability Bar - compact proportion strip below both rows. */
 .win-probability-bar {
   position: relative;
   height: 6px;
   border-radius: 3px;
   background: var(--color-border);
   overflow: hidden;
+  margin-top: 8px;
 }
 
 .win-probability-fill {
@@ -605,17 +628,6 @@ button.player-name.clickable:focus-visible {
   background: var(--color-accent);
   transition: width 0.4s ease;
 }
-
-.win-probability-label {
-  position: absolute;
-  top: -18px;
-  font-size: var(--font-size-xs);
-  font-family: var(--font-data);
-  color: var(--color-text-secondary);
-}
-
-.win-probability-label-p1 { left: 0; }
-.win-probability-label-p2 { right: 0; }
 
 
 /* Footer */
