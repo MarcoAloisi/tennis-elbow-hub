@@ -1142,6 +1142,23 @@ def _h2h_from_rows(
     )
 
 
+def _recent_form_win_rate(
+    appearances_for_player: list[dict[str, Any]], today: date, window_days: int = 30
+) -> float | None:
+    """Win rate over a player's matches in the last `window_days`. None if
+    there are no matches in that window — the caller treats that as no
+    signal, not a 0% form."""
+    cutoff = today - timedelta(days=window_days)
+    recent = [
+        r for r in appearances_for_player
+        if r.get("date") and r["date"] >= cutoff and r.get("result") in ("W", "L")
+    ]
+    if not recent:
+        return None
+    wins = sum(1 for r in recent if r["result"] == "W")
+    return wins / len(recent)
+
+
 # Singleton instance
 _stats_service: StatsService | None = None
 
