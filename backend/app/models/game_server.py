@@ -9,6 +9,7 @@ from enum import IntEnum
 from pydantic import BaseModel, Field, computed_field
 
 from app.services.score_parser import LiveMatchState, parse_live_state
+from app.services.tournament_surfaces import SURFACE_DISPLAY_NAMES, infer_surface
 
 
 class PlayerConfig(IntEnum):
@@ -199,19 +200,16 @@ class GameServer(BaseModel):
         if "cement" in name_lower or "hard" in name_lower:
             return "Hard Court"
 
-        # For tournament names (like "0010 AO Rod Laver Night"), return generic
-        # based on tournament context
+        # For tournament names (like "0010 AO Rod Laver Night"), look up
+        # the same tournament -> surface mapping the frontend uses for its
+        # surface badge icon (tournaments.json), instead of only
+        # recognizing the 4 Grand Slams and defaulting everything else to
+        # hard court.
         if re.match(r"^\d+\s+", name):
-            # Has numeric prefix - it's a tournament name, try to infer surface
-            if "AO" in name or "Australian" in name:
-                return "Hard Court"  # Australian Open is hard court
-            if "Wimbledon" in name:
-                return "Grass Court"
-            if "Roland Garros" in name or "French" in name or "Roma" in name:
-                return "Clay Court"
-            if "US Open" in name:
-                return "Hard Court"
-            # Default for tournaments
+            surface = infer_surface(name)
+            if surface is not None:
+                return SURFACE_DISPLAY_NAMES[surface]
+            # Default for unrecognized tournaments
             return "Hard Court"
 
         return name
