@@ -13,9 +13,64 @@ interface ScoreFilters {
     searchQuery: string
 }
 
+// Structured, already-parsed sets/games/points/server state for a live match,
+// computed once by the backend (score_parser.py) so the frontend never has
+// to re-parse the raw score string itself.
+interface LiveMatchState {
+    sets: [string, string][]
+    sets_won: [number, number]
+    current_set_games: [number, number]
+    current_points: [string, string] | null
+    current_points_numeric: [number, number] | null
+    server: number | null
+    is_tiebreak: boolean
+    games_per_set: number
+}
+
+interface GameInfo {
+    trial: number
+    player_config: number
+    nb_set: number
+    skill_mode: number
+    games_per_set: number
+    control_mode: number
+    preview: number
+    tiredness: boolean
+    mode_display: string
+    sets_display: string
+}
+
+// Shape of a single server entry in the WS/REST scores payload
+// (matches backend `GameServer` in app/models/game_server.py).
+interface GameServer {
+    ip: string
+    port: number
+    match_name: string
+    game_info: GameInfo
+    max_ping: number
+    elo: number
+    nb_game: number
+    tag_line: string
+    score: string
+    other_elo: number
+    give_up_rate: number
+    reputation: number
+    surface_name: string
+    creation_time_ms: number
+    is_started: boolean
+    // Live win probability {p1, p2} — singles matches only; null for
+    // doubles, bot opponents, or matches with 0 ELO on either side.
+    win_probability: { p1: number; p2: number } | null
+    player_names: [string, string]
+    match_id: string
+    live_state: LiveMatchState | null
+    surface_display: string
+    tournament_display: string
+}
+
 export const useScoresStore = defineStore('scores', () => {
     // State
-    const servers = ref<any[]>([])
+    const servers = ref<GameServer[]>([])
     const isLoading = ref<boolean>(true)
     const error = ref<string | null>(null)
     const lastUpdated = ref<string | null>(null)

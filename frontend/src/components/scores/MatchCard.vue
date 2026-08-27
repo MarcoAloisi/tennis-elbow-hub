@@ -143,48 +143,28 @@ const players = computed(() => {
   return { player1, player2: null }
 })
 
-// Enhanced score parsing for grid display
+// Score display for the grid, sourced from the server-parsed `live_state`
+// (score_parser.py) instead of re-parsing the raw score string here.
+// Falls back to empty sets/points and servingPlayer 0 when live_state is
+// null (unparseable score) — matches today's worst case for an
+// unparseable string.
 const scoreDisplay = computed(() => {
-  const score = props.server.score || ''
-  // Format: "6/3 4/6 1/1 -- 00:40•" or "6/3 4/6 1/1 -- •00:40"
-  
-  const parts = score.split(' -- ')
-  const setsRaw = parts[0] ? parts[0].trim().split(' ') : []
-  let currentGameRaw = parts[1] ? parts[1].trim() : ''
-  
-  // Detect serving player
-  let servingPlayer = 0 // 0 = unknown, 1 = player1, 2 = player2
-  if (currentGameRaw.startsWith('•')) {
-    servingPlayer = 1
-    currentGameRaw = currentGameRaw.substring(1) // Remove the •
-  } else if (currentGameRaw.endsWith('•')) {
-    servingPlayer = 2
-    currentGameRaw = currentGameRaw.substring(0, currentGameRaw.length - 1) // Remove the •
+  const state = props.server.live_state
+  if (!state) {
+    return { sets: [], points: { p1: '', p2: '' }, servingPlayer: 0 }
   }
-
-  // Parse sets into { p1: val, p2: val }
-  // Example "6/3" -> { p1: "6", p2: "3" }
-  const sets = setsRaw.map(setStr => {
-    if (setStr.includes('/')) {
-      const [p1, p2] = setStr.split('/')
-      return { p1, p2 }
-    }
-    return { p1: setStr, p2: '' }
-  }).filter(s => s.p1 || s.p2) // Filter empty entries
-
-  // Parse current game points
-  // Example "00:40" or "40:Ad"
-  let points = { p1: '', p2: '' }
-  if (currentGameRaw.includes(':')) {
-    const [p1, p2] = currentGameRaw.split(':')
-    points = { p1, p2 }
-  } else if (currentGameRaw) {
-    // Fallback if no separator
-    points = { p1: currentGameRaw, p2: '' }
+  return {
+    sets: state.sets.map(([p1, p2]) => ({ p1, p2 })),
+    points: state.current_points
+      ? { p1: state.current_points[0], p2: state.current_points[1] }
+      : { p1: '', p2: '' },
+    servingPlayer: state.server ?? 0,
   }
-
-  return { sets, points, servingPlayer }
 })
+
+// Live win probability {p1, p2} — null for doubles, bot opponents, or
+// matches with 0 ELO on either side.
+const winProbability = computed(() => props.server.win_probability)
 
 // Surface badge class
 const surfaceClass = computed(() => {
@@ -334,6 +314,18 @@ const isOnlineMode = computed(() => {
         <div class="points-column" :class="{ 'has-points': server.is_started }">
           <span class="point-score">{{ scoreDisplay.points.p2 }}</span>
         </div>
+      </div>
+
+      <!-- Win Probability Bar -->
+      <div
+        v-if="winProbability"
+        class="win-probability-bar"
+        role="img"
+        :aria-label="`${Math.round(winProbability.p1 * 100)}% vs ${Math.round(winProbability.p2 * 100)}%`"
+      >
+        <div class="win-probability-fill" :style="{ width: `${winProbability.p1 * 100}%` }"></div>
+        <span class="win-probability-label win-probability-label-p1">{{ Math.round(winProbability.p1 * 100) }}%</span>
+        <span class="win-probability-label win-probability-label-p2">{{ Math.round(winProbability.p2 * 100) }}%</span>
       </div>
     </div>
 
@@ -587,10 +579,37 @@ button.player-name.clickable:focus-visible {
 
 .point-score {
   font-family: var(--font-data); /* JetBrains Mono */
-  font-size: var(--font-size-lg); 
+  font-size: var(--font-size-lg);
   font-weight: 700;
   letter-spacing: var(--letter-spacing-tight);
 }
+
+/* 5. Win Probability Bar */
+.win-probability-bar {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--color-border, #333);
+  margin-top: 8px;
+  overflow: hidden;
+}
+
+.win-probability-fill {
+  height: 100%;
+  background: var(--color-accent, #4a9eff);
+  transition: width 0.4s ease;
+}
+
+.win-probability-label {
+  position: absolute;
+  top: -18px;
+  font-size: var(--font-size-xs, 11px);
+  font-family: var(--font-data);
+  color: var(--color-text-secondary, #999);
+}
+
+.win-probability-label-p1 { left: 0; }
+.win-probability-label-p2 { right: 0; }
 
 
 /* Footer */
