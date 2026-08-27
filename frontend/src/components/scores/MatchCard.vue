@@ -326,21 +326,16 @@ const isOnlineMode = computed(() => {
            where the sets-column is already wide. -->
       <div v-if="winProbability" class="win-probability-container">
         <div class="win-probability-labels">
-          <span class="win-probability-label">
-            <span class="winprob-marker winprob-marker-p1"></span>
-            {{ Math.round(winProbability.p1 * 100) }}%
-          </span>
-          <span class="win-probability-label">
-            <span class="winprob-marker winprob-marker-p2"></span>
-            {{ Math.round(winProbability.p2 * 100) }}%
-          </span>
+          <span class="win-probability-label">{{ Math.round(winProbability.p1 * 100) }}%</span>
+          <span class="win-probability-label">{{ Math.round(winProbability.p2 * 100) }}%</span>
         </div>
         <div
           class="win-probability-bar"
           role="img"
           :aria-label="`${Math.round(winProbability.p1 * 100)}% vs ${Math.round(winProbability.p2 * 100)}%`"
         >
-          <div class="win-probability-fill" :style="{ width: `${winProbability.p1 * 100}%` }"></div>
+          <div class="win-probability-segment win-probability-segment-p1" :style="{ width: `${winProbability.p1 * 100}%` }"></div>
+          <div class="win-probability-segment win-probability-segment-p2" :style="{ width: `${winProbability.p2 * 100}%` }"></div>
         </div>
       </div>
     </div>
@@ -601,10 +596,13 @@ button.player-name.clickable:focus-visible {
 }
 
 /* 4b. Win % marker dot - sits next to the player's name in each row, and
-   is reused (same color) next to that player's % below the bar. Color is
-   the only thing tying a percentage to a player, so the two colors need
-   to stay visually distinct from each other and from unrelated dots
-   (e.g. the green serving-dot) elsewhere on the card. */
+   the same two colors fill the bar below (see .win-probability-segment).
+   Deliberately NOT --color-accent/--color-brand-primary: that's already
+   the .serving-dot color, and a player serving is a constant, recurring
+   state on a live card - reusing it here would put two same-colored
+   dots with unrelated meanings in the same row. Amber/purple instead:
+   distinct from each other, from the green serving-dot, and from the
+   surface-badge colors used elsewhere on the card header. */
 .winprob-marker {
   width: 8px;
   height: 8px;
@@ -613,17 +611,19 @@ button.player-name.clickable:focus-visible {
 }
 
 .winprob-marker-p1 {
-  background-color: var(--color-accent);
+  background-color: var(--color-warning);
 }
 
 .winprob-marker-p2 {
-  background-color: var(--color-info);
+  background-color: var(--color-surface-indoor);
 }
 
-/* 5. Win Probability Bar - compact proportion strip below both rows, with
-   each player's % labeled by the same marker color used next to their
-   name above. No extra column on the rows themselves, so this doesn't
-   compete for width with the sets-column on Best-of-5 matches. */
+/* 5. Win Probability Bar - compact proportion strip below both rows,
+   filled in both players' colors (not just p1's share over a muted
+   background) so the bar itself carries the same color legend as the
+   marker dots, without needing to repeat the dots on every label. No
+   extra column on the rows themselves, so this doesn't compete for
+   width with the sets-column on Best-of-5 matches. */
 .win-probability-container {
   margin-top: 10px;
 }
@@ -632,29 +632,29 @@ button.player-name.clickable:focus-visible {
   display: flex;
   justify-content: space-between;
   margin-bottom: 4px;
-}
-
-.win-probability-label {
-  display: flex;
-  align-items: center;
-  gap: 5px;
   font-family: var(--font-data); /* JetBrains Mono */
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
 }
 
 .win-probability-bar {
-  position: relative;
+  display: flex;
   height: 6px;
   border-radius: 3px;
-  background: var(--color-border);
   overflow: hidden;
 }
 
-.win-probability-fill {
+.win-probability-segment {
   height: 100%;
-  background: var(--color-accent);
   transition: width 0.4s ease;
+}
+
+.win-probability-segment-p1 {
+  background-color: var(--color-warning);
+}
+
+.win-probability-segment-p2 {
+  background-color: var(--color-surface-indoor);
 }
 
 
