@@ -133,6 +133,12 @@ export const useScoresStore = defineStore('scores', () => {
             result = result.filter(s => s.elo <= filters.value.maxElo!)
         }
 
+        // Live matches first, waiting last. Copy before sorting so this
+        // never mutates `servers.value` itself (result === servers.value
+        // when no filter above ran). Array.prototype.sort is stable, so
+        // matches within each group keep their existing relative order.
+        result = [...result].sort((a, b) => Number(b.is_started) - Number(a.is_started))
+
         return result
     })
 
