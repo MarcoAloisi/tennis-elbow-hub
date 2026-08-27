@@ -241,6 +241,7 @@ const isOnlineMode = computed(() => {
       <div class="player-row">
         <div class="player-info">
           <div class="name-container">
+            <span v-if="winProbability" class="winprob-marker winprob-marker-p1"></span>
             <div class="names-wrapper">
               <template v-for="(name, idx) in players.player1" :key="idx">
                 <button
@@ -275,17 +276,13 @@ const isOnlineMode = computed(() => {
         <div class="points-column" :class="{ 'has-points': server.is_started }">
           <span class="point-score">{{ scoreDisplay.points.p1 }}</span>
         </div>
-
-        <!-- Win % P1 -->
-        <div v-if="winProbability" class="winprob-column">
-          <span class="winprob-value">{{ Math.round(winProbability.p1 * 100) }}%</span>
-        </div>
       </div>
 
       <!-- Row 2: Player 2 -->
       <div class="player-row">
         <div class="player-info">
           <div class="name-container">
+            <span v-if="winProbability" class="winprob-marker winprob-marker-p2"></span>
             <div class="names-wrapper">
               <template v-for="(name, idx) in players.player2" :key="idx">
                 <button
@@ -319,25 +316,32 @@ const isOnlineMode = computed(() => {
         <div class="points-column" :class="{ 'has-points': server.is_started }">
           <span class="point-score">{{ scoreDisplay.points.p2 }}</span>
         </div>
-
-        <!-- Win % P2 -->
-        <div v-if="winProbability" class="winprob-column">
-          <span class="winprob-value">{{ Math.round(winProbability.p2 * 100) }}%</span>
-        </div>
       </div>
 
-      <!-- Win Probability Bar: a compact proportion strip under both rows.
-           Each player's own % is shown inline in their row above (the
-           source of truth) - this bar is a visual accent only, not a
-           second place numbers are read from, so there's no ambiguity
-           about which side belongs to which player. -->
-      <div
-        v-if="winProbability"
-        class="win-probability-bar"
-        role="img"
-        :aria-label="`${Math.round(winProbability.p1 * 100)}% vs ${Math.round(winProbability.p2 * 100)}%`"
-      >
-        <div class="win-probability-fill" :style="{ width: `${winProbability.p1 * 100}%` }"></div>
+      <!-- Win Probability: each row above got a small colored marker
+           (winprob-marker-p1/-p2) next to the player's name. The two
+           labels below reuse the same colors, so "which % belongs to
+           which player" reads from color, not position - no extra
+           column, so this stays out of the way on Best-of-5 matches
+           where the sets-column is already wide. -->
+      <div v-if="winProbability" class="win-probability-container">
+        <div class="win-probability-labels">
+          <span class="win-probability-label">
+            <span class="winprob-marker winprob-marker-p1"></span>
+            {{ Math.round(winProbability.p1 * 100) }}%
+          </span>
+          <span class="win-probability-label">
+            <span class="winprob-marker winprob-marker-p2"></span>
+            {{ Math.round(winProbability.p2 * 100) }}%
+          </span>
+        </div>
+        <div
+          class="win-probability-bar"
+          role="img"
+          :aria-label="`${Math.round(winProbability.p1 * 100)}% vs ${Math.round(winProbability.p2 * 100)}%`"
+        >
+          <div class="win-probability-fill" :style="{ width: `${winProbability.p1 * 100}%` }"></div>
+        </div>
       </div>
     </div>
 
@@ -596,31 +600,55 @@ button.player-name.clickable:focus-visible {
   letter-spacing: var(--letter-spacing-tight);
 }
 
-/* 4b. Win % Column - one per player row, so each percentage sits directly
-   on the row it belongs to (same alignment convention as sets/points). */
-.winprob-column {
-  width: 40px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-left: 8px;
+/* 4b. Win % marker dot - sits next to the player's name in each row, and
+   is reused (same color) next to that player's % below the bar. Color is
+   the only thing tying a percentage to a player, so the two colors need
+   to stay visually distinct from each other and from unrelated dots
+   (e.g. the green serving-dot) elsewhere on the card. */
+.winprob-marker {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
-.winprob-value {
+.winprob-marker-p1 {
+  background-color: var(--color-accent);
+}
+
+.winprob-marker-p2 {
+  background-color: var(--color-info);
+}
+
+/* 5. Win Probability Bar - compact proportion strip below both rows, with
+   each player's % labeled by the same marker color used next to their
+   name above. No extra column on the rows themselves, so this doesn't
+   compete for width with the sets-column on Best-of-5 matches. */
+.win-probability-container {
+  margin-top: 10px;
+}
+
+.win-probability-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.win-probability-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   font-family: var(--font-data); /* JetBrains Mono */
-  font-size: var(--font-size-sm);
-  font-weight: 600;
+  font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
 }
 
-/* 5. Win Probability Bar - compact proportion strip below both rows. */
 .win-probability-bar {
   position: relative;
   height: 6px;
   border-radius: 3px;
   background: var(--color-border);
   overflow: hidden;
-  margin-top: 8px;
 }
 
 .win-probability-fill {
