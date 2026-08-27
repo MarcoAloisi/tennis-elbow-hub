@@ -13,6 +13,7 @@ from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.models.game_server import GameServer, GameServerList
 from app.services.parser import parse_server_data
+from app.services.win_probability import live_win_probability
 
 logger = get_logger("scraper")
 
@@ -143,11 +144,35 @@ class ScraperService:
         servers = list(parse_server_data(raw_data))
         logger.info(f"Parsed {len(servers)} servers")
 
+        from app.services.stats_service import get_stats_service
+
+        stats_service = get_stats_service()
+
+        def _is_real(n: str) -> bool:
+            return bool(n) and n != "Unknown" and n != "1210967164" and not n.startswith("[.")
+
+        singles_servers = [
+            s for s in servers
+            if "doubles" not in s.game_info.mode_display.lower()
+            and _is_real(s.player_names[0]) and _is_real(s.player_names[1])
+            and s.elo and s.other_elo
+        ]
+
+        async def _apply_win_probability(server: GameServer) -> None:
+            rates = await stats_service.get_or_compute_pre_match_rates(server)
+            if rates is None or server.live_state is None:
+                return
+            p0, g, s_rate = rates
+            server.win_probability = live_win_probability(
+                g, s_rate, server.live_state, stats_service.sets_to_win(server)
+            )
+
+        # Concurrent so a burst of simultaneously-new matches costs one
+        # round-trip's latency, not N sequential ones.
+        await asyncio.gather(*(_apply_win_probability(s) for s in singles_servers))
+
         # Track finished matches for stats
         if track_stats and servers:
-            from app.services.stats_service import get_stats_service
-
-            stats_service = get_stats_service()
             finished = await stats_service.track_matches(servers)
             if finished > 0:
                 logger.info(f"Detected {finished} finished matches")
