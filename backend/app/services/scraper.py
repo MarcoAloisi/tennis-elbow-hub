@@ -163,8 +163,11 @@ class ScraperService:
         # Fetch the appearances list at most once per tick and share it
         # across every match's rate computation below, rather than each
         # cache-miss independently running its own full-table scan
-        # concurrently via asyncio.gather. Fine to fetch even if every
-        # server in the batch turns out to be a cache hit for this tick.
+        # concurrently via asyncio.gather. _fetch_resolved_appearances_async
+        # itself is short-TTL cached (StatsService.APPEARANCES_CACHE_TTL_SECONDS),
+        # so calling it here even when every server in the batch is a
+        # win-probability cache hit costs at most one DB round-trip per TTL
+        # window, not one per tick.
         appearances: list[dict[str, Any]] | None = None
         if singles_servers:
             try:

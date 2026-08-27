@@ -193,6 +193,9 @@ function toggleH2h() {
   if (props.server.surface_display) {
     params.set('surface', props.server.surface_display)
   }
+  if (props.server.mod) {
+    params.set('mod', props.server.mod)
+  }
 
   fetch(apiUrl(`/api/scores/h2h?${params.toString()}`))
     .then((response) => {

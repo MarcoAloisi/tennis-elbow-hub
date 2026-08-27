@@ -4,6 +4,7 @@ Tracks finished matches (5+ games) and persists daily statistics.
 Stateless implementation relying on Database for concurrency safety.
 """
 
+import time
 from datetime import date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -61,6 +62,9 @@ class StatsService:
     # Minimum games required to count a match as "played"
     MIN_GAMES_THRESHOLD = 5
 
+    # TTL for the shared resolved-appearances cache (scraper batch + /h2h endpoint)
+    APPEARANCES_CACHE_TTL_SECONDS = 30
+
     def __init__(self) -> None:
         """Initialize the stats service."""
         self.settings = get_settings()
@@ -77,18 +81,19 @@ class StatsService:
             tuple[int, int, str, int, PlayerConfig], tuple[float, float, float]
         ] = {}
 
+        # Short-TTL cache for the resolved-appearances full-table scan —
+        # shared by the scraper's per-tick win-probability batch and the
+        # public /h2h endpoint, so neither can trigger more than one query
+        # per APPEARANCES_CACHE_TTL_SECONDS regardless of call volume.
+        self._appearances_cache: tuple[float, list[dict[str, Any]]] | None = None
+
     def _get_today(self) -> date:
         """Get current date in configured timezone."""
         return datetime.now(self.timezone).date()
 
     def _detect_mod(self, server: GameServer) -> str:
         """Detect mod type from server tag_line."""
-        tag = (server.tag_line or "").lower()
-        if "wtsl" in tag:
-            return "wtsl"
-        elif "xkt" in tag:
-            return "xkt"
-        return "vanilla"
+        return server.mod
 
     def _detect_format(self, server: GameServer) -> str:
         """Detect match format from game_info.nb_set."""
@@ -908,7 +913,17 @@ class StatsService:
         get_player_details_async / get_player_clusters_async queries (those
         stay as-is per the earlier player-clusters spec's explicit
         decision) — this is a new query for the new win-probability path
-        only."""
+        only.
+
+        Cached for APPEARANCES_CACHE_TTL_SECONDS: the scraper's per-tick
+        win-probability batch and the public /h2h endpoint both call this,
+        and neither should trigger a fresh full-table scan on every call —
+        the scraper polls every ~10s and /h2h is unauthenticated."""
+        if self._appearances_cache is not None:
+            cached_at, cached_appearances = self._appearances_cache
+            if time.monotonic() - cached_at < self.APPEARANCES_CACHE_TTL_SECONDS:
+                return cached_appearances
+
         alias_map = await self._load_alias_map()
         session_factory = get_session_factory()
         async with session_factory() as session:
@@ -952,6 +967,7 @@ class StatsService:
                 "name": p2, "opponent": p1, "result": _result_for(p2, winner_resolved),
                 "surface": row.surface, "mod": row.mod, "date": row.date,
             })
+        self._appearances_cache = (time.monotonic(), appearances)
         return appearances
 
     async def get_h2h_async(self, name_a: str, name_b: str) -> H2HRecord:

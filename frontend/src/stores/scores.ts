@@ -66,6 +66,7 @@ interface GameServer {
     live_state: LiveMatchState | null
     surface_display: string
     tournament_display: string
+    mod: string
 }
 
 export const useScoresStore = defineStore('scores', () => {

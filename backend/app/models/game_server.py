@@ -153,6 +153,17 @@ class GameServer(BaseModel):
 
     @computed_field
     @property
+    def mod(self) -> str:
+        """Detect mod type from tag_line (wtsl/xkt/vanilla)."""
+        tag = self.tag_line.lower()
+        if "wtsl" in tag:
+            return "wtsl"
+        elif "xkt" in tag:
+            return "xkt"
+        return "vanilla"
+
+    @computed_field
+    @property
     def surface_display(self) -> str:
         """Clean surface name for display.
 
