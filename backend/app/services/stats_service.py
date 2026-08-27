@@ -22,6 +22,20 @@ from app.models.player_alias import PlayerAlias
 logger = get_logger("stats_service")
 
 
+def _match_identity_key(s: GameServer) -> tuple:
+    """Rename-safe match identity — excludes match_name so a placeholder
+    name (e.g. "Waiting") resolving to a real one mid-match doesn't change
+    the key. Used by both finished-match rename detection and the
+    win-probability pre-match-rate cache."""
+    return (
+        s.creation_time_ms,
+        s.port,
+        s.surface_name,
+        s.game_info.nb_set,
+        s.game_info.player_config,
+    )
+
+
 class StatsService:
     """Service for tracking and persisting match statistics.
     
@@ -85,19 +99,9 @@ class StatsService:
         current_ids = set(current_matches.keys())
         missing_ids = previous_ids - current_ids
         new_ids = current_ids - previous_ids
-        
-        # Helper for rename detection
-        def _get_identity_key(s: GameServer) -> tuple:
-            return (
-                s.creation_time_ms,
-                s.port,
-                s.surface_name,
-                s.game_info.nb_set,
-                s.game_info.player_config,
-            )
-            
+
         new_matches_by_identity = {
-            _get_identity_key(current_matches[mid]): mid
+            _match_identity_key(current_matches[mid]): mid
             for mid in new_ids
         }
 
@@ -105,9 +109,9 @@ class StatsService:
         
         for match_id in missing_ids:
             server = self._previous_matches[match_id]
-            
+
             # 1. RENAME DETECTION
-            identity_key = _get_identity_key(server)
+            identity_key = _match_identity_key(server)
             migrated_id = new_matches_by_identity.get(identity_key)
             
             if migrated_id:
@@ -187,22 +191,24 @@ class StatsService:
                 
                 # Deduce winner from clean score
                 deduced_winner = self._determine_winner(server.match_name, clean_score)
-                
+
                 # 2. Insert into finished_matches (Atomic Guard)
+                mod = self._detect_mod(server)
                 match_record = FinishedMatch(
                     match_id=server.match_id,
                     date=date_obj,
                     match_name=server.match_name,
                     score=clean_score,
                     winner=deduced_winner,
+                    surface=server.surface_display,
+                    mod=mod,
                     p1_elo=server.elo,
                     p2_elo=server.other_elo
                 )
                 session.add(match_record)
                 await session.flush() # Check constraints immediately
-                
+
                 # 2. Update Aggregates (Only if insert succeeded)
-                mod = self._detect_mod(server)
                 fmt = self._detect_format(server)
                 
                 # Ensure aggregate record exists
