@@ -18,7 +18,13 @@ from app.models.daily_stats import DailyStats
 from app.models.finished_match import FinishedMatch
 from app.models.game_server import GameServer
 from app.models.player_alias import PlayerAlias
-from app.services.win_probability import H2HRecord
+from app.services.win_probability import (
+    H2HRecord,
+    form_edge,
+    implied_game_win_rate,
+    implied_set_win_rate,
+    pre_match_probability,
+)
 
 logger = get_logger("stats_service")
 
@@ -56,6 +62,10 @@ class StatsService:
         # This is safe per-worker because it's only for change detection,
         # the actual "counting" is enforced by the DB.
         self._previous_matches: dict[str, GameServer] = {}
+
+        # Pre-match win-probability rates (P0, g, s), keyed by
+        # _match_identity_key. Computed once per match, on first tick.
+        self._win_prob_cache: dict[tuple, tuple[float, float, float]] = {}
 
     def _get_today(self) -> date:
         """Get current date in configured timezone."""
@@ -946,6 +956,47 @@ class StatsService:
         _h2h_from_rows directly instead, to avoid a second round-trip."""
         appearances = await self._fetch_resolved_appearances_async()
         return _h2h_from_rows(name_a, name_b, appearances)
+
+    def sets_to_win(self, server: GameServer) -> int:
+        """nb_set -> bo1/bo3/bo5 (via the existing _detect_format) -> sets
+        needed to win. The single place this mapping lives — scraper.py
+        calls this rather than repeating the bo1/bo3/bo5 dict itself."""
+        return {"bo1": 1, "bo3": 2, "bo5": 3}[self._detect_format(server)]
+
+    async def get_or_compute_pre_match_rates(
+        self, server: GameServer
+    ) -> tuple[float, float, float] | None:
+        """Returns cached (P0, g, s) for this match, computing and caching
+        it on the first call. None if either player's ELO is missing/zero —
+        the caller treats that as "no win probability for this match"."""
+        if not server.elo or not server.other_elo:
+            return None
+
+        identity = _match_identity_key(server)
+        cached = self._win_prob_cache.get(identity)
+        if cached is not None:
+            return cached
+
+        p1, p2 = server.player_names
+        appearances = await self._fetch_resolved_appearances_async()
+
+        h2h = _h2h_from_rows(
+            p1, p2, appearances,
+            surface=server.surface_display, mod=self._detect_mod(server),
+        )
+        today = self._get_today()
+        p1_appearances = [a for a in appearances if a["name"].lower() == p1.lower()]
+        p2_appearances = [a for a in appearances if a["name"].lower() == p2.lower()]
+        form_a = _recent_form_win_rate(p1_appearances, today)
+        form_b = _recent_form_win_rate(p2_appearances, today)
+
+        p0 = pre_match_probability(server.elo, server.other_elo, h2h, form_edge(form_a, form_b))
+        s = implied_set_win_rate(p0, self.sets_to_win(server))
+        g = implied_game_win_rate(s, server.game_info.games_per_set or 6)
+
+        rates = (p0, g, s)
+        self._win_prob_cache[identity] = rates
+        return rates
 
 
 ELO_BAND = 200
