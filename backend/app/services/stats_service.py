@@ -18,6 +18,7 @@ from app.models.daily_stats import DailyStats
 from app.models.finished_match import FinishedMatch
 from app.models.game_server import GameServer
 from app.models.player_alias import PlayerAlias
+from app.services.win_probability import H2HRecord
 
 logger = get_logger("stats_service")
 
@@ -883,6 +884,69 @@ class StatsService:
             logger.error(f"Failed to fetch player details for {player_name}: {e}")
             return {"name": player_name, "error": str(e)}
 
+    async def _fetch_resolved_appearances_async(self) -> list[dict[str, Any]]:
+        """One DB round-trip, alias-resolved, one row per player per match —
+        shared by get_h2h_async and the recent-form lookup so a new match's
+        first tick costs one query, not two. Does NOT replace the existing
+        get_player_details_async / get_player_clusters_async queries (those
+        stay as-is per the earlier player-clusters spec's explicit
+        decision) — this is a new query for the new win-probability path
+        only."""
+        alias_map = await self._load_alias_map()
+        session_factory = get_session_factory()
+        async with session_factory() as session:
+            result = await session.execute(
+                select(
+                    FinishedMatch.match_name,
+                    FinishedMatch.winner,
+                    FinishedMatch.p1_elo,
+                    FinishedMatch.p2_elo,
+                    FinishedMatch.date,
+                    FinishedMatch.surface,
+                    FinishedMatch.mod,
+                )
+            )
+            rows = result.all()
+
+        def _is_real(n: str) -> bool:
+            return bool(n) and n != "Unknown" and n != "1210967164" and not n.startswith("[.")
+
+        def _result_for(name: str, winner_resolved: str | None) -> str:
+            if winner_resolved and winner_resolved.lower() == name.lower():
+                return "W"
+            if winner_resolved and winner_resolved.strip():
+                return "L"
+            return "?"
+
+        appearances: list[dict[str, Any]] = []
+        for row in rows:
+            if not row.match_name or " vs " not in row.match_name:
+                continue
+            raw_p1, raw_p2 = row.match_name.split(" vs ", 1)
+            p1 = self._resolve_name(raw_p1.strip(), alias_map)
+            p2 = self._resolve_name(raw_p2.strip(), alias_map)
+            if not _is_real(p1) or not _is_real(p2):
+                continue
+
+            winner_resolved = self._resolve_name(row.winner.strip(), alias_map) if row.winner else None
+
+            appearances.append({
+                "name": p1, "opponent": p2, "result": _result_for(p1, winner_resolved),
+                "surface": row.surface, "mod": row.mod, "date": row.date,
+            })
+            appearances.append({
+                "name": p2, "opponent": p1, "result": _result_for(p2, winner_resolved),
+                "surface": row.surface, "mod": row.mod, "date": row.date,
+            })
+        return appearances
+
+    async def get_h2h_async(self, name_a: str, name_b: str) -> H2HRecord:
+        """Standalone H2H lookup — does its own fetch. The win-probability
+        cache path (get_or_compute_pre_match_rates) fetches once and calls
+        _h2h_from_rows directly instead, to avoid a second round-trip."""
+        appearances = await self._fetch_resolved_appearances_async()
+        return _h2h_from_rows(name_a, name_b, appearances)
+
 
 ELO_BAND = 200
 
@@ -1044,6 +1108,38 @@ def cluster_list_rows(appearances: list[dict[str, Any]]) -> list[dict[str, Any]]
             )
     out.sort(key=lambda r: r["total_matches"], reverse=True)
     return out
+
+
+def _h2h_from_rows(
+    name_a: str,
+    name_b: str,
+    appearances: list[dict[str, Any]],
+    surface: str | None = None,
+    mod: str | None = None,
+) -> H2HRecord:
+    """Pure — filters an already-fetched appearances list to name_a's
+    matches against name_b, from name_a's perspective."""
+    a_lower, b_lower = name_a.lower(), name_b.lower()
+    matches = [
+        r for r in appearances
+        if r["name"].lower() == a_lower and r["opponent"].lower() == b_lower
+    ]
+    wins_a = sum(1 for r in matches if r["result"] == "W")
+    wins_b = sum(1 for r in matches if r["result"] == "L")
+    total = len(matches)
+
+    specific_wins_a = specific_wins_b = specific_total = 0
+    if surface is not None and mod is not None:
+        specific = [r for r in matches if r.get("surface") == surface and r.get("mod") == mod]
+        specific_wins_a = sum(1 for r in specific if r["result"] == "W")
+        specific_wins_b = sum(1 for r in specific if r["result"] == "L")
+        specific_total = len(specific)
+
+    return H2HRecord(
+        wins_a=wins_a, wins_b=wins_b, total=total,
+        specific_wins_a=specific_wins_a, specific_wins_b=specific_wins_b,
+        specific_total=specific_total,
+    )
 
 
 # Singleton instance
