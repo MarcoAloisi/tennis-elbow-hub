@@ -201,7 +201,7 @@ function onSelectPlayer(payload: { name: string; elo: number }) {
       <div v-else class="matches-grid">
         <MatchCard
           v-for="server in store.filteredServers"
-          :key="server.creation_time_ms"
+          :key="server.match_id"
           :server="server"
           @select-player="onSelectPlayer"
         />
