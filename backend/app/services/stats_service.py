@@ -4,6 +4,7 @@ Tracks finished matches (5+ games) and persists daily statistics.
 Stateless implementation relying on Database for concurrency safety.
 """
 
+import time
 from datetime import date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -16,10 +17,39 @@ from app.core.database import get_session_factory
 from app.core.logging import get_logger
 from app.models.daily_stats import DailyStats
 from app.models.finished_match import FinishedMatch
-from app.models.game_server import GameServer
+from app.models.game_server import GameServer, PlayerConfig
 from app.models.player_alias import PlayerAlias
+from app.services.win_probability import (
+    H2HRecord,
+    form_edge,
+    implied_game_win_rate,
+    implied_set_win_rate,
+    pre_match_probability,
+)
 
 logger = get_logger("stats_service")
+
+
+def _is_real_player_name(name: str) -> bool:
+    """Filters out bot/placeholder names: the literal "Unknown" placeholder,
+    the "1210967164" numeric placeholder, and bot names prefixed with "[.".
+    Single source of truth for this check — reused by stats_service.py's
+    own methods and by scraper.py (see win-probability filtering there)."""
+    return bool(name) and name != "Unknown" and name != "1210967164" and not name.startswith("[.")
+
+
+def _match_identity_key(s: GameServer) -> tuple[int, int, str, int, PlayerConfig]:
+    """Rename-safe match identity — excludes match_name so a placeholder
+    name (e.g. "Waiting") resolving to a real one mid-match doesn't change
+    the key. Used by both finished-match rename detection and the
+    win-probability pre-match-rate cache."""
+    return (
+        s.creation_time_ms,
+        s.port,
+        s.surface_name,
+        s.game_info.nb_set,
+        s.game_info.player_config,
+    )
 
 
 class StatsService:
@@ -32,6 +62,9 @@ class StatsService:
     # Minimum games required to count a match as "played"
     MIN_GAMES_THRESHOLD = 5
 
+    # TTL for the shared resolved-appearances cache (scraper batch + /h2h endpoint)
+    APPEARANCES_CACHE_TTL_SECONDS = 30
+
     def __init__(self) -> None:
         """Initialize the stats service."""
         self.settings = get_settings()
@@ -42,18 +75,25 @@ class StatsService:
         # the actual "counting" is enforced by the DB.
         self._previous_matches: dict[str, GameServer] = {}
 
+        # Pre-match win-probability rates (P0, g, s), keyed by
+        # _match_identity_key. Computed once per match, on first tick.
+        self._win_prob_cache: dict[
+            tuple[int, int, str, int, PlayerConfig], tuple[float, float, float]
+        ] = {}
+
+        # Short-TTL cache for the resolved-appearances full-table scan —
+        # shared by the scraper's per-tick win-probability batch and the
+        # public /h2h endpoint, so neither can trigger more than one query
+        # per APPEARANCES_CACHE_TTL_SECONDS regardless of call volume.
+        self._appearances_cache: tuple[float, list[dict[str, Any]]] | None = None
+
     def _get_today(self) -> date:
         """Get current date in configured timezone."""
         return datetime.now(self.timezone).date()
 
     def _detect_mod(self, server: GameServer) -> str:
         """Detect mod type from server tag_line."""
-        tag = (server.tag_line or "").lower()
-        if "wtsl" in tag:
-            return "wtsl"
-        elif "xkt" in tag:
-            return "xkt"
-        return "vanilla"
+        return server.mod
 
     def _detect_format(self, server: GameServer) -> str:
         """Detect match format from game_info.nb_set."""
@@ -85,19 +125,9 @@ class StatsService:
         current_ids = set(current_matches.keys())
         missing_ids = previous_ids - current_ids
         new_ids = current_ids - previous_ids
-        
-        # Helper for rename detection
-        def _get_identity_key(s: GameServer) -> tuple:
-            return (
-                s.creation_time_ms,
-                s.port,
-                s.surface_name,
-                s.game_info.nb_set,
-                s.game_info.player_config,
-            )
-            
+
         new_matches_by_identity = {
-            _get_identity_key(current_matches[mid]): mid
+            _match_identity_key(current_matches[mid]): mid
             for mid in new_ids
         }
 
@@ -105,9 +135,9 @@ class StatsService:
         
         for match_id in missing_ids:
             server = self._previous_matches[match_id]
-            
+
             # 1. RENAME DETECTION
-            identity_key = _get_identity_key(server)
+            identity_key = _match_identity_key(server)
             migrated_id = new_matches_by_identity.get(identity_key)
             
             if migrated_id:
@@ -187,22 +217,24 @@ class StatsService:
                 
                 # Deduce winner from clean score
                 deduced_winner = self._determine_winner(server.match_name, clean_score)
-                
+
                 # 2. Insert into finished_matches (Atomic Guard)
+                mod = self._detect_mod(server)
                 match_record = FinishedMatch(
                     match_id=server.match_id,
                     date=date_obj,
                     match_name=server.match_name,
                     score=clean_score,
                     winner=deduced_winner,
+                    surface=server.surface_display,
+                    mod=mod,
                     p1_elo=server.elo,
                     p2_elo=server.other_elo
                 )
                 session.add(match_record)
                 await session.flush() # Check constraints immediately
-                
+
                 # 2. Update Aggregates (Only if insert succeeded)
-                mod = self._detect_mod(server)
                 fmt = self._detect_format(server)
                 
                 # Ensure aggregate record exists
@@ -678,9 +710,6 @@ class StatsService:
 
             appearances: list[dict[str, Any]] = []
 
-            def _is_real(n: str) -> bool:
-                return bool(n) and n != "Unknown" and n != "1210967164" and not n.startswith("[.")
-
             def _enough_games(score: str | None) -> bool:
                 total_games = 0
                 if score:
@@ -706,17 +735,17 @@ class StatsService:
                     p1, p2 = name.split(" vs ", 1)
                     p1 = self._resolve_name(p1.strip(), alias_map)
                     p2 = self._resolve_name(p2.strip(), alias_map)
-                    if _is_real(p1) and row.p1_elo is not None and row.p1_elo > 0:
+                    if _is_real_player_name(p1) and row.p1_elo is not None and row.p1_elo > 0:
                         appearances.append(
                             {"name": p1, "player_elo": row.p1_elo, "date": row.date}
                         )
-                    if _is_real(p2) and row.p2_elo is not None and row.p2_elo > 0:
+                    if _is_real_player_name(p2) and row.p2_elo is not None and row.p2_elo > 0:
                         appearances.append(
                             {"name": p2, "player_elo": row.p2_elo, "date": row.date}
                         )
                 else:
                     resolved = self._resolve_name(name.strip(), alias_map)
-                    if _is_real(resolved) and row.p1_elo is not None and row.p1_elo > 0:
+                    if _is_real_player_name(resolved) and row.p1_elo is not None and row.p1_elo > 0:
                         appearances.append(
                             {
                                 "name": resolved,
@@ -876,6 +905,147 @@ class StatsService:
         except Exception as e:
             logger.error(f"Failed to fetch player details for {player_name}: {e}")
             return {"name": player_name, "error": str(e)}
+
+    async def _fetch_resolved_appearances_async(self) -> list[dict[str, Any]]:
+        """One DB round-trip, alias-resolved, one row per player per match —
+        shared by get_h2h_async and the recent-form lookup so a new match's
+        first tick costs one query, not two. Does NOT replace the existing
+        get_player_details_async / get_player_clusters_async queries (those
+        stay as-is per the earlier player-clusters spec's explicit
+        decision) — this is a new query for the new win-probability path
+        only.
+
+        Cached for APPEARANCES_CACHE_TTL_SECONDS: the scraper's per-tick
+        win-probability batch and the public /h2h endpoint both call this,
+        and neither should trigger a fresh full-table scan on every call —
+        the scraper polls every ~10s and /h2h is unauthenticated."""
+        if self._appearances_cache is not None:
+            cached_at, cached_appearances = self._appearances_cache
+            if time.monotonic() - cached_at < self.APPEARANCES_CACHE_TTL_SECONDS:
+                return cached_appearances
+
+        alias_map = await self._load_alias_map()
+        session_factory = get_session_factory()
+        async with session_factory() as session:
+            result = await session.execute(
+                select(
+                    FinishedMatch.match_name,
+                    FinishedMatch.winner,
+                    FinishedMatch.p1_elo,
+                    FinishedMatch.p2_elo,
+                    FinishedMatch.date,
+                    FinishedMatch.surface,
+                    FinishedMatch.mod,
+                )
+            )
+            rows = result.all()
+
+        def _result_for(name: str, winner_resolved: str | None) -> str:
+            if winner_resolved and winner_resolved.lower() == name.lower():
+                return "W"
+            if winner_resolved and winner_resolved.strip():
+                return "L"
+            return "?"
+
+        appearances: list[dict[str, Any]] = []
+        for row in rows:
+            if not row.match_name or " vs " not in row.match_name:
+                continue
+            raw_p1, raw_p2 = row.match_name.split(" vs ", 1)
+            p1 = self._resolve_name(raw_p1.strip(), alias_map)
+            p2 = self._resolve_name(raw_p2.strip(), alias_map)
+            if not _is_real_player_name(p1) or not _is_real_player_name(p2):
+                continue
+
+            winner_resolved = self._resolve_name(row.winner.strip(), alias_map) if row.winner else None
+
+            appearances.append({
+                "name": p1, "opponent": p2, "result": _result_for(p1, winner_resolved),
+                "surface": row.surface, "mod": row.mod, "date": row.date,
+            })
+            appearances.append({
+                "name": p2, "opponent": p1, "result": _result_for(p2, winner_resolved),
+                "surface": row.surface, "mod": row.mod, "date": row.date,
+            })
+        self._appearances_cache = (time.monotonic(), appearances)
+        return appearances
+
+    async def get_h2h_async(self, name_a: str, name_b: str) -> H2HRecord:
+        """Standalone H2H lookup — does its own fetch. The win-probability
+        cache path (get_or_compute_pre_match_rates) fetches once and calls
+        _h2h_from_rows directly instead, to avoid a second round-trip."""
+        appearances = await self._fetch_resolved_appearances_async()
+        return _h2h_from_rows(name_a, name_b, appearances)
+
+    def sets_to_win(self, server: GameServer) -> int:
+        """nb_set -> bo1/bo3/bo5 (via the existing _detect_format) -> sets
+        needed to win. The single place this mapping lives — scraper.py
+        calls this rather than repeating the bo1/bo3/bo5 dict itself."""
+        return {"bo1": 1, "bo3": 2, "bo5": 3}[self._detect_format(server)]
+
+    async def get_or_compute_pre_match_rates(
+        self, server: GameServer, appearances: list[dict[str, Any]] | None = None
+    ) -> tuple[float, float, float] | None:
+        """Returns cached (P0, g, s) for this match, computing and caching
+        it on the first call. None if either player's ELO is missing/zero —
+        the caller treats that as "no win probability for this match".
+
+        `appearances`, if provided, is used directly instead of fetching —
+        lets a caller (ScraperService.fetch_servers) share one appearances
+        fetch across every cache-miss in a single poll tick rather than
+        each match running its own full-table scan concurrently. If not
+        provided, this method fetches it itself (standalone use, e.g. from
+        tests or other callers).
+
+        Per the spec's error-handling requirements: if the DB fetch or the
+        H2H/form computation throws (e.g. a transient DB error) on the
+        first tick for a match, this logs it and falls back to computing
+        P0 from ELO alone (neutral H2H, neutral form) rather than letting
+        the exception propagate and take down the whole tick's broadcast.
+        """
+        if not server.elo or not server.other_elo:
+            return None
+
+        identity = _match_identity_key(server)
+        cached = self._win_prob_cache.get(identity)
+        if cached is not None:
+            return cached
+
+        p1, p2 = server.player_names
+
+        try:
+            appearances_to_use = (
+                appearances
+                if appearances is not None
+                else await self._fetch_resolved_appearances_async()
+            )
+
+            h2h = _h2h_from_rows(
+                p1, p2, appearances_to_use,
+                surface=server.surface_display, mod=self._detect_mod(server),
+            )
+            today = self._get_today()
+            p1_appearances = [a for a in appearances_to_use if a["name"].lower() == p1.lower()]
+            p2_appearances = [a for a in appearances_to_use if a["name"].lower() == p2.lower()]
+            form_a = _recent_form_win_rate(p1_appearances, today)
+            form_b = _recent_form_win_rate(p2_appearances, today)
+
+            p0 = pre_match_probability(server.elo, server.other_elo, h2h, form_edge(form_a, form_b))
+        except Exception as e:
+            logger.error(
+                f"Failed to compute pre-match rates for {server.match_name} "
+                f"(H2H/form lookup), falling back to ELO-only P0: {e}"
+            )
+            p0 = pre_match_probability(
+                server.elo, server.other_elo, H2HRecord(0, 0, 0, 0, 0, 0), 0.0
+            )
+
+        s = implied_set_win_rate(p0, self.sets_to_win(server))
+        g = implied_game_win_rate(s, server.game_info.games_per_set or 6)
+
+        rates = (p0, g, s)
+        self._win_prob_cache[identity] = rates
+        return rates
 
 
 ELO_BAND = 200
@@ -1038,6 +1208,55 @@ def cluster_list_rows(appearances: list[dict[str, Any]]) -> list[dict[str, Any]]
             )
     out.sort(key=lambda r: r["total_matches"], reverse=True)
     return out
+
+
+def _h2h_from_rows(
+    name_a: str,
+    name_b: str,
+    appearances: list[dict[str, Any]],
+    surface: str | None = None,
+    mod: str | None = None,
+) -> H2HRecord:
+    """Pure — filters an already-fetched appearances list to name_a's
+    matches against name_b, from name_a's perspective."""
+    a_lower, b_lower = name_a.lower(), name_b.lower()
+    matches = [
+        r for r in appearances
+        if r["name"].lower() == a_lower and r["opponent"].lower() == b_lower
+    ]
+    wins_a = sum(1 for r in matches if r["result"] == "W")
+    wins_b = sum(1 for r in matches if r["result"] == "L")
+    total = len(matches)
+
+    specific_wins_a = specific_wins_b = specific_total = 0
+    if surface is not None and mod is not None:
+        specific = [r for r in matches if r.get("surface") == surface and r.get("mod") == mod]
+        specific_wins_a = sum(1 for r in specific if r["result"] == "W")
+        specific_wins_b = sum(1 for r in specific if r["result"] == "L")
+        specific_total = len(specific)
+
+    return H2HRecord(
+        wins_a=wins_a, wins_b=wins_b, total=total,
+        specific_wins_a=specific_wins_a, specific_wins_b=specific_wins_b,
+        specific_total=specific_total,
+    )
+
+
+def _recent_form_win_rate(
+    appearances_for_player: list[dict[str, Any]], today: date, window_days: int = 30
+) -> float | None:
+    """Win rate over a player's matches in the last `window_days`. None if
+    there are no matches in that window — the caller treats that as no
+    signal, not a 0% form."""
+    cutoff = today - timedelta(days=window_days)
+    recent = [
+        r for r in appearances_for_player
+        if r.get("date") and r["date"] >= cutoff and r.get("result") in ("W", "L")
+    ]
+    if not recent:
+        return None
+    wins = sum(1 for r in recent if r["result"] == "W")
+    return wins / len(recent)
 
 
 # Singleton instance

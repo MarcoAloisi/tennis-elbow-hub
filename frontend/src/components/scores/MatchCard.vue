@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import tournaments from '@/data/tournaments.json'
+import { apiUrl } from '@/config/api'
 
 const props = defineProps({
   server: {
@@ -143,47 +144,95 @@ const players = computed(() => {
   return { player1, player2: null }
 })
 
-// Enhanced score parsing for grid display
+// Score display for the grid, sourced from the server-parsed `live_state`
+// (score_parser.py) instead of re-parsing the raw score string here.
+// Falls back to empty sets/points and servingPlayer 0 when live_state is
+// null (unparseable score) — matches today's worst case for an
+// unparseable string.
 const scoreDisplay = computed(() => {
-  const score = props.server.score || ''
-  // Format: "6/3 4/6 1/1 -- 00:40•" or "6/3 4/6 1/1 -- •00:40"
-  
-  const parts = score.split(' -- ')
-  const setsRaw = parts[0] ? parts[0].trim().split(' ') : []
-  let currentGameRaw = parts[1] ? parts[1].trim() : ''
-  
-  // Detect serving player
-  let servingPlayer = 0 // 0 = unknown, 1 = player1, 2 = player2
-  if (currentGameRaw.startsWith('•')) {
-    servingPlayer = 1
-    currentGameRaw = currentGameRaw.substring(1) // Remove the •
-  } else if (currentGameRaw.endsWith('•')) {
-    servingPlayer = 2
-    currentGameRaw = currentGameRaw.substring(0, currentGameRaw.length - 1) // Remove the •
+  const state = props.server.live_state
+  if (!state) {
+    return { sets: [], points: { p1: '', p2: '' }, servingPlayer: 0 }
+  }
+  return {
+    sets: state.sets.map(([p1, p2]) => ({ p1, p2 })),
+    points: state.current_points
+      ? { p1: state.current_points[0], p2: state.current_points[1] }
+      : { p1: '', p2: '' },
+    servingPlayer: state.server ?? 0,
+  }
+})
+
+// Live win probability {p1, p2} — null for doubles, bot opponents, or
+// matches with 0 ELO on either side.
+const winProbability = computed(() => props.server.win_probability)
+
+// ============ H2H POPOVER ============
+// Public breakdown of what produced the win% (H2H record + recent form),
+// fetched lazily on first click and cached for the lifetime of this card.
+const h2hOpen = ref(false)
+const h2hLoading = ref(false)
+const h2hError = ref('')
+const h2hData = ref(null)
+
+function toggleH2h() {
+  if (h2hOpen.value) {
+    h2hOpen.value = false
+    return
+  }
+  h2hOpen.value = true
+  if (h2hData.value || h2hLoading.value) return
+
+  const playerA = players.value.player1[0]
+  const playerB = players.value.player2?.[0]
+  if (!playerA || !playerB) return
+
+  h2hLoading.value = true
+  h2hError.value = ''
+  const params = new URLSearchParams({ player_a: playerA, player_b: playerB })
+  if (props.server.surface_display) {
+    params.set('surface', props.server.surface_display)
+  }
+  if (props.server.mod) {
+    params.set('mod', props.server.mod)
   }
 
-  // Parse sets into { p1: val, p2: val }
-  // Example "6/3" -> { p1: "6", p2: "3" }
-  const sets = setsRaw.map(setStr => {
-    if (setStr.includes('/')) {
-      const [p1, p2] = setStr.split('/')
-      return { p1, p2 }
-    }
-    return { p1: setStr, p2: '' }
-  }).filter(s => s.p1 || s.p2) // Filter empty entries
+  fetch(apiUrl(`/api/scores/h2h?${params.toString()}`))
+    .then((response) => {
+      if (!response.ok) throw new Error('Request failed')
+      return response.json()
+    })
+    .then((data) => {
+      h2hData.value = data
+    })
+    .catch(() => {
+      h2hError.value = 'Could not load head-to-head data.'
+    })
+    .finally(() => {
+      h2hLoading.value = false
+    })
+}
 
-  // Parse current game points
-  // Example "00:40" or "40:Ad"
-  let points = { p1: '', p2: '' }
-  if (currentGameRaw.includes(':')) {
-    const [p1, p2] = currentGameRaw.split(':')
-    points = { p1, p2 }
-  } else if (currentGameRaw) {
-    // Fallback if no separator
-    points = { p1: currentGameRaw, p2: '' }
+// Modal (Teleported to body) instead of an inline popover: an
+// absolutely-positioned popover inside the card overlapped neighboring
+// cards in the grid whenever it was taller than the gap below it.
+function onH2hKeydown(e) {
+  if (e.key === 'Escape') h2hOpen.value = false
+}
+
+watch(h2hOpen, (open) => {
+  if (open) {
+    window.addEventListener('keydown', onH2hKeydown)
+    document.body.style.overflow = 'hidden'
+  } else {
+    window.removeEventListener('keydown', onH2hKeydown)
+    document.body.style.overflow = ''
   }
+})
 
-  return { sets, points, servingPlayer }
+onUnmounted(() => {
+  window.removeEventListener('keydown', onH2hKeydown)
+  document.body.style.overflow = ''
 })
 
 // Surface badge class
@@ -261,6 +310,7 @@ const isOnlineMode = computed(() => {
       <div class="player-row">
         <div class="player-info">
           <div class="name-container">
+            <span v-if="winProbability" class="winprob-marker winprob-marker-p1"></span>
             <div class="names-wrapper">
               <template v-for="(name, idx) in players.player1" :key="idx">
                 <button
@@ -301,6 +351,7 @@ const isOnlineMode = computed(() => {
       <div class="player-row">
         <div class="player-info">
           <div class="name-container">
+            <span v-if="winProbability" class="winprob-marker winprob-marker-p2"></span>
             <div class="names-wrapper">
               <template v-for="(name, idx) in players.player2" :key="idx">
                 <button
@@ -335,7 +386,76 @@ const isOnlineMode = computed(() => {
           <span class="point-score">{{ scoreDisplay.points.p2 }}</span>
         </div>
       </div>
+
+      <!-- Win Probability: each row above got a small colored marker
+           (winprob-marker-p1/-p2) next to the player's name. The two
+           labels below reuse the same colors, so "which % belongs to
+           which player" reads from color, not position - no extra
+           column, so this stays out of the way on Best-of-5 matches
+           where the sets-column is already wide. Clicking it opens a
+           popover with the H2H record and recent form behind the number
+           - public match info, no login required. -->
+      <div v-if="winProbability" class="win-probability-container">
+        <button
+          type="button"
+          class="win-probability-trigger"
+          :aria-label="`${Math.round(winProbability.p1 * 100)}% vs ${Math.round(winProbability.p2 * 100)}% — click for head-to-head`"
+          :aria-expanded="h2hOpen"
+          @click.stop="toggleH2h"
+        >
+          <div class="win-probability-labels">
+            <span class="win-probability-label">{{ Math.round(winProbability.p1 * 100) }}%</span>
+            <span class="win-probability-label">{{ Math.round(winProbability.p2 * 100) }}%</span>
+          </div>
+          <div class="win-probability-bar">
+            <div class="win-probability-segment win-probability-segment-p1" :style="{ width: `${winProbability.p1 * 100}%` }"></div>
+            <div class="win-probability-segment win-probability-segment-p2" :style="{ width: `${winProbability.p2 * 100}%` }"></div>
+          </div>
+        </button>
+      </div>
     </div>
+
+    <Teleport to="body">
+      <div v-if="h2hOpen" class="h2h-modal-backdrop" @click="h2hOpen = false">
+        <div
+          class="h2h-modal"
+          role="dialog"
+          aria-modal="true"
+          :aria-label="`Head-to-head: ${players.player1[0]} vs ${players.player2?.[0]}`"
+          @click.stop
+        >
+          <div class="h2h-modal-header">
+            <span class="h2h-modal-title">{{ players.player1[0] }} <span class="h2h-modal-vs">vs</span> {{ players.player2?.[0] }}</span>
+            <button type="button" class="h2h-modal-close" aria-label="Close" @click="h2hOpen = false">×</button>
+          </div>
+          <div v-if="h2hLoading" class="h2h-modal-status">Loading…</div>
+          <div v-else-if="h2hError" class="h2h-modal-status">{{ h2hError }}</div>
+          <template v-else-if="h2hData">
+            <div class="h2h-modal-section">
+              <span class="h2h-modal-section-title">Head-to-head</span>
+              <span v-if="h2hData.h2h.total === 0">No prior matches found.</span>
+              <span v-else>
+                {{ players.player1[0] }} <strong>{{ h2hData.h2h.wins_a }}</strong> - <strong>{{ h2hData.h2h.wins_b }}</strong> {{ players.player2?.[0] }}
+              </span>
+              <span v-if="h2hData.h2h.specific_total > 0" class="h2h-modal-subline">
+                On {{ server.surface_display }}: {{ h2hData.h2h.specific_wins_a }} - {{ h2hData.h2h.specific_wins_b }}
+              </span>
+            </div>
+            <div class="h2h-modal-section">
+              <span class="h2h-modal-section-title">Recent form (30d)</span>
+              <span class="h2h-modal-form-row">
+                <span class="winprob-marker winprob-marker-p1"></span>
+                {{ players.player1[0] }}: {{ h2hData.form_a !== null ? Math.round(h2hData.form_a * 100) + '%' : 'No recent matches' }}
+              </span>
+              <span class="h2h-modal-form-row">
+                <span class="winprob-marker winprob-marker-p2"></span>
+                {{ players.player2?.[0] }}: {{ h2hData.form_b !== null ? Math.round(h2hData.form_b * 100) + '%' : 'No recent matches' }}
+              </span>
+            </div>
+          </template>
+        </div>
+      </div>
+    </Teleport>
 
     <!-- Footer -->
     <div class="match-footer">
@@ -587,9 +707,178 @@ button.player-name.clickable:focus-visible {
 
 .point-score {
   font-family: var(--font-data); /* JetBrains Mono */
-  font-size: var(--font-size-lg); 
+  font-size: var(--font-size-lg);
   font-weight: 700;
   letter-spacing: var(--letter-spacing-tight);
+}
+
+/* 4b. Win % marker dot - sits next to the player's name in each row, and
+   the same two colors fill the bar below (see .win-probability-segment).
+   Deliberately NOT --color-accent/--color-brand-primary: that's already
+   the .serving-dot color, and a player serving is a constant, recurring
+   state on a live card - reusing it here would put two same-colored
+   dots with unrelated meanings in the same row. Azul/Teal are explicit
+   design choices (not existing design tokens), used as raw hex. */
+.winprob-marker {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.winprob-marker-p1 {
+  background-color: #60A5FA; /* Azul */
+}
+
+.winprob-marker-p2 {
+  background-color: #2DD4BF; /* Teal */
+}
+
+/* 5. Win Probability Bar - compact proportion strip below both rows,
+   filled in both players' colors (not just p1's share over a muted
+   background) so the bar itself carries the same color legend as the
+   marker dots, without needing to repeat the dots on every label. No
+   extra column on the rows themselves, so this doesn't compete for
+   width with the sets-column on Best-of-5 matches. The whole thing is
+   a button - clicking it opens the H2H popover (5b). */
+.win-probability-container {
+  position: relative;
+  margin-top: 10px;
+}
+
+.win-probability-trigger {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: inherit;
+  font: inherit;
+  color: inherit;
+}
+
+.win-probability-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  font-family: var(--font-data); /* JetBrains Mono */
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.win-probability-bar {
+  display: flex;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.win-probability-segment {
+  height: 100%;
+  transition: width 0.4s ease;
+}
+
+/* 5b. H2H Modal - Teleported to <body> and centered with a backdrop,
+   instead of an inline popover: a popover absolutely positioned inside
+   the card overlapped neighboring grid cards whenever its content was
+   taller than the gap below the trigger. Public info (no auth), so no
+   loading/login gating beyond a simple fetch state. */
+.h2h-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--space-4);
+}
+
+.h2h-modal {
+  width: 100%;
+  max-width: 360px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-4);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.h2h-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.h2h-modal-title {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+}
+
+.h2h-modal-vs {
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  margin: 0 2px;
+}
+
+.h2h-modal-close {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: var(--font-size-md);
+  line-height: 1;
+}
+
+.h2h-modal-status {
+  padding: var(--space-2) 0;
+}
+
+.h2h-modal-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.h2h-modal-section + .h2h-modal-section {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+}
+
+.h2h-modal-section-title {
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.h2h-modal-subline {
+  color: var(--color-text-secondary);
+}
+
+.h2h-modal-form-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.win-probability-segment-p1 {
+  background-color: #60A5FA; /* Azul */
+}
+
+.win-probability-segment-p2 {
+  background-color: #2DD4BF; /* Teal */
 }
 
 

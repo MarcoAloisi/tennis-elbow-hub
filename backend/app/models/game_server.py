@@ -8,6 +8,9 @@ from enum import IntEnum
 
 from pydantic import BaseModel, Field, computed_field
 
+from app.services.score_parser import LiveMatchState, parse_live_state
+from app.services.tournament_surfaces import SURFACE_DISPLAY_NAMES, infer_surface
+
 
 class PlayerConfig(IntEnum):
     """Game mode configuration from GameInfo bitfield."""
@@ -111,6 +114,10 @@ class GameServer(BaseModel):
     surface_name: str = Field(description="Court surface name")
     creation_time_ms: int = Field(ge=0, description="Server creation timestamp")
     is_started: bool = Field(description="True if match has started (IP=0)")
+    win_probability: dict[str, float] | None = Field(
+        default=None,
+        description="Live win probability {p1, p2} — singles matches only, set by ScraperService after construction",
+    )
 
     @computed_field
     @property
@@ -125,17 +132,36 @@ class GameServer(BaseModel):
     @property
     def match_id(self) -> str:
         """Generate a unique match identifier.
-        
+
         Combines creation_time_ms with match_name and port to create
         a stable unique ID for tracking purposes.
         """
         import hashlib
-        
+
         # Combine key identifying fields
         raw = f"{self.creation_time_ms}:{self.match_name}:{self.port}"
         # Create a stable ID using SHA256 (truncated to 16 chars)
         hash_hex = hashlib.sha256(raw.encode()).hexdigest()[:16]
         return f"m_{hash_hex}"
+
+    @computed_field
+    @property
+    def live_state(self) -> LiveMatchState | None:
+        """Structured sets/games/points/server, parsed once here so both
+        the win-probability calc and the frontend consume the same
+        structure — no second parsing implementation."""
+        return parse_live_state(self.score, self.game_info.games_per_set)
+
+    @computed_field
+    @property
+    def mod(self) -> str:
+        """Detect mod type from tag_line (wtsl/xkt/vanilla)."""
+        tag = self.tag_line.lower()
+        if "wtsl" in tag:
+            return "wtsl"
+        elif "xkt" in tag:
+            return "xkt"
+        return "vanilla"
 
     @computed_field
     @property
@@ -174,19 +200,16 @@ class GameServer(BaseModel):
         if "cement" in name_lower or "hard" in name_lower:
             return "Hard Court"
 
-        # For tournament names (like "0010 AO Rod Laver Night"), return generic
-        # based on tournament context
+        # For tournament names (like "0010 AO Rod Laver Night"), look up
+        # the same tournament -> surface mapping the frontend uses for its
+        # surface badge icon (tournaments.json), instead of only
+        # recognizing the 4 Grand Slams and defaulting everything else to
+        # hard court.
         if re.match(r"^\d+\s+", name):
-            # Has numeric prefix - it's a tournament name, try to infer surface
-            if "AO" in name or "Australian" in name:
-                return "Hard Court"  # Australian Open is hard court
-            if "Wimbledon" in name:
-                return "Grass Court"
-            if "Roland Garros" in name or "French" in name or "Roma" in name:
-                return "Clay Court"
-            if "US Open" in name:
-                return "Hard Court"
-            # Default for tournaments
+            surface = infer_surface(name)
+            if surface is not None:
+                return SURFACE_DISPLAY_NAMES[surface]
+            # Default for unrecognized tournaments
             return "Hard Court"
 
         return name

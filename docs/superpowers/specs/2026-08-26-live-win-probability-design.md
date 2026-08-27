@@ -68,6 +68,8 @@ New `backend/app/services/win_probability.py`. Pure functions, no DB access exce
 
 A fixed constant (`SERVE_BONUS = 0.08`, heuristic, commented as tunable) is added to the server's per-point rate and subtracted from the returner's, but **only when computing `_race_to_win_prob` for the live, in-progress game or tiebreak**. `game_to_set_prob` and everything above it keeps using the plain symmetric `g` for all *hypothetical remaining* games — that's what `implied_game_win_rate` was solved against, and applying the bonus to future games too would make the model internally inconsistent (the inversion assumed i.i.d. `g` with no serve asymmetry).
 
+Note: `g` (the cached implied *game*-win rate) is used directly as the base per-point win rate fed into `_serve_adjusted_point_rate`/`point_to_game_prob`/`point_to_tiebreak_prob` for the current game/tiebreak, in the absence of a proper `implied_point_win_rate` inversion (there is no `point_to_game_prob`-style inverse solved for a per-point rate). This is a known, small, deliberate approximation — not an accident — and produces a self-consistent systematic bias of roughly one percentage point toward the favorite at typical values.
+
 ### Pre-match probability
 
 ```

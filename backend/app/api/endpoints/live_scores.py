@@ -140,6 +140,65 @@ async def get_top_players(
     return await stats_service.get_top_players_async(limit=5, time_range=time_range)
 
 
+@router.get(
+    "/h2h",
+    summary="Get head-to-head breakdown for two players",
+    description="Get the head-to-head record and recent form behind a live match's win probability. Public — no login required, this is match-level info, not personal player stats.",
+)
+@limiter.limit("30/minute")
+async def get_h2h(
+    request: Request,
+    player_a: Annotated[str, Query(min_length=1, description="First player's name")],
+    player_b: Annotated[str, Query(min_length=1, description="Second player's name")],
+    surface: Annotated[str | None, Query(description="This match's surface, for a surface-specific H2H breakdown")] = None,
+    mod: Annotated[str | None, Query(description="This match's mod, for a mod-specific H2H breakdown")] = None,
+) -> dict:
+    """Get head-to-head record and recent form for two players.
+
+    Args:
+        request: FastAPI Request (required for rate limiting).
+        player_a: First player's name.
+        player_b: Second player's name.
+        surface: Optional surface filter for a surface-specific H2H breakdown.
+        mod: Optional mod filter for a mod-specific H2H breakdown.
+
+    Returns:
+        H2H record (overall + surface/mod-specific) and each player's
+        recent (30-day) form, matching the same inputs the live win
+        probability is computed from.
+    """
+    from datetime import date
+
+    from app.services.stats_service import (
+        _h2h_from_rows,
+        _recent_form_win_rate,
+        get_stats_service,
+    )
+
+    stats_service = get_stats_service()
+    appearances = await stats_service._fetch_resolved_appearances_async()
+
+    h2h = _h2h_from_rows(player_a, player_b, appearances, surface=surface, mod=mod)
+
+    today = date.today()
+    a_lower, b_lower = player_a.lower(), player_b.lower()
+    form_a = _recent_form_win_rate([a for a in appearances if a["name"].lower() == a_lower], today)
+    form_b = _recent_form_win_rate([a for a in appearances if a["name"].lower() == b_lower], today)
+
+    return {
+        "h2h": {
+            "wins_a": h2h.wins_a,
+            "wins_b": h2h.wins_b,
+            "total": h2h.total,
+            "specific_wins_a": h2h.specific_wins_a,
+            "specific_wins_b": h2h.specific_wins_b,
+            "specific_total": h2h.specific_total,
+        },
+        "form_a": form_a,
+        "form_b": form_b,
+    }
+
+
 class ConnectionManager:
     """Manages WebSocket connections for live score updates."""
 
