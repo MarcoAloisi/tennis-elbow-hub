@@ -10,6 +10,18 @@ def test_no_set_segments_returns_none():
     assert parse_live_state(" -- 00:40", 6) is None
 
 
+def test_bare_score_no_separator_returns_state_not_none():
+    """A waiting/not-started match like '0/0' has no ' -- ' separator at
+    all — this should NOT be treated as unparseable (regression for #4)."""
+    state = parse_live_state("0/0", 6)
+    assert state is not None
+    assert state.sets == [("0", "0")]
+    assert state.sets_won == (0, 0)
+    assert state.current_set_games == (0, 0)
+    assert state.current_points is None
+    assert state.current_points_numeric is None
+
+
 def test_mid_set_score():
     state = parse_live_state("6/3 4/6 1/1 -- 00:40•", 6)
     assert state is not None

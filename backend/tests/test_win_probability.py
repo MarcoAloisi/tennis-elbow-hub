@@ -1,4 +1,4 @@
-from app.services.score_parser import LiveMatchState
+from app.services.score_parser import LiveMatchState, parse_live_state
 from app.services.win_probability import (
     H2HRecord,
     form_edge,
@@ -73,6 +73,18 @@ def test_set_does_not_go_past_games_per_set_plus_one():
     # toward 8-6 or beyond.
     p = game_to_set_prob(0.5, 7, 5, 6)
     assert p == 1.0
+
+
+def test_set_terminal_case_handles_ties_above_games_per_set():
+    # Regression for #1: any tie at or beyond games_per_set (not just the
+    # exact games_per_set-all case) must resolve via the terminal g-trial,
+    # not fall through to the general recursive step — which can never
+    # terminate from an equal score (the win-by-2 branch never fires from
+    # a tie). Before the fix, this raised RecursionError.
+    result = game_to_set_prob(0.5, 7, 7, 6)
+    assert 0.0 <= result <= 1.0
+    result_further = game_to_set_prob(0.5, 8, 8, 6)
+    assert 0.0 <= result_further <= 1.0
 
 
 def test_non_default_games_per_set_changes_terminal_case():
@@ -229,6 +241,56 @@ def test_set_at_six_five_boundary_uses_live_points():
     assert with_server["p1"] > no_server["p1"]
     # Verify the margin is meaningful (before the fix, these were identical).
     assert with_server["p1"] - no_server["p1"] > 0.01
+
+
+# Integration tests: real parse_live_state() output fed into
+# live_win_probability(), instead of the hand-built _state() helper above.
+# This is the seam that caused both #1 (infinite recursion on a tied score
+# at/above games_per_set) and #4 (unparseable-score over-eagerness) — a
+# hand-constructed LiveMatchState never exercises score_parser.py's own
+# edge-case handling.
+
+
+def test_integration_tied_score_above_games_per_set_does_not_crash():
+    """Regression for #1 via the real pipeline: parse_live_state doesn't
+    reject a genuinely tied score at or above games_per_set (e.g. a game
+    server reporting a games_per_set inconsistent with the real score) —
+    game_to_set_prob used to recurse forever on any such tie other than
+    the exact (games_per_set, games_per_set) case."""
+    state = parse_live_state("7/7 -- 30:15", 6)
+    assert state is not None
+    result = live_win_probability(0.55, 0.52, state, sets_to_win=2)
+    assert 0.0 <= result["p1"] <= 1.0
+    assert abs(result["p1"] + result["p2"] - 1.0) < 1e-9
+
+
+def test_integration_normal_mid_set_score():
+    state = parse_live_state("6/3 7/5 -- 00:40", 6)
+    assert state is not None
+    result = live_win_probability(0.55, 0.52, state, sets_to_win=2)
+    assert 0.0 <= result["p1"] <= 1.0
+    assert abs(result["p1"] + result["p2"] - 1.0) < 1e-9
+
+
+def test_integration_bare_waiting_score_no_longer_none_and_computes_cleanly():
+    """Regression for #4 via the real pipeline: a bare "0/0" (no " -- "
+    separator at all — e.g. a match that hasn't started yet) used to
+    return None from parse_live_state, which the frontend rendered as a
+    blank grid. It now parses to a valid (empty) LiveMatchState that
+    live_win_probability can consume without crashing."""
+    state = parse_live_state("0/0", 6)
+    assert state is not None
+    result = live_win_probability(0.55, 0.52, state, sets_to_win=2)
+    assert 0.0 <= result["p1"] <= 1.0
+    assert abs(result["p1"] + result["p2"] - 1.0) < 1e-9
+
+
+def test_integration_truly_unparseable_score_still_returns_none():
+    """A genuinely garbage/placeholder score like "..." still has no valid
+    "/"-containing set tokens and correctly returns None — the caller
+    (ScraperService) skips win-probability computation in that case, and
+    the frontend falls back to the raw score text per the spec."""
+    assert parse_live_state("...", 6) is None
 
 
 # Task 6 tests: pre-match probability (H2H + form + ELO blend)

@@ -10,6 +10,9 @@ from app.services.scraper import ScraperService
 # PlayerConfig.COMPETITIVE_DOUBLES (bits 2-4 = 010 = 2).
 _SINGLES_GAME_INFO = "0"
 _DOUBLES_GAME_INFO = "8"
+# player_cfg_raw = (value >> 2) & 0x7 == 1 -> PlayerConfig.UNKNOWN_1.
+# value=4 (0b100) >> 2 == 1.
+_UNKNOWN_GAME_INFO = "4"
 
 
 def _raw_entry(match_name: str, game_info: str, elo: str, other_elo: str) -> str:
@@ -74,3 +77,52 @@ async def test_live_state_always_present_regardless_of_win_probability(monkeypat
     result = await service.fetch_servers(track_stats=False)
 
     assert result.servers[0].live_state is not None
+
+
+@pytest.mark.asyncio
+async def test_unknown_player_config_has_no_win_probability(monkeypatch: pytest.MonkeyPatch):
+    """An unrecognized player_config (UNKNOWN_1) displays as "Unknown" via
+    mode_display, which contains no "doubles" substring — checking the
+    actual enum (PlayerConfig.SINGLES) rather than the display string is
+    what keeps this out of the win-probability path (fix #6)."""
+    service = ScraperService()
+    raw = _raw_entry("Alice vs Bob", _UNKNOWN_GAME_INFO, elo="64", other_elo="32")
+    monkeypatch.setattr(service, "fetch_raw_data", _async_return(raw))
+
+    result = await service.fetch_servers(track_stats=False)
+
+    server = result.servers[0]
+    from app.models.game_server import PlayerConfig
+
+    assert server.game_info.player_config == PlayerConfig.UNKNOWN_1
+    assert server.win_probability is None
+
+
+@pytest.mark.asyncio
+async def test_appearances_fetched_at_most_once_per_tick(monkeypatch: pytest.MonkeyPatch):
+    """Multiple singles servers, all cache-misses, in one fetch_servers()
+    call must share a single _fetch_resolved_appearances_async() call —
+    not one full-table scan per match (fix #5)."""
+    service = ScraperService()
+
+    entry_1 = _raw_entry("Alice vs Bob", _SINGLES_GAME_INFO, elo="64", other_elo="32")
+    entry_2 = _raw_entry("Carol vs Dave", _SINGLES_GAME_INFO, elo="32", other_elo="64")
+    raw = entry_1 + "\n" + entry_2
+    monkeypatch.setattr(service, "fetch_raw_data", _async_return(raw))
+
+    from app.services import stats_service as stats_service_module
+
+    calls = {"n": 0}
+    stats_service = stats_service_module.get_stats_service()
+
+    async def _fake_fetch():
+        calls["n"] += 1
+        return []
+
+    monkeypatch.setattr(stats_service, "_fetch_resolved_appearances_async", _fake_fetch)
+
+    result = await service.fetch_servers(track_stats=False)
+
+    assert len(result.servers) == 2
+    assert all(s.win_probability is not None for s in result.servers)
+    assert calls["n"] == 1

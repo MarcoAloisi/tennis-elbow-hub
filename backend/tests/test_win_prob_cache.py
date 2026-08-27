@@ -72,3 +72,60 @@ async def test_cache_survives_name_change(monkeypatch: pytest.MonkeyPatch):
     second = await service.get_or_compute_pre_match_rates(resolved)
 
     assert first == second
+
+
+@pytest.mark.asyncio
+async def test_uses_provided_appearances_without_fetching(monkeypatch: pytest.MonkeyPatch):
+    """When `appearances` is passed in, the DB fetch is skipped entirely —
+    this is what lets ScraperService share one fetch across a whole tick's
+    batch of cache-misses instead of one fetch per match."""
+    service = StatsService()
+    calls = {"n": 0}
+
+    async def _fake_fetch():
+        calls["n"] += 1
+        return []
+
+    monkeypatch.setattr(service, "_fetch_resolved_appearances_async", _fake_fetch)
+
+    server = _server()
+    result = await service.get_or_compute_pre_match_rates(server, appearances=[])
+
+    assert result is not None
+    assert calls["n"] == 0  # DB was never hit — the provided list was used
+
+
+@pytest.mark.asyncio
+async def test_db_error_falls_back_to_elo_only_p0(monkeypatch: pytest.MonkeyPatch):
+    """A DB error on the H2H/form lookup must not propagate — it should be
+    logged and fall back to computing P0 from ELO alone (neutral H2H,
+    neutral form), matching what a genuine no-data case already produces."""
+    service = StatsService()
+
+    async def _fake_fetch():
+        raise RuntimeError("simulated DB error")
+
+    monkeypatch.setattr(service, "_fetch_resolved_appearances_async", _fake_fetch)
+
+    server = _server(elo=1600, other_elo=1400)
+    result = await service.get_or_compute_pre_match_rates(server)
+
+    assert result is not None
+    p0, g, s = result
+
+    # Compare against the exact ELO-only path (neutral H2H/form) to confirm
+    # the fallback matches the documented "no H2H/form data" case.
+    expected_service = StatsService()
+
+    async def _empty_fetch():
+        return []
+
+    monkeypatch.setattr(expected_service, "_fetch_resolved_appearances_async", _empty_fetch)
+    expected_server = _server(elo=1600, other_elo=1400, port=2)
+    expected = await expected_service.get_or_compute_pre_match_rates(expected_server)
+    assert expected is not None
+    assert result == expected
+
+    # Confirm it's cached, so a later call for the same match doesn't retry the DB.
+    cached_again = await service.get_or_compute_pre_match_rates(server)
+    assert cached_again == result

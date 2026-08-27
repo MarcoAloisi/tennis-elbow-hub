@@ -319,13 +319,15 @@ const isOnlineMode = computed(() => {
       <!-- Win Probability Bar -->
       <div
         v-if="winProbability"
-        class="win-probability-bar"
+        class="win-probability-container"
         role="img"
         :aria-label="`${Math.round(winProbability.p1 * 100)}% vs ${Math.round(winProbability.p2 * 100)}%`"
       >
-        <div class="win-probability-fill" :style="{ width: `${winProbability.p1 * 100}%` }"></div>
         <span class="win-probability-label win-probability-label-p1">{{ Math.round(winProbability.p1 * 100) }}%</span>
         <span class="win-probability-label win-probability-label-p2">{{ Math.round(winProbability.p2 * 100) }}%</span>
+        <div class="win-probability-bar">
+          <div class="win-probability-fill" :style="{ width: `${winProbability.p1 * 100}%` }"></div>
+        </div>
       </div>
     </div>
 
@@ -585,27 +587,31 @@ button.player-name.clickable:focus-visible {
 }
 
 /* 5. Win Probability Bar */
+.win-probability-container {
+  position: relative;
+  margin-top: 26px;
+}
+
 .win-probability-bar {
   position: relative;
   height: 6px;
   border-radius: 3px;
-  background: var(--color-border, #333);
-  margin-top: 8px;
+  background: var(--color-border);
   overflow: hidden;
 }
 
 .win-probability-fill {
   height: 100%;
-  background: var(--color-accent, #4a9eff);
+  background: var(--color-accent);
   transition: width 0.4s ease;
 }
 
 .win-probability-label {
   position: absolute;
   top: -18px;
-  font-size: var(--font-size-xs, 11px);
+  font-size: var(--font-size-xs);
   font-family: var(--font-data);
-  color: var(--color-text-secondary, #999);
+  color: var(--color-text-secondary);
 }
 
 .win-probability-label-p1 { left: 0; }

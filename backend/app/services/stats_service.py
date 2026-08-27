@@ -16,7 +16,7 @@ from app.core.database import get_session_factory
 from app.core.logging import get_logger
 from app.models.daily_stats import DailyStats
 from app.models.finished_match import FinishedMatch
-from app.models.game_server import GameServer
+from app.models.game_server import GameServer, PlayerConfig
 from app.models.player_alias import PlayerAlias
 from app.services.win_probability import (
     H2HRecord,
@@ -29,7 +29,15 @@ from app.services.win_probability import (
 logger = get_logger("stats_service")
 
 
-def _match_identity_key(s: GameServer) -> tuple:
+def _is_real_player_name(name: str) -> bool:
+    """Filters out bot/placeholder names: the literal "Unknown" placeholder,
+    the "1210967164" numeric placeholder, and bot names prefixed with "[.".
+    Single source of truth for this check — reused by stats_service.py's
+    own methods and by scraper.py (see win-probability filtering there)."""
+    return bool(name) and name != "Unknown" and name != "1210967164" and not name.startswith("[.")
+
+
+def _match_identity_key(s: GameServer) -> tuple[int, int, str, int, PlayerConfig]:
     """Rename-safe match identity — excludes match_name so a placeholder
     name (e.g. "Waiting") resolving to a real one mid-match doesn't change
     the key. Used by both finished-match rename detection and the
@@ -65,7 +73,9 @@ class StatsService:
 
         # Pre-match win-probability rates (P0, g, s), keyed by
         # _match_identity_key. Computed once per match, on first tick.
-        self._win_prob_cache: dict[tuple, tuple[float, float, float]] = {}
+        self._win_prob_cache: dict[
+            tuple[int, int, str, int, PlayerConfig], tuple[float, float, float]
+        ] = {}
 
     def _get_today(self) -> date:
         """Get current date in configured timezone."""
@@ -695,9 +705,6 @@ class StatsService:
 
             appearances: list[dict[str, Any]] = []
 
-            def _is_real(n: str) -> bool:
-                return bool(n) and n != "Unknown" and n != "1210967164" and not n.startswith("[.")
-
             def _enough_games(score: str | None) -> bool:
                 total_games = 0
                 if score:
@@ -723,17 +730,17 @@ class StatsService:
                     p1, p2 = name.split(" vs ", 1)
                     p1 = self._resolve_name(p1.strip(), alias_map)
                     p2 = self._resolve_name(p2.strip(), alias_map)
-                    if _is_real(p1) and row.p1_elo is not None and row.p1_elo > 0:
+                    if _is_real_player_name(p1) and row.p1_elo is not None and row.p1_elo > 0:
                         appearances.append(
                             {"name": p1, "player_elo": row.p1_elo, "date": row.date}
                         )
-                    if _is_real(p2) and row.p2_elo is not None and row.p2_elo > 0:
+                    if _is_real_player_name(p2) and row.p2_elo is not None and row.p2_elo > 0:
                         appearances.append(
                             {"name": p2, "player_elo": row.p2_elo, "date": row.date}
                         )
                 else:
                     resolved = self._resolve_name(name.strip(), alias_map)
-                    if _is_real(resolved) and row.p1_elo is not None and row.p1_elo > 0:
+                    if _is_real_player_name(resolved) and row.p1_elo is not None and row.p1_elo > 0:
                         appearances.append(
                             {
                                 "name": resolved,
@@ -918,9 +925,6 @@ class StatsService:
             )
             rows = result.all()
 
-        def _is_real(n: str) -> bool:
-            return bool(n) and n != "Unknown" and n != "1210967164" and not n.startswith("[.")
-
         def _result_for(name: str, winner_resolved: str | None) -> str:
             if winner_resolved and winner_resolved.lower() == name.lower():
                 return "W"
@@ -935,7 +939,7 @@ class StatsService:
             raw_p1, raw_p2 = row.match_name.split(" vs ", 1)
             p1 = self._resolve_name(raw_p1.strip(), alias_map)
             p2 = self._resolve_name(raw_p2.strip(), alias_map)
-            if not _is_real(p1) or not _is_real(p2):
+            if not _is_real_player_name(p1) or not _is_real_player_name(p2):
                 continue
 
             winner_resolved = self._resolve_name(row.winner.strip(), alias_map) if row.winner else None
@@ -964,11 +968,25 @@ class StatsService:
         return {"bo1": 1, "bo3": 2, "bo5": 3}[self._detect_format(server)]
 
     async def get_or_compute_pre_match_rates(
-        self, server: GameServer
+        self, server: GameServer, appearances: list[dict[str, Any]] | None = None
     ) -> tuple[float, float, float] | None:
         """Returns cached (P0, g, s) for this match, computing and caching
         it on the first call. None if either player's ELO is missing/zero —
-        the caller treats that as "no win probability for this match"."""
+        the caller treats that as "no win probability for this match".
+
+        `appearances`, if provided, is used directly instead of fetching —
+        lets a caller (ScraperService.fetch_servers) share one appearances
+        fetch across every cache-miss in a single poll tick rather than
+        each match running its own full-table scan concurrently. If not
+        provided, this method fetches it itself (standalone use, e.g. from
+        tests or other callers).
+
+        Per the spec's error-handling requirements: if the DB fetch or the
+        H2H/form computation throws (e.g. a transient DB error) on the
+        first tick for a match, this logs it and falls back to computing
+        P0 from ELO alone (neutral H2H, neutral form) rather than letting
+        the exception propagate and take down the whole tick's broadcast.
+        """
         if not server.elo or not server.other_elo:
             return None
 
@@ -978,19 +996,34 @@ class StatsService:
             return cached
 
         p1, p2 = server.player_names
-        appearances = await self._fetch_resolved_appearances_async()
 
-        h2h = _h2h_from_rows(
-            p1, p2, appearances,
-            surface=server.surface_display, mod=self._detect_mod(server),
-        )
-        today = self._get_today()
-        p1_appearances = [a for a in appearances if a["name"].lower() == p1.lower()]
-        p2_appearances = [a for a in appearances if a["name"].lower() == p2.lower()]
-        form_a = _recent_form_win_rate(p1_appearances, today)
-        form_b = _recent_form_win_rate(p2_appearances, today)
+        try:
+            appearances_to_use = (
+                appearances
+                if appearances is not None
+                else await self._fetch_resolved_appearances_async()
+            )
 
-        p0 = pre_match_probability(server.elo, server.other_elo, h2h, form_edge(form_a, form_b))
+            h2h = _h2h_from_rows(
+                p1, p2, appearances_to_use,
+                surface=server.surface_display, mod=self._detect_mod(server),
+            )
+            today = self._get_today()
+            p1_appearances = [a for a in appearances_to_use if a["name"].lower() == p1.lower()]
+            p2_appearances = [a for a in appearances_to_use if a["name"].lower() == p2.lower()]
+            form_a = _recent_form_win_rate(p1_appearances, today)
+            form_b = _recent_form_win_rate(p2_appearances, today)
+
+            p0 = pre_match_probability(server.elo, server.other_elo, h2h, form_edge(form_a, form_b))
+        except Exception as e:
+            logger.error(
+                f"Failed to compute pre-match rates for {server.match_name} "
+                f"(H2H/form lookup), falling back to ELO-only P0: {e}"
+            )
+            p0 = pre_match_probability(
+                server.elo, server.other_elo, H2HRecord(0, 0, 0, 0, 0, 0), 0.0
+            )
+
         s = implied_set_win_rate(p0, self.sets_to_win(server))
         g = implied_game_win_rate(s, server.game_info.games_per_set or 6)
 

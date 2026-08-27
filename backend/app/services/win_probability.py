@@ -81,7 +81,7 @@ def game_to_set_prob(g: float, games_a: int, games_b: int, games_per_set: int) -
             result = 1.0
         elif b >= games_per_set and b - a >= 2:
             result = 0.0
-        elif a == games_per_set and b == games_per_set:
+        elif a == b and a >= games_per_set:
             result = g
         else:
             result = g * _rec(a + 1, b) + (1 - g) * _rec(a, b + 1)

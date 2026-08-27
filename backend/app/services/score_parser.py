@@ -31,11 +31,22 @@ def _parse_int(raw: str) -> int | None:
 
 
 def parse_live_state(score: str, games_per_set: int) -> LiveMatchState | None:
-    """Returns None if `score` has no set segments — caller falls back gracefully."""
-    if not score or " -- " not in score:
+    """Returns None if `score` has no set segments — caller falls back gracefully.
+
+    A missing " -- " separator (e.g. a bare "0/0" for a not-yet-started
+    match) does NOT by itself mean unparseable — the whole string is tried
+    as the sets segment, with no current-game segment. Only a string with
+    no valid `/`-containing set tokens at all (e.g. "", "..." or "garbage")
+    returns None.
+    """
+    if not score:
         return None
 
-    sets_part, _, current_part = score.partition(" -- ")
+    if " -- " in score:
+        sets_part, _, current_part = score.partition(" -- ")
+    else:
+        sets_part, current_part = score, ""
+
     sets: list[tuple[str, str]] = []
     for token in sets_part.strip().split():
         if "/" not in token:
