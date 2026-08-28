@@ -3,8 +3,10 @@
 Fetches and processes tour log data from Google Sheets CSV.
 """
 
+import asyncio
 import hashlib
 import re
+from datetime import date, timedelta
 from io import StringIO
 from typing import Annotated, Any
 
@@ -17,12 +19,22 @@ from app.core.logging import get_logger
 logger = get_logger("api.tour_logs")
 router = APIRouter(prefix="/tour-logs", tags=["Tour Logs"])
 
-# Google Sheets published CSV URL
-TOUR_LOGS_CSV_URL = (
+# Google Sheets publish token - one doc, three tabs (atp/wta/dubs), each with its own gid
+TOUR_LOGS_PUB_BASE = (
     "https://docs.google.com/spreadsheets/d/e/"
     "2PACX-1vRm0Kujb49DJx1yWV8rE_DRXKBuTEc24jIOHjPpjaZd2OVIESYohFtbGCEJGDhtxIxXtpIM_8YnMeaP"
-    "/pub?output=csv"
+    "/pub"
 )
+TOUR_SHEET_GIDS = {
+    "atp": "1587269725",
+    "wta": "1691157729",
+    "dubs": "1805994776",
+}
+
+
+def sheet_csv_url(gid: str) -> str:
+    """Build the CSV export URL for one tab of the published sheet."""
+    return f"{TOUR_LOGS_PUB_BASE}?gid={gid}&single=true&output=csv"
 
 
 def is_valid_result(result: str) -> bool:
@@ -55,27 +67,46 @@ def is_valid_result(result: str) -> bool:
     # - "6/4 6/3" (slash separated)
     # - "60 61" or "60 60 60" (two digits = 6-0, 6-1 format)
     # - "76(2) 64" (tiebreak format)
+    # - "6-4 7-6(3)" (dash separated, new export format)
     if re.match(r'^[0-9]/[0-9]', result):
         return True
     if re.match(r'^\d{2}(\(\d+\))?(\s|$)', result):  # e.g., "60 " or "76(2) "
         return True
-    
+    if re.match(r'^\d{1,2}-\d{1,2}(\(\d+\))?(\s|$)', result):  # e.g., "6-4 " or "7-6(3) "
+        return True
+
     return False
 
 
 def clean_date(date_str: str) -> str:
-    """Remove time from date string.
-    
+    """Remove time from date string, converting raw spreadsheet serial dates too.
+
     Args:
-        date_str: Date string like "17/01/2024 19:56"
-        
+        date_str: Date string like "17/01/2024 19:56", or a raw Excel/Sheets
+            serial date like "45901" or "45751,94583" (unformatted cell).
+
     Returns:
-        Date only: "17/01/2024"
+        Date only, as "DD/MM/YYYY".
     """
     if not date_str:
         return ""
-    # Usually format is M/D/YYYY H:MM:SS or similar
-    return date_str.split()[0] if ' ' in date_str else date_str
+    date_str = date_str.strip()
+    if '/' in date_str:
+        # Already a formatted date, just drop any time component
+        return date_str.split()[0] if ' ' in date_str else date_str
+
+    # Raw serial date (wta/dubs sheets export unformatted date cells), e.g. "45901"
+    # or "45751,94583" (integer day + fractional time-of-day, comma decimal).
+    serial_str = date_str.replace(',', '.')
+    if re.match(r'^\d+(\.\d+)?$', serial_str):
+        try:
+            serial_days = int(float(serial_str))
+            # Sheets/Excel serial epoch is 1899-12-30 (includes the historical leap-year bug)
+            converted = date(1899, 12, 30) + timedelta(days=serial_days)
+            return converted.strftime('%d/%m/%Y')
+        except (ValueError, OverflowError):
+            return date_str
+    return date_str
 
 
 def parse_elo(elo_str: str) -> int | None:
@@ -97,35 +128,43 @@ def parse_elo(elo_str: str) -> int | None:
 
 
 def parse_percentage(pct_str: str) -> float | None:
-    """Parse percentage string to float.
-    
+    """Parse percentage string to float (0-100 scale).
+
     Args:
-        pct_str: Percentage like "86%" or "NaN"
-        
+        pct_str: Percentage like "86%" (atp/wta-formatted) or a raw fraction
+            like "0,86" (wta/dubs unformatted cell, comma decimal) or "NaN".
+
     Returns:
-        Float value or None if invalid.
+        Float value 0-100, or None if invalid.
     """
     if not pct_str or str(pct_str).lower() == 'nan':
         return None
+    raw = str(pct_str).strip()
+    has_percent_sign = '%' in raw
+    normalized = raw.replace('%', '').replace(',', '.').strip()
     try:
-        return float(str(pct_str).replace('%', '').strip())
+        value = float(normalized)
     except ValueError:
         return None
+    # Unformatted cells store the raw 0-1 fraction instead of "NN%"
+    if not has_percent_sign and 0 <= value <= 1:
+        value *= 100
+    return value
 
 
 def parse_number(num_str: str) -> float | None:
     """Parse numeric string to float.
-    
+
     Args:
-        num_str: Number like "5.8" or "NaN"
-        
+        num_str: Number like "5.8" or "5,8" (comma-decimal, unformatted cell) or "NaN".
+
     Returns:
         Float value or None if invalid.
     """
     if not num_str or str(num_str).lower() == 'nan':
         return None
     try:
-        return float(str(num_str).strip())
+        return float(str(num_str).strip().replace(',', '.'))
     except ValueError:
         return None
 
@@ -167,22 +206,26 @@ def generate_ids(row: dict[str, Any]) -> tuple[str, str]:
     return row_id, match_id
 
 
-def process_row(row: dict[str, str]) -> dict[str, Any] | None:
+def process_row(row: dict[str, str], tour: str) -> dict[str, Any] | None:
     """Process a single CSV row into cleaned data.
-    
+
     Args:
         row: Raw CSV row as dictionary.
-        
+        tour: Which tab the row came from ("atp", "wta", or "dubs").
+
     Returns:
         Cleaned row data or None if invalid.
     """
     result = row.get('Result', '')
     if not is_valid_result(result):
         return None
-    
+
     # Basic fields
     raw_date = row.get('Date', '').strip()
-    player_name = sanitize_for_csv(row.get('Player', ''))
+    # Dubs sheet: "Player" is just one team member; "Dubs team" has the full pairing
+    # (e.g. "Arv & John McEnroe") which matches how the "Opponent" column already reads.
+    raw_player = row.get('Dubs team', '').strip() or row.get('Player', '')
+    player_name = sanitize_for_csv(raw_player)
     opponent_name = sanitize_for_csv(row.get('Opponent', ''))
     match_image = sanitize_for_csv(row.get('Image Name', ''))
     tournament = sanitize_for_csv(row.get('Tournament', ''))
@@ -201,6 +244,7 @@ def process_row(row: dict[str, str]) -> dict[str, Any] | None:
     return {
         'id': row_id,
         'matchId': match_id,
+        'tour': tour,
         'imageName': match_image,
         'player': player_name,
         'elo': parse_elo(row.get('ELO', '')),
@@ -261,43 +305,45 @@ async def get_tour_logs(
         Dictionary with success status, pagination info, and data array.
     """
     try:
-        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-            response = await client.get(TOUR_LOGS_CSV_URL)
-            response.raise_for_status()
-            
-        # Parse CSV - handle latin-1 encoding
         import csv
-        content = response.content.decode('latin-1')
-        
-        # Check first line to see if headers are present
-        params = {}
-        first_line = content.splitlines()[0] if content else ""
-        if "Result" not in first_line and "Player" not in first_line:
-             # Assume headers are missing, provide default list based on observed structure
-             # Critical columns: 0=Image, 1=Player, 4=Result, 5=Opponent, 8=Tournament, 9=Date
-             params['fieldnames'] = [
-                 "Image Name", "Player", "ELO", "Crc", "Result", "Opponent", 
-                 "Opponent ELO", "Opponent Crc", "Tournament", "Date", 
-                 "1st Serve %", "Aces", "Double Faults", "Fastest Serve", 
-                 "Avg 1st Serve Speed", "Avg 2nd Serve Speed", "Winners", 
-                 "Forced Errors", "Unforced Errors", "Net Points Won %", 
-                 "Return Points Won %", "Total Points Won", "Break Points Won %", 
-                 "Breaks / Games %", "Set Points Saved", 
-                 "Average Rally Length", "1st Serve Won %", "2nd Serve Won %",
-                 "Return Winners"
-             ]
-             logger.warning("CSV headers missing, using hardcoded fieldnames")
 
-        reader = csv.DictReader(StringIO(content), **params)
-        
-        # Process all valid rows
-        # No more merging of rows - returning everything as-is
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+            responses = await asyncio.gather(
+                *[client.get(sheet_csv_url(gid)) for gid in TOUR_SHEET_GIDS.values()]
+            )
+        for response in responses:
+            response.raise_for_status()
+
+        # Process all valid rows from every tab (atp/wta/dubs), tagged by tour
         processed_data = []
-        for row in reader:
-            processed = process_row(row)
-            if processed:
-                processed_data.append(processed)
-        
+        for tour, response in zip(TOUR_SHEET_GIDS.keys(), responses):
+            content = response.content.decode('latin-1')
+
+            # Check first line to see if headers are present
+            params = {}
+            first_line = content.splitlines()[0] if content else ""
+            if "Result" not in first_line and "Player" not in first_line:
+                 # Assume headers are missing, provide default list based on observed structure
+                 # Critical columns: 0=Image, 1=Player, 4=Result, 5=Opponent, 8=Tournament, 9=Date
+                 params['fieldnames'] = [
+                     "Image Name", "Player", "ELO", "Crc", "Result", "Opponent",
+                     "Opponent ELO", "Opponent Crc", "Tournament", "Date",
+                     "1st Serve %", "Aces", "Double Faults", "Fastest Serve",
+                     "Avg 1st Serve Speed", "Avg 2nd Serve Speed", "Winners",
+                     "Forced Errors", "Unforced Errors", "Net Points Won %",
+                     "Return Points Won %", "Total Points Won", "Break Points Won %",
+                     "Breaks / Games %", "Set Points Saved",
+                     "Average Rally Length", "1st Serve Won %", "2nd Serve Won %",
+                     "Return Winners"
+                 ]
+                 logger.warning(f"CSV headers missing for '{tour}' sheet, using hardcoded fieldnames")
+
+            reader = csv.DictReader(StringIO(content), **params)
+            for row in reader:
+                processed = process_row(row, tour)
+                if processed:
+                    processed_data.append(processed)
+
         total = len(processed_data)
         start = (page - 1) * page_size
         paginated = processed_data[start : start + page_size]

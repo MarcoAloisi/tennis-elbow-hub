@@ -121,6 +121,17 @@ function onPlayerInputBlur() {
                     </div>
                 </div>
 
+                <!-- Tour filter -->
+                <div class="filter-group">
+                    <label class="filter-label">Tour</label>
+                    <select v-model="store.filters.tour" class="filter-select">
+                        <option value="all">All Tours</option>
+                        <option value="atp">ATP</option>
+                        <option value="wta">WTA</option>
+                        <option value="dubs">Doubles</option>
+                    </select>
+                </div>
+
                 <!-- Tournament filter with normalized names -->
                 <div class="filter-group">
                     <label class="filter-label">Tournament</label>
