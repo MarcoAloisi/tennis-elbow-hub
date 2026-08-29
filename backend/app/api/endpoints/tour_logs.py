@@ -297,7 +297,10 @@ def process_row(row: dict[str, str], tour: str) -> dict[str, Any] | None:
 async def get_tour_logs(
     request: Request,
     page: Annotated[int, Query(ge=1, description="Page number")] = 1,
-    page_size: Annotated[int, Query(ge=1, le=200, description="Results per page")] = 50,
+    # Frontend fetches the whole (atp+wta+dubs) dataset in one call to aggregate
+    # client-side (leaderboards, filters) - le=10000 covers that in a single page
+    # instead of needing dozens of requests against the 20/minute limit below.
+    page_size: Annotated[int, Query(ge=1, le=10000, description="Results per page")] = 50,
 ) -> dict[str, Any]:
     """Fetch tour logs from Google Sheets and return paginated cleaned data.
 

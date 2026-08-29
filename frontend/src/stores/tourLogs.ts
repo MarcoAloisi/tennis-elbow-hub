@@ -26,27 +26,19 @@ export const useTourLogsStore = defineStore('tourLogs', () => {
     // Active subtab
     const activeTab = ref('data') // 'data', 'leaders' (rankings removed)
 
-    // Fetch data from API - loops through pages since the dataset (atp+wta+dubs
-    // merged) is far bigger than one page (max page_size is 200)
+    // Fetch data from API - one request for the whole (atp+wta+dubs) dataset,
+    // since it's all aggregated client-side anyway (leaderboards, filters)
     async function fetchData() {
         isLoading.value = true
         error.value = null
 
         try {
-            const allRows = []
-            let page = 1
-            let totalPages = 1
-            do {
-                const response = await fetch(`${API_BASE}/api/tour-logs?page=${page}&page_size=200`)
-                if (!response.ok) {
-                    throw new Error('Failed to fetch tour logs')
-                }
-                const result = await response.json()
-                allRows.push(...(result.data || []))
-                totalPages = result.total_pages || 1
-                page++
-            } while (page <= totalPages)
-            rawData.value = allRows
+            const response = await fetch(`${API_BASE}/api/tour-logs?page_size=10000`)
+            if (!response.ok) {
+                throw new Error('Failed to fetch tour logs')
+            }
+            const result = await response.json()
+            rawData.value = result.data || []
         } catch (e) {
             error.value = e.message
             console.error('Tour logs fetch error:', e)
