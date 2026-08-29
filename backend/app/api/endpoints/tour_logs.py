@@ -4,8 +4,10 @@ Fetches and processes tour log data from Google Sheets CSV.
 """
 
 import asyncio
+import csv
 import hashlib
 import re
+import time
 from datetime import date, timedelta
 from io import StringIO
 from typing import Annotated, Any
@@ -18,6 +20,14 @@ from app.core.logging import get_logger
 
 logger = get_logger("api.tour_logs")
 router = APIRouter(prefix="/tour-logs", tags=["Tour Logs"])
+
+# In-memory cache: every request used to refetch+reparse all 3 Google Sheets from
+# scratch, so concurrent traffic (or a client re-requesting different pages) meant
+# many redundant outbound calls to Google - slow, and prone to 502s if Google is
+# briefly slow to answer. Single systemd process on the VPS, so a module-level
+# cache is safe (see project memory: no cross-instance fragmentation risk here).
+_cache: dict[str, Any] = {"data": None, "fetched_at": 0.0}
+CACHE_TTL_SECONDS = 120
 
 # Google Sheets publish token - one doc, three tabs (atp/wta/dubs), each with its own gid
 TOUR_LOGS_PUB_BASE = (
@@ -288,6 +298,58 @@ def process_row(row: dict[str, str], tour: str) -> dict[str, Any] | None:
     }
 
 
+async def fetch_and_process_all_sheets() -> list[dict[str, Any]]:
+    """Fetch all 3 tabs (atp/wta/dubs) from Google Sheets and return processed rows."""
+    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+        responses = await asyncio.gather(
+            *[client.get(sheet_csv_url(gid)) for gid in TOUR_SHEET_GIDS.values()]
+        )
+    for response in responses:
+        response.raise_for_status()
+
+    # Process all valid rows from every tab (atp/wta/dubs), tagged by tour
+    processed_data = []
+    for tour, response in zip(TOUR_SHEET_GIDS.keys(), responses):
+        content = response.content.decode('latin-1')
+
+        # Check first line to see if headers are present
+        params = {}
+        first_line = content.splitlines()[0] if content else ""
+        if "Result" not in first_line and "Player" not in first_line:
+             # Assume headers are missing, provide default list based on observed structure
+             # Critical columns: 0=Image, 1=Player, 4=Result, 5=Opponent, 8=Tournament, 9=Date
+             params['fieldnames'] = [
+                 "Image Name", "Player", "ELO", "Crc", "Result", "Opponent",
+                 "Opponent ELO", "Opponent Crc", "Tournament", "Date",
+                 "1st Serve %", "Aces", "Double Faults", "Fastest Serve",
+                 "Avg 1st Serve Speed", "Avg 2nd Serve Speed", "Winners",
+                 "Forced Errors", "Unforced Errors", "Net Points Won %",
+                 "Return Points Won %", "Total Points Won", "Break Points Won %",
+                 "Breaks / Games %", "Set Points Saved",
+                 "Average Rally Length", "1st Serve Won %", "2nd Serve Won %",
+                 "Return Winners"
+             ]
+             logger.warning(f"CSV headers missing for '{tour}' sheet, using hardcoded fieldnames")
+
+        reader = csv.DictReader(StringIO(content), **params)
+        for row in reader:
+            processed = process_row(row, tour)
+            if processed:
+                processed_data.append(processed)
+
+    return processed_data
+
+
+async def get_cached_tour_logs() -> list[dict[str, Any]]:
+    """Return processed tour log rows, refetching from Google Sheets only every
+    CACHE_TTL_SECONDS instead of on every request."""
+    now = time.monotonic()
+    if _cache["data"] is None or (now - _cache["fetched_at"]) >= CACHE_TTL_SECONDS:
+        _cache["data"] = await fetch_and_process_all_sheets()
+        _cache["fetched_at"] = now
+    return _cache["data"]
+
+
 @router.get(
     "",
     summary="Get tour logs data",
@@ -302,50 +364,13 @@ async def get_tour_logs(
     # instead of needing dozens of requests against the 20/minute limit below.
     page_size: Annotated[int, Query(ge=1, le=10000, description="Results per page")] = 50,
 ) -> dict[str, Any]:
-    """Fetch tour logs from Google Sheets and return paginated cleaned data.
+    """Fetch tour logs from Google Sheets (cached) and return paginated cleaned data.
 
     Returns:
         Dictionary with success status, pagination info, and data array.
     """
     try:
-        import csv
-
-        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-            responses = await asyncio.gather(
-                *[client.get(sheet_csv_url(gid)) for gid in TOUR_SHEET_GIDS.values()]
-            )
-        for response in responses:
-            response.raise_for_status()
-
-        # Process all valid rows from every tab (atp/wta/dubs), tagged by tour
-        processed_data = []
-        for tour, response in zip(TOUR_SHEET_GIDS.keys(), responses):
-            content = response.content.decode('latin-1')
-
-            # Check first line to see if headers are present
-            params = {}
-            first_line = content.splitlines()[0] if content else ""
-            if "Result" not in first_line and "Player" not in first_line:
-                 # Assume headers are missing, provide default list based on observed structure
-                 # Critical columns: 0=Image, 1=Player, 4=Result, 5=Opponent, 8=Tournament, 9=Date
-                 params['fieldnames'] = [
-                     "Image Name", "Player", "ELO", "Crc", "Result", "Opponent",
-                     "Opponent ELO", "Opponent Crc", "Tournament", "Date",
-                     "1st Serve %", "Aces", "Double Faults", "Fastest Serve",
-                     "Avg 1st Serve Speed", "Avg 2nd Serve Speed", "Winners",
-                     "Forced Errors", "Unforced Errors", "Net Points Won %",
-                     "Return Points Won %", "Total Points Won", "Break Points Won %",
-                     "Breaks / Games %", "Set Points Saved",
-                     "Average Rally Length", "1st Serve Won %", "2nd Serve Won %",
-                     "Return Winners"
-                 ]
-                 logger.warning(f"CSV headers missing for '{tour}' sheet, using hardcoded fieldnames")
-
-            reader = csv.DictReader(StringIO(content), **params)
-            for row in reader:
-                processed = process_row(row, tour)
-                if processed:
-                    processed_data.append(processed)
+        processed_data = await get_cached_tour_logs()
 
         total = len(processed_data)
         start = (page - 1) * page_size
@@ -362,7 +387,7 @@ async def get_tour_logs(
             "total_pages": max(1, -(-total // page_size)),  # ceiling division
             "data": paginated,
         }
-        
+
     except httpx.HTTPError as e:
         logger.error(f"Failed to fetch tour logs: {e}")
         raise HTTPException(status_code=502, detail="Failed to fetch tour logs data")
