@@ -165,118 +165,71 @@ export const useTourLogsStore = defineStore('tourLogs', () => {
         return valid.reduce((a, b) => a + b, 0) / valid.length
     }
 
-    // Stats leaders - average stats per player
-    // Aggregates data from ALL rows where the player appears in the 'player' column
-    const statsLeaders = computed(() => {
-        const playerStats: Record<string, any> = {} // keyed by normalized name
+    const STAT_KEYS = [
+        'firstServePct', 'aces', 'doubleFaults', 'fastestServe',
+        'avgFirstServeSpeed', 'avgSecondServeSpeed', 'winners', 'forcedErrors',
+        'unforcedErrors', 'totalPointsWon', 'netPointsWonPct', 'returnPointsWonPct',
+        'returnWinners', 'breakPointsWonPct', 'breaksPerGamePct', 'setPointsSaved',
+        'matchPointsSaved', 'shortRalliesWonPct', 'mediumRalliesWonPct',
+        'longRalliesWonPct', 'avgRallyLength', 'firstServeWonPct', 'secondServeWonPct',
+    ]
 
-        // Use filteredData so we can see leaders for specific tournaments/dates if desired
-        // Or should we use global data? Usually leaders are global, but filtering is nice.
-        // Let's use filteredData to allow "Leaders in 2024" etc.
+    // Stats leaders - average stats per player, one match = one uniqueId (sheet's
+    // "Unique ID B" column), not one row. A match can span multiple rows (e.g.
+    // misnumbered duplicate exports); those rows are collapsed into a single
+    // match-level value per stat before averaging, so every match counts once
+    // and each stat gets its own denominator (a match missing Aces just doesn't
+    // count toward the Aces average, but still counts toward the rest).
+    const statsLeaders = computed(() => {
+        // Group rows by player -> uniqueId -> [rows for that match]
+        const playerMatches: Record<string, { displayName: string; matches: Map<string, any[]> }> = {}
+
         filteredData.value.forEach(row => {
             const key = row.playerNormalized
             if (!key) return
 
-            if (!playerStats[key]) {
-                playerStats[key] = {
-                    displayName: row.player,
-                    firstServePct: [],
-                    aces: [],
-                    doubleFaults: [],
-                    fastestServe: [],
-                    avgFirstServeSpeed: [],
-                    avgSecondServeSpeed: [],
-                    winners: [],
-                    forcedErrors: [],
-                    unforcedErrors: [],
-                    totalPointsWon: [],
-                    netPointsWonPct: [],
-                    returnPointsWonPct: [],
-                    returnWinners: [],
-                    breakPointsWonPct: [],
-                    breaksPerGamePct: [],
-                    setPointsSaved: [],
-                    matchPointsSaved: [],
-                    shortRalliesWonPct: [],
-                    mediumRalliesWonPct: [],
-                    longRalliesWonPct: [],
-                    avgRallyLength: [],
-                    firstServeWonPct: [],
-                    secondServeWonPct: [],
-                    matches: 0,
-                }
+            if (!playerMatches[key]) {
+                playerMatches[key] = { displayName: row.player, matches: new Map() }
             }
+            const matchKey = row.uniqueId || row.matchId
+            if (!matchKey) return
 
-            const ps = playerStats[key]
-            ps.matches++
-
-            // Push valid values to arrays
-            if (row.firstServePct !== null) ps.firstServePct.push(row.firstServePct)
-            if (row.aces !== null) ps.aces.push(row.aces)
-            if (row.doubleFaults !== null) ps.doubleFaults.push(row.doubleFaults)
-            if (row.fastestServe !== null) ps.fastestServe.push(row.fastestServe)
-            if (row.avgFirstServeSpeed !== null) ps.avgFirstServeSpeed.push(row.avgFirstServeSpeed)
-            if (row.avgSecondServeSpeed !== null) ps.avgSecondServeSpeed.push(row.avgSecondServeSpeed)
-            if (row.winners !== null) ps.winners.push(row.winners)
-            if (row.forcedErrors !== null) ps.forcedErrors.push(row.forcedErrors)
-            if (row.unforcedErrors !== null) ps.unforcedErrors.push(row.unforcedErrors)
-            if (row.totalPointsWon !== null) ps.totalPointsWon.push(row.totalPointsWon)
-            if (row.netPointsWonPct !== null) ps.netPointsWonPct.push(row.netPointsWonPct)
-            if (row.returnPointsWonPct !== null) ps.returnPointsWonPct.push(row.returnPointsWonPct)
-            if (row.returnWinners !== null) ps.returnWinners.push(row.returnWinners)
-            if (row.breakPointsWonPct !== null) ps.breakPointsWonPct.push(row.breakPointsWonPct)
-            if (row.breaksPerGamePct !== null) ps.breaksPerGamePct.push(row.breaksPerGamePct)
-            if (row.setPointsSaved !== null) ps.setPointsSaved.push(row.setPointsSaved)
-            if (row.matchPointsSaved !== null) ps.matchPointsSaved.push(row.matchPointsSaved)
-            if (row.shortRalliesWonPct !== null) ps.shortRalliesWonPct.push(row.shortRalliesWonPct)
-            if (row.mediumRalliesWonPct !== null) ps.mediumRalliesWonPct.push(row.mediumRalliesWonPct)
-            if (row.longRalliesWonPct !== null) ps.longRalliesWonPct.push(row.longRalliesWonPct)
-            if (row.avgRallyLength !== null) ps.avgRallyLength.push(row.avgRallyLength)
-            if (row.firstServeWonPct !== null) ps.firstServeWonPct.push(row.firstServeWonPct)
-            if (row.secondServeWonPct !== null) ps.secondServeWonPct.push(row.secondServeWonPct)
+            const bucket = playerMatches[key].matches
+            if (!bucket.has(matchKey)) bucket.set(matchKey, [])
+            bucket.get(matchKey).push(row)
         })
 
-        // Calculate average stats per player
-        // Note: We do NOT include opponent stats here because in the new data format,
-        // each row represents ONE player's stats (the 'Player' column).
-        // The opponent's stats are in a separate row where THEY are the 'Player'.
-
         const result = []
-        for (const [key, stats] of Object.entries(playerStats)) {
-            result.push({
-                name: stats.displayName,
-                matches: stats.matches,
-                firstServePct: average(stats.firstServePct),
-                aces: average(stats.aces),
-                doubleFaults: average(stats.doubleFaults),
-                fastestServe: average(stats.fastestServe),
-                avgFirstServeSpeed: average(stats.avgFirstServeSpeed),
-                avgSecondServeSpeed: average(stats.avgSecondServeSpeed),
-                winners: average(stats.winners),
-                forcedErrors: average(stats.forcedErrors),
-                unforcedErrors: average(stats.unforcedErrors),
-                totalPointsWon: average(stats.totalPointsWon),
-                netPointsWonPct: average(stats.netPointsWonPct),
-                returnPointsWonPct: average(stats.returnPointsWonPct),
-                returnWinners: average(stats.returnWinners),
-                breakPointsWonPct: average(stats.breakPointsWonPct),
-                breaksPerGamePct: average(stats.breaksPerGamePct),
-                setPointsSaved: average(stats.setPointsSaved),
-                matchPointsSaved: average(stats.matchPointsSaved),
-                shortRalliesWonPct: average(stats.shortRalliesWonPct),
-                mediumRalliesWonPct: average(stats.mediumRalliesWonPct),
-                longRalliesWonPct: average(stats.longRalliesWonPct),
-                avgRallyLength: average(stats.avgRallyLength),
-                firstServeWonPct: average(stats.firstServeWonPct),
-                secondServeWonPct: average(stats.secondServeWonPct),
+        for (const [, { displayName, matches }] of Object.entries(playerMatches)) {
+            // Collapse each match's rows into one value per stat (average of
+            // whatever non-null values exist across the duplicate rows)
+            const collapsedMatches = Array.from(matches.values()).map(rows => {
+                const collapsed: Record<string, number | null> = {}
+                for (const statKey of STAT_KEYS) {
+                    collapsed[statKey] = average(rows.map(r => r[statKey]))
+                }
+                return collapsed
             })
+
+            const stats: any = { displayName, matches: collapsedMatches.length }
+            for (const statKey of STAT_KEYS) {
+                stats[statKey] = average(collapsedMatches.map(m => m[statKey]))
+            }
+            result.push(stats)
         }
+
+        return finalizeStatsLeaders(result)
+    })
+
+    // Apply player filter / minimum match count and shape final leader rows
+    function finalizeStatsLeaders(playerStatsList) {
+        const out = playerStatsList.map(({ displayName, ...stats }) => ({ name: displayName, ...stats }))
 
         // If player filter is active, only show that player's stats
         const playerFilter = filters.value.player?.toLowerCase()
         let finalResult = playerFilter
-            ? result.filter(p => p.name.toLowerCase().includes(playerFilter))
-            : result
+            ? out.filter(p => p.name.toLowerCase().includes(playerFilter))
+            : out
 
         // Require at least 5 matches (unless searching for a specific player)
         if (!playerFilter) {
@@ -284,7 +237,7 @@ export const useTourLogsStore = defineStore('tourLogs', () => {
         }
 
         return finalResult.sort((a, b) => b.matches - a.matches)
-    })
+    }
 
     // Tour-wide average stats (aggregate all players)
     const tourAverage = computed(() => {

@@ -250,10 +250,17 @@ def process_row(row: dict[str, str], tour: str) -> dict[str, Any] | None:
     }
     
     row_id, match_id = generate_ids(temp_data)
-    
+
+    # Sheet-provided match key (Player+Opponent+Tournament+Date concatenation).
+    # More reliable than our own match_id hash for grouping duplicate rows of
+    # the same match, since Image Name (part of match_id) is often misnumbered
+    # and differs between rows that are really the same match.
+    unique_id = row.get('Unique ID B', '').strip() or match_id
+
     return {
         'id': row_id,
         'matchId': match_id,
+        'uniqueId': unique_id,
         'tour': tour,
         'imageName': match_image,
         'player': player_name,
