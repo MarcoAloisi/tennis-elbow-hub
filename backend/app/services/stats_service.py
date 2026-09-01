@@ -31,11 +31,11 @@ logger = get_logger("stats_service")
 
 
 def _is_real_player_name(name: str) -> bool:
-    """Filters out bot/placeholder names: the literal "Unknown" placeholder,
-    the "1210967164" numeric placeholder, and bot names prefixed with "[.".
-    Single source of truth for this check — reused by stats_service.py's
-    own methods and by scraper.py (see win-probability filtering there)."""
-    return bool(name) and name != "Unknown" and name != "1210967164" and not name.startswith("[.")
+    """Filters out bot/placeholder names: the literal "Unknown" placeholder
+    and bot names prefixed with "[.". Single source of truth for this check
+    — reused by stats_service.py's own methods and by scraper.py (see
+    win-probability filtering there)."""
+    return bool(name) and name != "Unknown" and not name.startswith("[.")
 
 
 def _match_identity_key(s: GameServer) -> tuple[int, int, str, int, PlayerConfig]:
@@ -575,17 +575,17 @@ class StatsService:
                     if " vs " in name:
                         p1, p2 = name.split(" vs ", 1)
                         p1, p2 = self._resolve_name(p1.strip(), alias_map), self._resolve_name(p2.strip(), alias_map)
-                        if p1 and p1 != "Unknown" and p1 != "1210967164" and not p1.startswith("[."):
+                        if p1 and p1 != "Unknown" and not p1.startswith("[."):
                             player_counts[p1] += 1
                             if p1_elo is not None and p1_elo > 0:
                                 player_latest_elo[p1] = p1_elo
-                        if p2 and p2 != "Unknown" and p2 != "1210967164" and not p2.startswith("[."):
+                        if p2 and p2 != "Unknown" and not p2.startswith("[."):
                             player_counts[p2] += 1
                             if p2_elo is not None and p2_elo > 0:
                                 player_latest_elo[p2] = p2_elo
                     else:
                         resolved = self._resolve_name(name.strip(), alias_map)
-                        if resolved and resolved != "Unknown" and resolved != "1210967164" and not resolved.startswith("[."):
+                        if resolved and resolved != "Unknown" and not resolved.startswith("[."):
                             player_counts[resolved] += 1
                             if p1_elo is not None and p1_elo > 0:
                                 player_latest_elo[resolved] = p1_elo
@@ -655,14 +655,14 @@ class StatsService:
                         p1, p2 = name.split(" vs ", 1)
                         p1, p2 = self._resolve_name(p1.strip(), alias_map), self._resolve_name(p2.strip(), alias_map)
 
-                        if p1 and p1 != "Unknown" and p1 != "1210967164" and not p1.startswith("[."):
+                        if p1 and p1 != "Unknown" and not p1.startswith("[."):
                             player_counts[p1] += 1
                             if p1_elo is not None and p1_elo > 0:
                                 player_latest_elo[p1] = p1_elo
                             if match_date:
                                 player_last_date[p1] = match_date
 
-                        if p2 and p2 != "Unknown" and p2 != "1210967164" and not p2.startswith("[."):
+                        if p2 and p2 != "Unknown" and not p2.startswith("[."):
                             player_counts[p2] += 1
                             if p2_elo is not None and p2_elo > 0:
                                 player_latest_elo[p2] = p2_elo
@@ -670,7 +670,7 @@ class StatsService:
                                 player_last_date[p2] = match_date
                     else:
                         resolved = self._resolve_name(name.strip(), alias_map)
-                        if resolved and resolved != "Unknown" and resolved != "1210967164" and not resolved.startswith("[."):
+                        if resolved and resolved != "Unknown" and not resolved.startswith("[."):
                             player_counts[resolved] += 1
                             if p1_elo is not None and p1_elo > 0:
                                 player_latest_elo[resolved] = p1_elo
