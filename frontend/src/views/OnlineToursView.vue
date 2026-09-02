@@ -52,15 +52,15 @@ watch(currentTourKey, (newKey) => {
         class="tour-tab"
         :class="{ active: currentTourKey === 'xkt' }"
       >
-        <img :src="xktTour.logo" :alt="xktTour.name" class="tab-logo" />
+        <img :src="xktTour.logo" :alt="xktTour.name" width="28" height="28" class="tab-logo" />
         XKT Tour
       </RouterLink>
-      <RouterLink 
-        to="/online-tours/wtsl" 
+      <RouterLink
+        to="/online-tours/wtsl"
         class="tour-tab"
         :class="{ active: currentTourKey === 'wtsl' }"
       >
-        <img :src="wtslTour.logo" :alt="wtslTour.name" class="tab-logo" />
+        <img :src="wtslTour.logo" :alt="wtslTour.name" width="28" height="28" class="tab-logo" />
         WTSL Tour
       </RouterLink>
     </div>
@@ -70,7 +70,7 @@ watch(currentTourKey, (newKey) => {
       <div class="tour-card">
         <!-- Tour Header -->
         <div class="tour-header">
-          <img :src="currentTour.logo" :alt="currentTour.name" class="tour-logo" />
+          <img :src="currentTour.logo" :alt="currentTour.name" width="48" height="48" fetchpriority="high" class="tour-logo" />
           <h2>{{ currentTour.name }}</h2>
         </div>
 
@@ -110,10 +110,13 @@ watch(currentTourKey, (newKey) => {
                 class="discord-card"
               >
                 <div class="discord-badge">JOIN TOUR</div>
-                <img 
-                  :src="link.icon" 
-                  :alt="link.label" 
-                  class="discord-icon" 
+                <img
+                  :src="link.icon"
+                  :alt="link.label"
+                  width="56"
+                  height="56"
+                  loading="lazy"
+                  class="discord-icon"
                 />
                 <div class="discord-content">
                   <span class="discord-label">{{ link.label }}</span>
@@ -139,11 +142,14 @@ watch(currentTourKey, (newKey) => {
                 rel="noopener noreferrer"
                 class="link-card"
               >
-                <img 
-                  v-if="link.icon.startsWith('/')" 
-                  :src="link.icon" 
-                  :alt="link.label" 
-                  class="link-icon-img" 
+                <img
+                  v-if="link.icon.startsWith('/')"
+                  :src="link.icon"
+                  alt=""
+                  width="24"
+                  height="24"
+                  loading="lazy"
+                  class="link-icon-img"
                 />
                 <span v-else class="link-icon-wrapper" :class="'mod-' + link.icon">
                   <Gamepad2 v-if="link.icon === '🎮'" :size="24" stroke-width="2.5" />

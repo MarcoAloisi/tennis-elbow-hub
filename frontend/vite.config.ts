@@ -41,7 +41,6 @@ export default defineConfig(({ mode }) => {
           '/live',
           '/analysis',
           '/guides',
-          '/online-tours',
           '/online-tours/xkt',
           '/online-tours/wtsl',
           '/outfit-gallery',
