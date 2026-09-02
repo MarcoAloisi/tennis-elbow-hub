@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import type { Router, RouteRecordRaw } from 'vue-router'
 import AboutView from '../views/AboutView.vue'
 
 // Lazy-loaded views — only downloaded when the route is navigated to
@@ -23,7 +23,7 @@ const ProfileView = () => import('../views/ProfileView.vue')
 const PublicProfileView = () => import('../views/PublicProfileView.vue')
 const PendingApprovalView = () => import('../views/PendingApprovalView.vue')
 
-const routes: RouteRecordRaw[] = [
+export const routes: RouteRecordRaw[] = [
     {
         path: '/',
         name: 'Home',
@@ -246,23 +246,12 @@ const routes: RouteRecordRaw[] = [
 let _approvalCache: { userId: string; approved: boolean } | null = null
 export function clearApprovalCache() { _approvalCache = null }
 
-const router = createRouter({
-    history: createWebHistory(),
-    routes,
-    scrollBehavior() {
-        return { top: 0 }
-    }
-})
-
-// Update page title and meta description on navigation
-router.beforeEach(async (to, from, next) => {
-    document.title = `${to.meta.title || 'Tennis Elbow Hub'} | Tennis Elbow Hub`
-
-    const descriptionMeta = document.querySelector('meta[name="description"]')
-    if (descriptionMeta && to.meta.description) {
-        descriptionMeta.setAttribute('content', to.meta.description as string)
-    }
-
+// Registers navigation guards on a router instance. Called from main.ts
+// after ViteSSG builds the router (title/meta are handled reactively in
+// App.vue via useHead instead of mutated here, so they bake into prerendered
+// HTML per-route instead of only applying after client-side hydration).
+export function setupGuards(router: Router) {
+    router.beforeEach(async (to, from, next) => {
     // Auth route guard
     if (to.meta.requiresAuth) {
         const { useAuthStore } = await import('../stores/auth')
@@ -308,13 +297,16 @@ router.beforeEach(async (to, from, next) => {
         }
     }
 
-    next()
-})
+        next()
+    })
 
-router.afterEach(() => {
-    // Force scroll to top after route change to fix footer link bug
-    window.scrollTo({ top: 0, behavior: 'instant' })
-})
-
-export default router
+    router.afterEach(() => {
+        // Force scroll to top after route change to fix footer link bug.
+        // Guarded because afterEach also fires during SSG prerendering (Node,
+        // no window).
+        if (typeof window !== 'undefined') {
+            window.scrollTo({ top: 0, behavior: 'instant' })
+        }
+    })
+}
 

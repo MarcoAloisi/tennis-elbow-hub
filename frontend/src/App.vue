@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { RouterView, RouterLink, useRoute, useRouter } from 'vue-router'
+import { useHead } from '@unhead/vue'
 type ElWithHandler = HTMLElement & { _clickOutsideHandler?: (e: MouseEvent) => void }
 const vClickOutside = {
   mounted(el: ElWithHandler, binding: { value: () => void }) {
@@ -28,6 +29,21 @@ import { Activity, BarChart2, Globe, Shirt, Clapperboard, LogOut, Database, Shie
 
 const route = useRoute()
 const router = useRouter()
+
+// Per-route title/description, baked into the prerendered HTML for each
+// route (replaces the old document.title mutation in a router guard, which
+// only ever ran after client-side hydration and left every prerendered page
+// with the same static <head> from index.html).
+useHead({
+  title: () => `${(route.meta.title as string) || 'Tennis Elbow Hub'} | Tennis Elbow Hub`,
+  meta: [
+    {
+      name: 'description',
+      content: () => (route.meta.description as string) || 'Tennis Elbow Hub - Live scores and match analysis for Tennis Elbow 4',
+    },
+  ],
+})
+
 const authStore = useAuthStore()
 const presenceStore = usePresenceStore()
 const { adsAllowed } = useAdSense()

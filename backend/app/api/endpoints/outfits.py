@@ -162,7 +162,10 @@ async def create_outfit(
         supabase.storage.from_("outfits").upload(
             file=file_content,
             path=filename,
-            file_options={"content-type": image.content_type or "image/png"}
+            file_options={
+                "content-type": image.content_type or "image/png",
+                "cache-control": "31536000",
+            }
         )
         public_url = supabase.storage.from_("outfits").get_public_url(filename)
     except HTTPException:
@@ -218,7 +221,10 @@ async def update_outfit(
             filename = f"{uuid.uuid4()}.{ext}"
             supabase.storage.from_("outfits").upload(
                 file=file_content, path=filename,
-                file_options={"content-type": image.content_type or "image/png"}
+                file_options={
+                    "content-type": image.content_type or "image/png",
+                    "cache-control": "31536000",
+                }
             )
             public_url = supabase.storage.from_("outfits").get_public_url(filename)
         except HTTPException:

@@ -30,5 +30,27 @@ export default defineConfig(({ mode }) => {
     define: {
       __API_URL__: JSON.stringify(env.VITE_API_URL || ''),
     },
+    ssgOptions: {
+      // Only prerender the public, indexable content routes — the ones in
+      // the live sitemap that AdSense/search crawlers actually evaluate.
+      // Everything else (auth, admin, profile, predictions) stays pure SPA,
+      // rendered client-side exactly as before.
+      includedRoutes(paths) {
+        const prerendered = new Set([
+          '/',
+          '/live',
+          '/analysis',
+          '/guides',
+          '/online-tours',
+          '/online-tours/xkt',
+          '/online-tours/wtsl',
+          '/outfit-gallery',
+          '/privacy-policy',
+          '/terms-of-service',
+          '/contact',
+        ])
+        return paths.filter((p) => prerendered.has(p))
+      },
+    },
   }
 })

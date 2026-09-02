@@ -92,7 +92,10 @@ async def upload_guide_image(
         supabase.storage.from_(IMAGE_BUCKET_NAME).upload(
             file=file_content,
             path=filename,
-            file_options={"content-type": image.content_type or "image/png"},
+            file_options={
+                "content-type": image.content_type or "image/png",
+                "cache-control": "31536000",
+            },
         )
         url = supabase.storage.from_(IMAGE_BUCKET_NAME).get_public_url(filename)
     except HTTPException:
@@ -223,7 +226,10 @@ async def create_guide(
             supabase.storage.from_(BUCKET_NAME).upload(
                 file=file_content,
                 path=filename,
-                file_options={"content-type": thumbnail.content_type or "image/png"},
+                file_options={
+                    "content-type": thumbnail.content_type or "image/png",
+                    "cache-control": "31536000",
+                },
             )
             thumbnail_url = supabase.storage.from_(BUCKET_NAME).get_public_url(filename)
         except HTTPException:
@@ -304,7 +310,10 @@ async def update_guide(
             supabase.storage.from_(BUCKET_NAME).upload(
                 file=file_content,
                 path=filename,
-                file_options={"content-type": thumbnail.content_type or "image/png"},
+                file_options={
+                    "content-type": thumbnail.content_type or "image/png",
+                    "cache-control": "31536000",
+                },
             )
             new_thumbnail_url = supabase.storage.from_(BUCKET_NAME).get_public_url(filename)
         except HTTPException:

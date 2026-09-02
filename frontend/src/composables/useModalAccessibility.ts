@@ -60,6 +60,7 @@ export function useModalAccessibility(isOpen: import('vue').Ref<boolean>, { onCl
     }
 
     function activate() {
+        if (typeof document === 'undefined') return
         previousActiveElement = document.activeElement
         document.addEventListener('keydown', handleKeyDown)
 
@@ -75,6 +76,7 @@ export function useModalAccessibility(isOpen: import('vue').Ref<boolean>, { onCl
     }
 
     function deactivate() {
+        if (typeof document === 'undefined') return
         document.removeEventListener('keydown', handleKeyDown)
         // Restore focus to the element that was focused before the modal opened
         if (previousActiveElement && typeof (previousActiveElement as HTMLElement).focus === 'function') {
