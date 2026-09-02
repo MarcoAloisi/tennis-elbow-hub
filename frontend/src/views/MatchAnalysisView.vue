@@ -50,6 +50,13 @@ async function handleUpload(files: File[]) {
       <div class="header-content">
         <h1>Match Log Analysis</h1>
         <p>Upload your Tennis Elbow 4 match logs for detailed statistics</p>
+        <p class="intro-text">
+          Match Log Analysis turns the raw HTML files Tennis Elbow 4 generates after each online match into readable
+          stats: radar charts comparing your shot selection and error rate, win/loss breakdowns by surface and
+          opponent, and head-to-head history if you've played someone before. Everything runs in your browser — logs
+          are parsed on upload, analyzed, and discarded at the end of your session; nothing is stored on our servers.
+          Upload one file for a single-match breakdown, or several at once to see trends across a session.
+        </p>
       </div>
     </div>
 
@@ -129,6 +136,13 @@ async function handleUpload(files: File[]) {
 
 .page-header p {
   color: var(--color-text-muted);
+}
+
+.page-header .intro-text {
+  max-width: 65ch;
+  margin-top: var(--space-2);
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
 }
 
 .upload-section {
@@ -1322,6 +1336,13 @@ code {
 
 .page-header p {
   color: var(--color-text-muted);
+}
+
+.page-header .intro-text {
+  max-width: 65ch;
+  margin-top: var(--space-2);
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
 }
 
 .upload-section {

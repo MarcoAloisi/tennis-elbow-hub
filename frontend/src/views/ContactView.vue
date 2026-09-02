@@ -68,6 +68,8 @@ const resetForm = () => {
         You can also reach us on the
         <a href="https://discord.com/invite/PY7hZXZcF6" target="_blank" rel="noopener noreferrer">
           Tennis Elbow 4 Tour Discord</a>.
+        We typically reply within a day or two — for anything time-sensitive, Discord is faster since it's actively
+        monitored by the community and mod team.
       </p>
 
       <!-- Success State -->

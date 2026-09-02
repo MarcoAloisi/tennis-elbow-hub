@@ -121,6 +121,14 @@ function onFormSaved() {
       <div>
         <h1>Guides</h1>
         <p class="subtitle">Tutorials and articles to help you master Tennis Elbow 4.</p>
+        <p class="intro-text">
+          Whether you're setting up Tennis Elbow 4 for online play for the first time or looking to sharpen your
+          competitive edge, this section covers both video tutorials and written articles. Topics range from initial
+          mod installation and server connection, to gameplay mechanics like shot timing and surface adjustments, to
+          tournament-specific guides for the XKT and WTSL tours. New guides are added as the community tests new
+          strategies and the mod evolves — check back periodically or use the search and tag filters above to find
+          exactly what you need.
+        </p>
       </div>
       <button v-if="authStore.isAdmin" class="btn btn-primary" @click="openAddForm">
         <Plus :size="15" stroke-width="2.5" /> Add Guide
@@ -278,6 +286,14 @@ function onFormSaved() {
   color: var(--color-text-secondary);
   font-size: var(--font-size-lg);
   margin: 0;
+}
+
+.intro-text {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  max-width: 65ch;
+  margin: var(--space-2) 0 0 0;
+  line-height: 1.6;
 }
 
 /* Buttons — uses global .btn-primary from components.css */
