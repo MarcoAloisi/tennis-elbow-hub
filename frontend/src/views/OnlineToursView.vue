@@ -52,7 +52,7 @@ watch(currentTourKey, (newKey) => {
         class="tour-tab"
         :class="{ active: currentTourKey === 'xkt' }"
       >
-        <img :src="xktTour.logo" :alt="xktTour.name" width="28" height="28" class="tab-logo" />
+        <img :src="xktTour.logo" :alt="xktTour.name" width="28" height="28" loading="lazy" class="tab-logo" />
         XKT Tour
       </RouterLink>
       <RouterLink
@@ -60,7 +60,7 @@ watch(currentTourKey, (newKey) => {
         class="tour-tab"
         :class="{ active: currentTourKey === 'wtsl' }"
       >
-        <img :src="wtslTour.logo" :alt="wtslTour.name" width="28" height="28" class="tab-logo" />
+        <img :src="wtslTour.logo" :alt="wtslTour.name" width="28" height="28" loading="lazy" class="tab-logo" />
         WTSL Tour
       </RouterLink>
     </div>

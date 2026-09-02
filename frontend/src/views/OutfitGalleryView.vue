@@ -269,7 +269,7 @@ const closeUploadModal = () => {
         <button v-if="searchQuery" class="search-bar-clear" @click="searchQuery = ''" title="Clear search" aria-label="Clear search">✕</button>
       </div>
       <div class="uploader-filter-wrapper">
-        <select v-model="selectedUploader" @change="onUploaderChange" aria-label="Authors filter" class="uploader-select">
+        <select v-model="selectedUploader" @change="onUploaderChange" aria-label="Filter: All Authors" class="uploader-select">
           <option value="">All Authors</option>
           <option v-for="name in outfitsStore.uploaders" :key="name" :value="name">
             {{ name }}
