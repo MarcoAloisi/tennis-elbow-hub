@@ -89,13 +89,9 @@ function onSelectPlayer(payload: { name: string; elo: number }) {
         <h1>Live Scores</h1>
         <p>Real-time Tennis Elbow 4 match scores</p>
         <p class="intro-text">
-          This board tracks Tennis Elbow 4 online matches as they happen, pulled directly from the Managames server
-          list and pushed to your browser over a live WebSocket connection — no manual refresh needed. Each match
-          shows both players' current ELO rating, the surface being played, set-by-set score, and how long the match
-          has been running. A live win probability bar updates as the match progresses — click it to see the
-          head-to-head record and each player's recent form. Click on a player's name to pull up their full match
-          history and stats. Use the filters above to narrow by surface or search for a specific player or
-          tournament.
+          Matches update live over WebSocket — no refresh needed. Each card shows ELO, surface, score, and duration.
+          The win probability bar updates as the match plays out; click it for head-to-head form, or click a
+          player's name for their full match history.
         </p>
       </div>
       
@@ -261,9 +257,13 @@ function onSelectPlayer(payload: { name: string; elo: number }) {
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: center; 
+  align-items: flex-start;
   margin-bottom: var(--space-10);
   padding-top: var(--space-8);
+}
+
+.header-right {
+  margin-top: var(--space-1);
 }
 
 .header-content h1 {
