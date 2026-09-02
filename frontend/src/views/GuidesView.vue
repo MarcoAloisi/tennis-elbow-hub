@@ -160,6 +160,7 @@ function onFormSaved() {
             type="text"
             v-model="searchQuery"
             placeholder="Search guides..."
+            aria-label="Search guides"
             class="search-bar-input"
           />
           <button v-if="searchQuery" class="search-bar-clear" @click="searchQuery = ''" title="Clear search" aria-label="Clear search">✕</button>

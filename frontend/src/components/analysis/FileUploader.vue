@@ -136,6 +136,7 @@ const totalSize = () => {
         type="file"
         accept=".html,.htm"
         multiple
+        aria-label="Upload match log HTML file"
         @change="handleFileSelect"
         hidden
       />

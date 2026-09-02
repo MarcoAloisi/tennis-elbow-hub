@@ -39,6 +39,7 @@ function clearFilters() {
         v-model="localSearch"
         type="text"
         placeholder="Search players or tournaments..."
+        aria-label="Search players or tournaments"
         @keyup.enter="handleSearch"
         @blur="handleSearch"
       />

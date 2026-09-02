@@ -34,13 +34,30 @@ const router = useRouter()
 // route (replaces the old document.title mutation in a router guard, which
 // only ever ran after client-side hydration and left every prerendered page
 // with the same static <head> from index.html).
+const SITE_URL = 'https://tenniselbowhub.live'
+
 useHead({
   title: () => `${(route.meta.title as string) || 'Tennis Elbow Hub'} | Tennis Elbow Hub`,
+  link: [
+    { rel: 'canonical', href: () => `${SITE_URL}${route.path}` },
+  ],
   meta: [
     {
       name: 'description',
       content: () => (route.meta.description as string) || 'Tennis Elbow Hub - Live scores and match analysis for Tennis Elbow 4',
     },
+    {
+      property: 'og:title',
+      content: () => `${(route.meta.title as string) || 'Tennis Elbow Hub'} | Tennis Elbow Hub`,
+    },
+    {
+      property: 'og:description',
+      content: () => (route.meta.description as string) || 'Tennis Elbow Hub - Live scores and match analysis for Tennis Elbow 4',
+    },
+    { property: 'og:url', content: () => `${SITE_URL}${route.path}` },
+    { property: 'og:image', content: `${SITE_URL}/logo.png` },
+    { property: 'og:type', content: 'website' },
+    { name: 'twitter:card', content: 'summary' },
   ],
 })
 
