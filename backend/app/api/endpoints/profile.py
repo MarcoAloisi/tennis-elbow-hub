@@ -6,14 +6,16 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Upl
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_db, get_supabase
+from app.api.deps import get_current_user, get_db
+from app.core.config import get_settings
 from app.core.limiter import limiter
 from app.models.user_profile import PlayerStatsOut, UserProfile, UserProfileOut, UserProfileUpdate
+from app.services import local_storage
 
 router = APIRouter(prefix="/profile", tags=["Profile"])
 
-ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
-MAX_AVATAR_SIZE = 2 * 1024 * 1024  # 2MB
+AVATAR_EXTENSIONS = ("jpg", "png", "webp", "gif")
+MAX_AVATAR_SIZE_MB = 2
 
 
 async def _get_or_create_profile(user: Any, db: AsyncSession) -> UserProfile:
@@ -146,27 +148,28 @@ async def upload_avatar(
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     """Upload or replace the authenticated user's avatar image."""
-    if image.content_type not in ALLOWED_IMAGE_TYPES:
-        raise HTTPException(status_code=422, detail="Image must be JPEG, PNG, or WebP")
-    content = await image.read()
-    if len(content) > MAX_AVATAR_SIZE:
-        raise HTTPException(status_code=422, detail="Image must be under 2MB")
-
-    MIME_TO_EXT = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
-    ext = MIME_TO_EXT.get(image.content_type, "jpg")
-    path = f"{user.id}/avatar.{ext}"
-    supabase = get_supabase()
     try:
-        supabase.storage.from_("avatars").remove([path])
+        content, ext = await local_storage.process_upload(image, max_size_mb=MAX_AVATAR_SIZE_MB)
+    except HTTPException:
+        raise
     except Exception:
-        pass
-    try:
-        supabase.storage.from_("avatars").upload(
-            file=content,
-            path=path,
-            file_options={"content-type": image.content_type or "image/png"},
+        raise HTTPException(status_code=422, detail="Invalid image file.")
+
+    settings = get_settings()
+    for stale_ext in AVATAR_EXTENSIONS:
+        local_storage.delete_file(
+            "avatars", f"{user.id}/avatar.{stale_ext}", media_root=settings.media_root
         )
-        public_url = supabase.storage.from_("avatars").get_public_url(path)
+
+    try:
+        public_url = local_storage.save_file(
+            "avatars", f"{user.id}/avatar.{ext}", content,
+            media_root=settings.media_root,
+            base_url=settings.media_base_url,
+            min_free_disk_mb=settings.min_free_disk_mb,
+        )
+    except HTTPException:
+        raise
     except Exception:
         raise HTTPException(status_code=422, detail="Failed to upload avatar. Please try again.")
 

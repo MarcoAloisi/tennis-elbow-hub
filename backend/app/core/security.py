@@ -8,12 +8,20 @@ This module provides:
 """
 
 import re
+from io import BytesIO
 from pathlib import Path
 
 import nh3
 from fastapi import HTTPException, UploadFile, status
+from PIL import Image, ImageOps
 
 from app.core.config import get_settings
+
+# Egress control: re-encode uploaded images as WebP, capped at this
+# dimension. Keeps user-facing gallery/guide images well under 1MB
+# instead of multi-MB PNGs served raw from Supabase Storage.
+MAX_IMAGE_DIMENSION = 1600
+WEBP_QUALITY = 82
 
 
 # Allowed HTML tags for guide content sanitization (TipTap output)
@@ -245,6 +253,35 @@ async def validate_image_upload(file: UploadFile, max_size_mb: int = 5) -> bytes
     return content
 
 
+def compress_image(content: bytes) -> tuple[bytes, str, str]:
+    """Resize and re-encode an image as WebP to cut storage/egress size.
+
+    Animated images (multi-frame GIF/WebP) are passed through unchanged
+    since re-encoding would need per-frame handling.
+
+    Args:
+        content: Raw, already-validated image bytes.
+
+    Returns:
+        (encoded_bytes, file_extension, content_type)
+    """
+    with Image.open(BytesIO(content)) as img:
+        if getattr(img, "is_animated", False):
+            fmt = (img.format or "GIF").lower()
+            return content, fmt, f"image/{fmt}"
+
+        img = ImageOps.exif_transpose(img)
+        if img.mode not in ("RGB", "RGBA"):
+            img = img.convert("RGBA" if img.mode in ("RGBA", "LA", "P") else "RGB")
+
+        if max(img.size) > MAX_IMAGE_DIMENSION:
+            img.thumbnail((MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION), Image.LANCZOS)
+
+        buf = BytesIO()
+        img.save(buf, format="WEBP", quality=WEBP_QUALITY, method=6)
+        return buf.getvalue(), "webp", "image/webp"
+
+
 def _has_valid_image_magic_bytes(data: bytes) -> bool:
     """Check if file content starts with known image magic bytes.
 
@@ -288,7 +325,7 @@ def get_security_headers() -> dict[str, str]:
         # Styles: Fonts, GTM
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://tagmanager.google.com",
         # Images: GTM, Analytics, AdSense, Google Ads
-        "img-src 'self' data: https://*.supabase.co https://www.googletagmanager.com https://ssl.gstatic.com https://www.google-analytics.com https://pagead2.googlesyndication.com https://img.youtube.com https://www.google.com https://www.google.es",
+        "img-src 'self' data: https://api.tenniselbowhub.live https://*.supabase.co https://www.googletagmanager.com https://ssl.gstatic.com https://www.google-analytics.com https://pagead2.googlesyndication.com https://img.youtube.com https://www.google.com https://www.google.es",
         # Fonts: Google Fonts
         "font-src 'self' data: https://fonts.gstatic.com",
         # Connect: Analytics, GTM, Tag Assistant, Google Ads

@@ -30,3 +30,6 @@ tzdata>=2024.1  # For Windows timezone support
 
 # Supabase
 supabase>=2.3.0
+
+# Image processing (upload compression)
+Pillow>=10.0.0

@@ -15,6 +15,15 @@ echo "Installing backend deps..."
 cd backend
 .venv/bin/pip install -r requirements.txt
 
+echo "Checking media storage config..."
+if ! grep -q '^MEDIA_ROOT=' .env 2>/dev/null || ! grep -q '^MEDIA_BASE_URL=' .env 2>/dev/null; then
+    echo "ERROR: MEDIA_ROOT and MEDIA_BASE_URL must be set in backend/.env" >&2
+    exit 1
+fi
+MEDIA_ROOT=$(grep '^MEDIA_ROOT=' .env | cut -d= -f2-)
+sudo mkdir -p "$MEDIA_ROOT"/{outfits,guide-thumbnails,guide-images,avatars}
+sudo chown -R www-data:www-data "$MEDIA_ROOT"
+
 echo "Running migrations..."
 .venv/bin/alembic upgrade head
 

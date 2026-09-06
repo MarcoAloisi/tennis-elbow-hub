@@ -19,10 +19,10 @@ from fastapi import (
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db, get_supabase, require_admin
+from app.api.deps import get_db, require_admin
+from app.core.config import get_settings
 from app.core.limiter import limiter
 from app.core.logging import get_logger
-from app.core.security import validate_image_upload
 from app.core.utils import escape_like
 from app.models.guide import (
     Guide,
@@ -30,6 +30,7 @@ from app.models.guide import (
     PaginatedGuideResponse,
     _slugify,
 )
+from app.services import local_storage
 
 logger = get_logger("api.guides")
 router = APIRouter(prefix="/guides", tags=["Guides"])
@@ -70,38 +71,29 @@ async def upload_guide_image(
     the TipTap editor.
     """
     try:
-        file_content = await validate_image_upload(image)
+        content, ext = await local_storage.process_upload(image)
     except HTTPException:
         raise
     except Exception:
-        logger.exception("Image validation failed")
+        logger.exception("Image validation/compression failed")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid image file.",
         )
 
-    ext = (
-        image.filename.split(".")[-1]
-        if image.filename and "." in image.filename
-        else "png"
-    )
-    filename = f"{uuid.uuid4()}.{ext}"
-
     try:
-        supabase = get_supabase()
-        supabase.storage.from_(IMAGE_BUCKET_NAME).upload(
-            file=file_content,
-            path=filename,
-            file_options={
-                "content-type": image.content_type or "image/png",
-                "cache-control": "31536000",
-            },
+        settings = get_settings()
+        filename = f"{uuid.uuid4()}.{ext}"
+        url = local_storage.save_file(
+            IMAGE_BUCKET_NAME, filename, content,
+            media_root=settings.media_root,
+            base_url=settings.media_base_url,
+            min_free_disk_mb=settings.min_free_disk_mb,
         )
-        url = supabase.storage.from_(IMAGE_BUCKET_NAME).get_public_url(filename)
     except HTTPException:
         raise
     except Exception:
-        logger.exception("Failed to upload guide image to storage")
+        logger.exception("Failed to write guide image to storage")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to upload image. Please try again.",
@@ -218,20 +210,15 @@ async def create_guide(
     # Upload thumbnail to Supabase Storage if provided
     if thumbnail is not None and thumbnail.size and thumbnail.size > 0:
         try:
-            file_content = await validate_image_upload(thumbnail)
-            supabase = get_supabase()
-            ext = thumbnail.filename.split(".")[-1] if thumbnail.filename and "." in thumbnail.filename else "png"
+            content, ext = await local_storage.process_upload(thumbnail)
+            settings = get_settings()
             filename = f"{uuid.uuid4()}.{ext}"
-
-            supabase.storage.from_(BUCKET_NAME).upload(
-                file=file_content,
-                path=filename,
-                file_options={
-                    "content-type": thumbnail.content_type or "image/png",
-                    "cache-control": "31536000",
-                },
+            thumbnail_url = local_storage.save_file(
+                BUCKET_NAME, filename, content,
+                media_root=settings.media_root,
+                base_url=settings.media_base_url,
+                min_free_disk_mb=settings.min_free_disk_mb,
             )
-            thumbnail_url = supabase.storage.from_(BUCKET_NAME).get_public_url(filename)
         except HTTPException:
             raise
         except Exception:
@@ -302,20 +289,15 @@ async def update_guide(
     new_thumbnail_url = guide.thumbnail_url
     if thumbnail is not None and thumbnail.size and thumbnail.size > 0:
         try:
-            file_content = await validate_image_upload(thumbnail)
-            supabase = get_supabase()
-            ext = thumbnail.filename.split(".")[-1] if thumbnail.filename and "." in thumbnail.filename else "png"
+            content, ext = await local_storage.process_upload(thumbnail)
+            settings = get_settings()
             filename = f"{uuid.uuid4()}.{ext}"
-
-            supabase.storage.from_(BUCKET_NAME).upload(
-                file=file_content,
-                path=filename,
-                file_options={
-                    "content-type": thumbnail.content_type or "image/png",
-                    "cache-control": "31536000",
-                },
+            new_thumbnail_url = local_storage.save_file(
+                BUCKET_NAME, filename, content,
+                media_root=settings.media_root,
+                base_url=settings.media_base_url,
+                min_free_disk_mb=settings.min_free_disk_mb,
             )
-            new_thumbnail_url = supabase.storage.from_(BUCKET_NAME).get_public_url(filename)
         except HTTPException:
             raise
         except Exception:
@@ -369,14 +351,13 @@ async def delete_guide(
             detail="Guide not found",
         )
 
-    # Delete thumbnail from Supabase Storage
+    # Delete thumbnail from local storage
     if guide.thumbnail_url and BUCKET_NAME in guide.thumbnail_url:
         try:
-            supabase = get_supabase()
             filename = guide.thumbnail_url.split("/")[-1]
-            supabase.storage.from_(BUCKET_NAME).remove([filename])
+            local_storage.delete_file(BUCKET_NAME, filename, media_root=get_settings().media_root)
         except Exception:
-            logger.warning("Failed to delete guide thumbnail from Supabase", exc_info=True)
+            logger.warning("Failed to delete guide thumbnail from local storage", exc_info=True)
 
     await db.delete(guide)
     await db.commit()

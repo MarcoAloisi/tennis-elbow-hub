@@ -8,12 +8,13 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Reques
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_db, get_supabase, require_admin
+from app.api.deps import get_current_user, get_db, require_admin
+from app.core.config import get_settings
 from app.core.limiter import limiter
 from app.core.logging import get_logger
-from app.core.security import validate_image_upload
 from app.core.utils import escape_like
 from app.models.outfit import Outfit, OutfitRating, OutfitResponse, PaginatedOutfitResponse, RatingIn
+from app.services import local_storage
 
 logger = get_logger("api.outfits")
 router = APIRouter(prefix="/outfits", tags=["Outfits"])
@@ -155,19 +156,15 @@ async def create_outfit(
 ) -> Any:
     """Create a new outfit code (Admin only)."""
     try:
-        file_content = await validate_image_upload(image)
-        supabase = get_supabase()
-        ext = image.filename.split(".")[-1] if image.filename and "." in image.filename else "png"
+        content, ext = await local_storage.process_upload(image)
+        settings = get_settings()
         filename = f"{uuid.uuid4()}.{ext}"
-        supabase.storage.from_("outfits").upload(
-            file=file_content,
-            path=filename,
-            file_options={
-                "content-type": image.content_type or "image/png",
-                "cache-control": "31536000",
-            }
+        public_url = local_storage.save_file(
+            "outfits", filename, content,
+            media_root=settings.media_root,
+            base_url=settings.media_base_url,
+            min_free_disk_mb=settings.min_free_disk_mb,
         )
-        public_url = supabase.storage.from_("outfits").get_public_url(filename)
     except HTTPException:
         raise
     except Exception:
@@ -215,18 +212,15 @@ async def update_outfit(
     public_url = outfit.image_url
     if image is not None and image.size and image.size > 0:
         try:
-            file_content = await validate_image_upload(image)
-            supabase = get_supabase()
-            ext = image.filename.split(".")[-1] if image.filename and "." in image.filename else "png"
+            content, ext = await local_storage.process_upload(image)
+            settings = get_settings()
             filename = f"{uuid.uuid4()}.{ext}"
-            supabase.storage.from_("outfits").upload(
-                file=file_content, path=filename,
-                file_options={
-                    "content-type": image.content_type or "image/png",
-                    "cache-control": "31536000",
-                }
+            public_url = local_storage.save_file(
+                "outfits", filename, content,
+                media_root=settings.media_root,
+                base_url=settings.media_base_url,
+                min_free_disk_mb=settings.min_free_disk_mb,
             )
-            public_url = supabase.storage.from_("outfits").get_public_url(filename)
         except HTTPException:
             raise
         except Exception:
@@ -271,11 +265,10 @@ async def delete_outfit(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Outfit not found")
 
     try:
-        supabase = get_supabase()
         filename = outfit.image_url.split("/")[-1]
-        supabase.storage.from_("outfits").remove([filename])
+        local_storage.delete_file("outfits", filename, media_root=get_settings().media_root)
     except Exception:
-        logger.warning("Failed to delete outfit image from Supabase storage", exc_info=True)
+        logger.warning("Failed to delete outfit image from local storage", exc_info=True)
 
     await db.delete(outfit)
     await db.commit()

@@ -62,10 +62,15 @@ class Settings(BaseSettings):
     stats_timezone: str = "Europe/Rome"  # CEST for daily reset
     stats_checkpoint_interval: int = 300  # Save to DB every 5 minutes
 
-    # Supabase (Storage, Outfits, Auth)
+    # Supabase (Auth only — image storage moved to local disk, see below)
     supabase_url: str = ""
     supabase_key: str = ""
     supabase_jwt_secret: str = ""
+
+    # Local media storage (replaces Supabase Storage buckets)
+    media_root: str = "/var/www/te4/media"
+    media_base_url: str = ""
+    min_free_disk_mb: int = 500
 
     # WebSocket
     ws_heartbeat_interval: int = 30  # seconds
