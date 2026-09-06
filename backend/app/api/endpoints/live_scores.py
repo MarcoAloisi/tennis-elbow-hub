@@ -4,13 +4,19 @@ Provides REST and WebSocket endpoints for fetching live tennis match scores.
 """
 
 import asyncio
+import math
 import time
+from datetime import date
 from typing import Annotated
-from fastapi import APIRouter, Query, Request, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Depends, Query, Request, WebSocket, WebSocketDisconnect, status
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import ScraperDep, SettingsDep
+from app.api.deps import ScraperDep, SettingsDep, get_db
 from app.core.limiter import limiter
 from app.core.logging import get_logger
+from app.core.utils import escape_like
+from app.models.finished_match import FinishedMatch
 from app.models.game_server import GameServerList
 
 logger = get_logger("api.live_scores")
@@ -196,6 +202,79 @@ async def get_h2h(
         },
         "form_a": form_a,
         "form_b": form_b,
+    }
+
+
+@router.get(
+    "/results",
+    summary="Get finished match results",
+    description="Get finished TE4 matches for a given day, with optional mod and player filters.",
+)
+@limiter.limit("60/minute")
+async def get_results(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    result_date: Annotated[
+        date | None, Query(alias="date", description="Day to fetch (YYYY-MM-DD), defaults to today")
+    ] = None,
+    mod: Annotated[str | None, Query(description="Filter by mod (xkt, wtsl, vanilla)")] = None,
+    player: Annotated[str | None, Query(description="Filter by player name (substring match)")] = None,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=200)] = 50,
+) -> dict:
+    """Get finished matches for a day, optionally filtered by mod and player.
+
+    Args:
+        request: FastAPI Request (required for rate limiting).
+        db: Injected async DB session.
+        result_date: Day to fetch, defaults to today.
+        mod: Optional mod filter (xkt, wtsl, vanilla).
+        player: Optional player name substring filter.
+        page: Page number (1-indexed).
+        page_size: Results per page.
+
+    Returns:
+        Paginated finished matches for the requested day.
+    """
+    query_date = result_date or date.today()
+
+    conditions = [FinishedMatch.date == query_date]
+    if mod:
+        conditions.append(FinishedMatch.mod == mod)
+    if player:
+        conditions.append(FinishedMatch.match_name.ilike(f"%{escape_like(player)}%"))
+
+    count_query = select(func.count(FinishedMatch.id)).where(*conditions)
+    total = (await db.execute(count_query)).scalar_one()
+
+    query = (
+        select(FinishedMatch)
+        .where(*conditions)
+        .order_by(FinishedMatch.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    rows = (await db.execute(query)).scalars().all()
+
+    return {
+        "results": [
+            {
+                "match_id": r.match_id,
+                "match_name": r.match_name,
+                "winner": r.winner,
+                "score": r.score,
+                "surface": r.surface,
+                "mod": r.mod,
+                "p1_elo": r.p1_elo,
+                "p2_elo": r.p2_elo,
+            }
+            for r in rows
+        ],
+        "date": query_date.isoformat(),
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": max(1, math.ceil(total / page_size)),
     }
 
 

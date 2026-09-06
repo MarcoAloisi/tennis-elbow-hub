@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import RealTennisScores from '@/components/real-tennis/RealTennisScores.vue'
+import ResultsTab from '@/components/scores/ResultsTab.vue'
 import { useScoresStore } from '@/stores/scores'
 import { useAuthStore } from '@/stores/auth'
 import { useWebSocket } from '@/composables/useWebSocket'
@@ -17,7 +17,7 @@ import { Activity } from 'lucide-vue-next'
 
 const store = useScoresStore()
 const authStore = useAuthStore()
-const activeTab = ref<'te4' | 'real'>('te4')
+const activeTab = ref<'te4' | 'results'>('te4')
 const showDetails = ref(false)
 const detailsName = ref('')
 const detailsElo = ref(0)
@@ -152,10 +152,10 @@ function onSelectPlayer(payload: { name: string; elo: number }) {
       </button>
       <button
         class="tab-btn"
-        :class="{ active: activeTab === 'real' }"
-        @click="activeTab = 'real'"
+        :class="{ active: activeTab === 'results' }"
+        @click="activeTab = 'results'"
       >
-        Real Tennis
+        Results
       </button>
     </div>
 
@@ -218,8 +218,8 @@ function onSelectPlayer(payload: { name: string; elo: number }) {
       </div>
     </template>
 
-    <!-- Real Tennis content -->
-    <RealTennisScores v-else />
+    <!-- Results content -->
+    <ResultsTab v-else />
 
     <PlayerDetailsModal
       :open="showDetails"

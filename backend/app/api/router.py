@@ -13,7 +13,6 @@ from app.api.endpoints import (
     predictions,
     presence,
     profile,
-    real_tennis,
     tour_logs,
 )
 
@@ -31,5 +30,4 @@ api_router.include_router(admin.router)
 api_router.include_router(players.router)
 api_router.include_router(predictions.router)
 api_router.include_router(profile.router)
-api_router.include_router(real_tennis.router)
 api_router.include_router(presence.router)
