@@ -6,7 +6,7 @@ Live score cards show only the current snapshot (current game points, set scores
 
 ## Source constraint (drives the whole design)
 
-The TE4 master server only returns a current-state snapshot per poll (`"6/3 4/6 -- 40:30•"`), re-parsed fresh every tick by `parse_live_state` (`backend/app/services/score_parser.py`). There is no event log or point-level history in the source — each poll is a full state, not a delta. Default poll interval is 60s (min 5s via `score_refresh_interval`), which is not fast enough to reliably catch every individual point (average ~15-20s/point) without a large increase in polling frequency and load on the master server.
+The TE4 master server only returns a current-state snapshot per poll (`"6/3 4/6 -- 40:30•"`), re-parsed fresh every tick by `parse_live_state` (`backend/app/services/score_parser.py`). There is no event log or point-level history in the source — each poll is a full state, not a delta. Poll interval defaults to 5s (`Settings.score_refresh_interval` in `config.py`; the `60` fallback in `main.py`'s `getattr(settings, "score_refresh_interval", 60)` is dead code — the field always exists), floored at 5s. That's still not fast enough to reliably catch every individual point (average ~15-20s/point — two points can close between polls) without dropping well under 5s and raising load on the master server further.
 
 **Decision: game-by-game granularity, not point-by-point.** Games change slowly enough (many points each) that diffing consecutive polls reliably catches every game transition at the current poll interval, with zero risk of missing a game. True point-by-point would require dropping the interval to ~2s and would still occasionally miss a point — rejected as not worth the reliability and load tradeoff.
 
@@ -131,4 +131,4 @@ await self._insert_event(
 
 - Parser/diff unit tests: feed `game_log_service` a sequence of synthetic `LiveMatchState` snapshots (game win, set win via tiebreak, set win by 2-game margin, match end) and assert the exact rows it would write.
 - API test: seed `match_game_events` + a `FinishedMatch`, assert `GET /api/scores/{match_id}/games` shape.
-- Frontend: component test for the modal rendering a fixed games payload, grouped by set.
+- Frontend: no component-test framework exists yet in this repo (`vitest` is a bare script with no config, no `@vue/test-utils`, zero test files anywhere under `frontend/src`) — standing one up is out of scope for this feature. Verified manually instead: run the dev server, click a live card, confirm the modal shows the right games grouped by set for both a live and a finished match.
