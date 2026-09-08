@@ -41,22 +41,69 @@ class MatchGameEvent(Base):
     )
 ```
 
-The unique constraint makes writes idempotent — if a tick's diff logic ever double-fires for the same game (e.g. after a transient fetch failure and cache replay), the insert is a no-op via `ON CONFLICT DO NOTHING` (Postgres) / `INSERT OR IGNORE` (SQLite).
+The unique constraint makes writes idempotent — if a tick's diff logic ever double-fires for the same game (e.g. after a transient fetch failure and cache replay), the duplicate insert raises `IntegrityError` and is dropped. Written the same way `_try_finish_match` already does it in `stats_service.py` (`session.add()` + `flush()` inside `try/except IntegrityError: rollback`) — no dialect-specific `ON CONFLICT`/`INSERT OR IGNORE` SQL, which would need a Postgres and a SQLite branch to keep working on both backends. One idiom for "insert, ignore if it already exists" in this codebase, not two.
 
 Rows are independent of `FinishedMatch` — no foreign key, joined only by `match_id` string at query time. This keeps the write path simple (no need to know at game-completion time whether the match will later qualify as finished).
 
 ## Backend: tick-diff service
 
-New `backend/app/services/game_log_service.py`, mirroring the existing `_previous_matches` pattern in `stats_service.py`:
+New `backend/app/services/game_log_service.py`. State-tracking shape follows `stats_service._previous_matches`, but the two caches are **not shared** — `stats_service` needs full `GameServer` objects for rename detection and match-finish bookkeeping; this service only ever needs the parsed `LiveMatchState` (games/sets/server/points), a strictly smaller and simpler need. Sharing a cache between them would couple two independent concerns for no benefit; keeping them separate is the simpler code, not the duplicated code.
 
-- In-memory `dict[str, LiveMatchState]` of last-seen state per `match_id`.
-- Called once per poll tick from `ScraperService.fetch_servers`, alongside the existing `stats_service.track_matches` call, for the same `singles_servers` list already computed there (reuse, don't refilter).
-- Per match, per tick:
-  - No previous state recorded → store current state, no event (first sighting, nothing to diff against).
-  - `current_set_games` sum increased, same `set_number` → a game just completed. Winner is whichever side's game count went up. `server`/`final_point_score`/`is_tiebreak` come from the **previous** tick's state (the last point score seen before the game closed, and whether that game was a tiebreak). Insert row.
-  - `sets_won` total increased → the last game of the previous set completed (covers the tiebreak-decided-set case, where `current_set_games` may jump e.g. 6/6 → next set 0/0 rather than incrementing within the same set). Same insert logic, using the previous tick's `set_number` (derived from `len(sets_won_before)`, i.e. count of sets already recorded) and the previous tick's final game state.
-  - Match disappears from the server list → nothing to do here; `stats_service.track_matches` already handles `FinishedMatch` write and its own cleanup. This service independently drops the match_id from its in-memory dict on the same "missing" detection (duplicate the missing-id computation already done in `track_matches`, or expose it — implementation detail for the plan).
-- DB writes are `INSERT ... ON CONFLICT DO NOTHING`, fire-and-forget per game (not batched), swallow/log errors per match so one match's failure never blocks others in the tick (same `return_exceptions=True` pattern used for win-probability in `scraper.py`).
+**Avoiding a duplicate parse:** `GameServer.live_state` is a Pydantic `@computed_field` — it re-runs `parse_live_state` on every access, it isn't cached. `scraper.fetch_servers` already calls `server.live_state` once per singles server inside `_apply_win_probability`. Rather than have `game_log_service` call `.live_state` again on the same `GameServer` object in the same tick (parsing the same score string twice), `fetch_servers` computes it once per singles server into a local `dict[str, LiveMatchState]` and passes that to both `_apply_win_probability` and `game_log_service.record_tick` — one parse per server per tick, not two.
+
+`record_tick(current_states: dict[str, LiveMatchState]) -> None`, called once per poll tick from `ScraperService.fetch_servers` right after that dict is built:
+
+```python
+for match_id, current in current_states.items():
+    previous = self._previous.get(match_id)
+    if previous is not None:
+        await self._maybe_record_game(match_id, previous, current)
+    self._previous[match_id] = current
+
+# Drop state for matches no longer present this tick — this service only
+# needs to stop tracking them, not run stats_service's rename/finish
+# detection, so a plain key-set difference against this tick's own dict
+# is enough; no need to depend on stats_service's bookkeeping.
+for stale_id in self._previous.keys() - current_states.keys():
+    del self._previous[stale_id]
+```
+
+`_maybe_record_game(match_id, previous, current)` — the exact, unambiguous diff (no hand-wavy "sum increased" check):
+
+```python
+prev_sets_total = sum(previous.sets_won)
+curr_sets_total = sum(current.sets_won)
+
+if curr_sets_total > prev_sets_total:
+    # The game in progress last tick closed out the set (straight games or tiebreak).
+    set_number = prev_sets_total + 1
+    winner = 1 if current.sets_won[0] > previous.sets_won[0] else 2
+elif sum(current.current_set_games) > sum(previous.current_set_games) and curr_sets_total == prev_sets_total:
+    # A game closed mid-set.
+    set_number = curr_sets_total + 1
+    winner = 1 if current.current_set_games[0] > previous.current_set_games[0] else 2
+else:
+    return  # no game completed this tick
+
+# `previous.current_set_games` is always the pre-game count in both branches
+# above (branch 1 never bumped it — that snapshot's set was still "in
+# progress" — and branch 2 diffs against it directly), so the +1 is applied
+# exactly once here, not per-branch.
+p1, p2 = previous.current_set_games
+if winner == 1:
+    p1 += 1
+else:
+    p2 += 1
+
+await self._insert_event(
+    match_id, set_number, game_number=p1 + p2, p1_games=p1, p2_games=p2,
+    winner=winner, server=previous.server,
+    final_point_score=f"{previous.current_points[0]}-{previous.current_points[1]}" if previous.current_points else None,
+    is_tiebreak=previous.is_tiebreak,
+)
+```
+
+`server`/`final_point_score`/`is_tiebreak` always come from `previous` — that's the last point state seen before the game closed. `_insert_event` writes and swallows/logs its own errors per match, called via `asyncio.gather(..., return_exceptions=True)` across matches in the same tick — same isolation pattern already used for win-probability in `scraper.py`, so one match's write failure never blocks another's.
 
 ## API
 
