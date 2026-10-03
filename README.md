@@ -14,9 +14,9 @@
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![Vue](https://img.shields.io/badge/Vue-3-4FC08D?style=flat-square&logo=vue.js&logoColor=white)](https://vuejs.org)
-[![Supabase](https://img.shields.io/badge/Supabase-Auth%20%2B%20Storage-3ECF8E?style=flat-square&logo=supabase&logoColor=white)](https://supabase.com)
+[![Supabase](https://img.shields.io/badge/Supabase-Auth-3ECF8E?style=flat-square&logo=supabase&logoColor=white)](https://supabase.com)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Prod%20DB-4169E1?style=flat-square&logo=postgresql&logoColor=white)](https://postgresql.org)
-[![Deployed on Render](https://img.shields.io/badge/Deployed-Render-46E3B7?style=flat-square&logo=render&logoColor=white)](https://render.com)
+[![Hosted on IONOS](https://img.shields.io/badge/Backend-IONOS%20VPS-003D8F?style=flat-square)](https://www.ionos.com) [![Cloudflare Pages](https://img.shields.io/badge/Frontend-Cloudflare%20Pages-F38020?style=flat-square&logo=cloudflare&logoColor=white)](https://pages.cloudflare.com)
 
 </div>
 
@@ -53,10 +53,10 @@ Built and maintained by **Marco** (known in-game as **Ambience**), a Tennis Elbo
 |---|---|
 | Language | Python 3.11+ |
 | Framework | FastAPI (async) |
-| Database | PostgreSQL · SQLite (local) |
+| Database | PostgreSQL (self-hosted on VPS) |
 | ORM / Migrations | SQLAlchemy 2 · Alembic |
 | Auth | Supabase JWT |
-| Storage | Supabase Storage |
+| Storage | VPS disk, served by nginx |
 | AI | OpenRouter API |
 
 ### Frontend

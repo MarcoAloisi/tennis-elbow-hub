@@ -84,7 +84,7 @@ npm run test         # vitest
 ```
 Scraper (httpx) → ConnectionManager → WebSocket → frontend scores store
 Match log upload → parser.py → analyzer.py → ai_service.py (OpenRouter) → response
-DB writes → async SQLAlchemy → PostgreSQL (prod) / SQLite (local)
+DB writes → async SQLAlchemy → PostgreSQL on IONOS VPS (prod) / Docker `te4-pg` (local)
 Auth → Supabase JWT → deps.py get_current_user / require_admin
 ```
 
@@ -130,7 +130,7 @@ await fetch(
 - **Bot players**: names starting with `[.` are filtered from DB views.
 - **Admin players endpoint**: returns all players unpaged (~200KB JSON). Admin-only; client filters. List rows are **one per ELO cluster** (same name may appear twice). Nickname mapper autocomplete uses unique names.
 - **Player details**: `GET /api/players/{name}?elo=` — any logged-in user, cluster-scoped details. Do not use `/api/admin/players/{name}` (removed).
-- **pgbouncer**: `statement_cache_size=0` is mandatory in `database.py` — do not remove.
+- **pgbouncer**: `statement_cache_size=0` in `database.py` dates from Supabase's pgbouncer. Prod now uses direct Postgres on the VPS, so it's harmless but only required if the DB goes back behind a pooler — leave it.
 - **`/docs`**: only enabled when `DEBUG=true` or `APP_ENV=development`.
 - **Match log parser**: handles English, Spanish, and Polish stat labels. `def`/`vs`/`Przegrana` as winner separators.
 - **Scraper User-Agent**: must always be `TennisTracker/1.0` — never change this value in any scraper (`scraper.py`, `tournament_scraper.py`). Managames whitelists this UA.
@@ -142,7 +142,7 @@ See `DEV_NOTES.md` for full table. Critical ones:
 
 | Var | Notes |
 |-----|-------|
-| `DATABASE_URL` | PostgreSQL in prod; falls back to SQLite locally |
+| `DATABASE_URL` | Prod: VPS-local Postgres. Local: Docker copy (see `DEV_NOTES.md`). Unset → SQLite |
 | `SUPABASE_URL` / `SUPABASE_KEY` | Service role key — backend only, never frontend |
 | `CORS_ORIGINS` | Must match frontend domain exactly (prod) |
 | `VITE_API_URL` | Backend URL for frontend build |
@@ -150,4 +150,8 @@ See `DEV_NOTES.md` for full table. Critical ones:
 
 ## Deployment
 
-Render blueprint via `render.yaml`. Backend: Web Service → `uvicorn app.main:app --host 0.0.0.0 --port $PORT`. Pre-deploy: `alembic upgrade head`. Frontend: Static Site → `npm install && npm run build`, publish `dist/`.
+See `DEPLOYMENT.md`. Summary:
+
+- **Backend + Postgres + media**: IONOS VPS. Push to `ionos-migration`, then on VPS `cd /var/www/te4 && bash infra/deploy.sh` (pulls, `alembic upgrade head`, restarts systemd `te4-backend`). Media on disk at `/var/www/te4/media`, served via nginx `/media/`.
+- **Frontend**: Cloudflare Pages project `tennis-elbow-hub`, auto-builds on push to `ionos-migration`.
+- **Supabase**: Auth only. Supabase DB/Storage are a stale Sep 2026 copy — the Supabase MCP does **not** show prod data.
