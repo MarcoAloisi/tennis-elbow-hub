@@ -9,12 +9,13 @@ from datetime import date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.exc import IntegrityError
 
 from app.core.config import get_settings
 from app.core.database import get_session_factory
 from app.core.logging import get_logger
+from app.core.utils import escape_like
 from app.models.daily_stats import DailyStats
 from app.models.finished_match import FinishedMatch
 from app.models.game_server import GameServer, PlayerConfig
@@ -63,7 +64,9 @@ class StatsService:
     MIN_GAMES_THRESHOLD = 5
 
     # TTL for the shared resolved-appearances cache (scraper batch + /h2h endpoint)
-    APPEARANCES_CACHE_TTL_SECONDS = 30
+    # ponytail: was 30s -> full ~3MB table scan every 30s = most of Supabase egress.
+    # H2H/form a few hours stale is fine; append-on-finish if freshness matters.
+    APPEARANCES_CACHE_TTL_SECONDS = 6 * 3600
 
     def __init__(self) -> None:
         """Initialize the stats service."""
@@ -768,8 +771,20 @@ class StatsService:
         """
         try:
             alias_map = await self._load_alias_map()
+
+            # Resolve which names map to this player
+            target_lower = player_name.lower()
+            # Build set of raw names that resolve to this player
+            raw_names_for_player: set[str] = {target_lower}
+            for alias_lower, canonical in alias_map.items():
+                if canonical.lower() == target_lower or alias_lower == target_lower:
+                    raw_names_for_player.add(alias_lower)
+                    raw_names_for_player.add(canonical.lower())
+
             session_factory = get_session_factory()
             async with session_factory() as session:
+                # SQL prefilter (superset) so we don't ship the whole table per
+                # profile view; exact name match still happens in the loop below.
                 result = await session.execute(
                     select(
                         FinishedMatch.match_name,
@@ -779,18 +794,13 @@ class StatsService:
                         FinishedMatch.p2_elo,
                         FinishedMatch.date,
                     )
+                    .where(or_(*(
+                        FinishedMatch.match_name.ilike(f"%{escape_like(n)}%")
+                        for n in raw_names_for_player
+                    )))
                     .order_by(FinishedMatch.date.desc())
                 )
                 all_matches = result.all()
-
-                # Resolve which names map to this player
-                target_lower = player_name.lower()
-                # Build set of raw names that resolve to this player
-                raw_names_for_player: set[str] = {target_lower}
-                for alias_lower, canonical in alias_map.items():
-                    if canonical.lower() == target_lower or alias_lower == target_lower:
-                        raw_names_for_player.add(alias_lower)
-                        raw_names_for_player.add(canonical.lower())
 
                 today = self._get_today()
                 week_ago = today - timedelta(days=7)
