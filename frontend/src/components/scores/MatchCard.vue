@@ -109,39 +109,21 @@ function getSurfaceIcon(surface) {
   return icons[surface] || '🔵'
 }
 
-// Parse player names from match_name
+// Parse player names from match_name. Doubles rooms use " & " between
+// the two sides (e.g. "POLAND & G.Muller" = POLAND's team vs G.Muller's).
 const players = computed(() => {
   const name = props.server.match_name || ''
-  
-  // Try " vs " separator
-  if (name.includes(' vs ')) {
-    const parts = name.split(' vs ')
-    const p1Raw = parts[0].trim()
-    const p2Raw = parts[1].trim()
-    
-    // Split doubles names if present (e.g. "Name1/Name2")
-    const player1 = p1Raw.includes('/') ? p1Raw.split('/') : [p1Raw]
-    const player2 = p2Raw.includes('/') ? p2Raw.split('/') : [p2Raw]
-    
-    return { player1, player2 }
+  const splitSide = (raw) => (raw.includes('/') ? raw.split('/') : [raw])
+
+  for (const sep of [' vs ', ' - ', ' & ']) {
+    if (name.includes(sep)) {
+      const [p1Raw, p2Raw] = name.split(sep)
+      return { player1: splitSide(p1Raw.trim()), player2: splitSide(p2Raw.trim()) }
+    }
   }
-  
-  // Try " - " separator
-  if (name.includes(' - ')) {
-    const parts = name.split(' - ')
-    const p1Raw = parts[0].trim()
-    const p2Raw = parts[1].trim()
-    
-    const player1 = p1Raw.includes('/') ? p1Raw.split('/') : [p1Raw]
-    const player2 = p2Raw.includes('/') ? p2Raw.split('/') : [p2Raw]
-    
-    return { player1, player2 }
-  }
-  
+
   // Single player or unknown format
-  const p1Raw = name
-  const player1 = p1Raw.includes('/') ? p1Raw.split('/') : [p1Raw]
-  return { player1, player2: null }
+  return { player1: splitSide(name), player2: null }
 })
 
 // Score display for the grid, sourced from the server-parsed `live_state`

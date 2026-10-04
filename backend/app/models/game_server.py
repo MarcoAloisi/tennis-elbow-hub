@@ -19,6 +19,8 @@ class PlayerConfig(IntEnum):
     UNKNOWN_1 = 1
     COMPETITIVE_DOUBLES = 2
     COOPERATIVE_DOUBLES = 3
+    # Seen live on 2-v-2 rooms named "Host & Opponent" (Oct 2026).
+    DOUBLES = 4
 
 
 class SkillMode(IntEnum):
@@ -72,6 +74,7 @@ class GameInfo(BaseModel):
             PlayerConfig.SINGLES: "Singles",
             PlayerConfig.COMPETITIVE_DOUBLES: "Comp Doubles",
             PlayerConfig.COOPERATIVE_DOUBLES: "Coop Doubles",
+            PlayerConfig.DOUBLES: "Doubles",
         }
         return mode_names.get(self.player_config, "Unknown")
 
