@@ -19,7 +19,7 @@ class PlayerConfig(IntEnum):
     UNKNOWN_1 = 1
     COMPETITIVE_DOUBLES = 2
     COOPERATIVE_DOUBLES = 3
-    # Seen live on 2-v-2 rooms named "Host & Opponent" (Oct 2026).
+    # Seen live on doubles rooms named "Host & Partner" (Oct 2026).
     DOUBLES = 4
 
 

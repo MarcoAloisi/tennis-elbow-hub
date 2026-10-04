@@ -109,17 +109,21 @@ function getSurfaceIcon(surface) {
   return icons[surface] || '🔵'
 }
 
-// Parse player names from match_name. Doubles rooms use " & " between
-// the two sides (e.g. "POLAND & G.Muller" = POLAND's team vs G.Muller's).
+// Parse player names from match_name. Doubles rooms are named
+// "Host & Partner" (one team); the opposing team isn't named in the feed.
 const players = computed(() => {
   const name = props.server.match_name || ''
   const splitSide = (raw) => (raw.includes('/') ? raw.split('/') : [raw])
 
-  for (const sep of [' vs ', ' - ', ' & ']) {
+  for (const sep of [' vs ', ' - ']) {
     if (name.includes(sep)) {
       const [p1Raw, p2Raw] = name.split(sep)
       return { player1: splitSide(p1Raw.trim()), player2: splitSide(p2Raw.trim()) }
     }
+  }
+
+  if (name.includes(' & ')) {
+    return { player1: name.split(' & ').map((n) => n.trim()), player2: ['Opponents'] }
   }
 
   // Single player or unknown format
@@ -348,7 +352,8 @@ const isOnlineMode = computed(() => {
               </template>
             </div>
           </div>
-          <span class="player-elo">elo: {{ server.other_elo }}</span>
+          <!-- ponytail: doubles feed sends a fixed 3319 placeholder as other_elo -->
+          <span v-if="isSinglesMatch" class="player-elo">elo: {{ server.other_elo }}</span>
         </div>
 
         <!-- Serving Indicator P2 -->

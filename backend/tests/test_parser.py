@@ -30,7 +30,7 @@ class TestParseGameInfoBitfield:
         assert result.player_config == PlayerConfig.COMPETITIVE_DOUBLES
 
     def test_parse_live_doubles_room(self) -> None:
-        """Real 2-v-2 room ("POLAND & G.Muller") carries PlayerCfg 4 — must not fall back to Singles."""
+        """Real doubles room ("POLAND & G.Muller" = host + partner) carries PlayerCfg 4 — must not fall back to Singles."""
         result = parse_game_info_bitfield(0x18198E32)
 
         assert result.player_config == PlayerConfig.DOUBLES
