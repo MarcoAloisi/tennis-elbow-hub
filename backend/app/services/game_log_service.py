@@ -3,7 +3,8 @@
 The master server only exposes a current-state snapshot per poll, so a game is
 detected by diffing consecutive snapshots of a match. The point trail of each
 game holds the distinct point scores polling happened to observe, and is
-therefore best effort.
+therefore best effort. The trail leaves out the 0-0 start and tags break (BP),
+set (SP) and match (MP) points.
 """
 
 from dataclasses import dataclass
@@ -61,25 +62,73 @@ def diff_game(
     )
 
 
+def _point_label(state: LiveMatchState, sets_to_win: int) -> str:
+    """BP, SP and MP for the point score `state` shows, '' when none apply.
+
+    The point leader holds game point when one more point wins the game, in a
+    tiebreak (to 7, win by 2) or a regular game. That is a break point when the
+    leader is the receiver, a set point when the game also wins the set and a
+    match point when the set also wins the match. A tiebreak has no break points.
+    """
+    points = state.current_points_numeric
+    if points is None or points[0] == points[1]:
+        return ""
+    leader = 0 if points[0] > points[1] else 1
+    ahead, behind = points[leader], points[1 - leader]
+    if state.is_tiebreak:
+        game_point = ahead >= 6
+    else:
+        game_point = ahead == 4 or (ahead == 3 and behind < 3)
+    if not game_point:
+        return ""
+
+    games = list(state.current_set_games)
+    games[leader] += 1
+    wins_set = state.is_tiebreak or (
+        games[leader] >= state.games_per_set and games[leader] - games[1 - leader] >= 2
+    )
+    labels = []
+    if wins_set:
+        labels.append("MP" if state.sets_won[leader] + 1 >= sets_to_win else "SP")
+    if not state.is_tiebreak and state.server not in (None, leader + 1):
+        labels.append("BP")
+    return " ".join(labels)
+
+
 class GameLogService:
     def __init__(self) -> None:
         self._tracked: dict[str, _Tracked] = {}
 
-    def step(self, match_id: str, current: LiveMatchState) -> MatchGameEvent | None:
+    def step(
+        self, match_id: str, current: LiveMatchState, sets_to_win: int
+    ) -> MatchGameEvent | None:
         tracked = self._tracked.get(match_id)
         trail = tracked.points if tracked else []
         event = diff_game(match_id, tracked.state, current, trail) if tracked else None
         if event:
             trail = []
-        if current.current_points:
-            snap = f"{current.current_points[0]}-{current.current_points[1]}"
-            if not trail or trail[-1] != snap:
-                trail.append(snap)
+        points = current.current_points
+        if points and current.current_points_numeric != (0, 0):
+            entry = (
+                f"{points[0]}-{points[1]} {_point_label(current, sets_to_win)}".strip()
+            )
+            if not trail or trail[-1] != entry:
+                trail.append(entry)
         self._tracked[match_id] = _Tracked(current, trail)
         return event
 
-    async def record_tick(self, states: dict[str, LiveMatchState]) -> None:
-        events = [e for mid, cur in states.items() if (e := self.step(mid, cur))]
+    def trail(self, match_id: str) -> list[str]:
+        tracked = self._tracked.get(match_id)
+        return list(tracked.points) if tracked else []
+
+    async def record_tick(
+        self, states: dict[str, LiveMatchState], sets_to_win: dict[str, int]
+    ) -> None:
+        events = [
+            e
+            for mid, cur in states.items()
+            if (e := self.step(mid, cur, sets_to_win[mid]))
+        ]
         for stale in self._tracked.keys() - states.keys():
             del self._tracked[stale]
         for event in events:

@@ -50,3 +50,14 @@ export function isMatchOver(setsWon: [number, number], nbSet: number): boolean {
 export function isBreak(game: GameEntry): boolean {
   return !game.is_tiebreak && game.server !== null && game.server !== game.winner
 }
+
+export const POINT_TAGS: Record<string, string> = {
+  BP: 'Break point',
+  SP: 'Set point',
+  MP: 'Match point',
+}
+
+export function splitPoint(entry: string): { score: string; tags: string[] } {
+  const [score, ...tags] = entry.split(' ')
+  return { score, tags }
+}

@@ -212,7 +212,13 @@ class ScraperService:
             if finished > 0:
                 logger.info(f"Detected {finished} finished matches")
             try:
-                await get_game_log_service().record_tick(singles_live_states)
+                game_log = get_game_log_service()
+                await game_log.record_tick(
+                    singles_live_states,
+                    {s.match_id: stats_service.sets_to_win(s) for s in singles_servers},
+                )
+                for server in singles_servers:
+                    server.point_trail = game_log.trail(server.match_id)
             except Exception as e:
                 logger.error(f"game-log recording failed: {e}")
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildSets, isBreak, isMatchOver, type GameEntry } from './gameLog'
+import { buildSets, isBreak, isMatchOver, splitPoint, type GameEntry } from './gameLog'
 
 function row(set: number, game: number, p1: number, p2: number, extra: Partial<GameEntry> = {}): GameEntry {
   return {
@@ -69,5 +69,17 @@ describe('isMatchOver', () => {
     expect(isMatchOver([2, 0], 2)).toBe(true)
     expect(isMatchOver([2, 1], 3)).toBe(false)
     expect(isMatchOver([1, 3], 3)).toBe(true)
+  })
+})
+
+describe('splitPoint', () => {
+  it('leaves a plain point score without tags', () => {
+    expect(splitPoint('15-0')).toEqual({ score: '15-0', tags: [] })
+  })
+
+  it('splits the break, set and match point tags off the score', () => {
+    expect(splitPoint('30-40 BP')).toEqual({ score: '30-40', tags: ['BP'] })
+    expect(splitPoint('40-0 MP')).toEqual({ score: '40-0', tags: ['MP'] })
+    expect(splitPoint('30-40 SP BP')).toEqual({ score: '30-40', tags: ['SP', 'BP'] })
   })
 })

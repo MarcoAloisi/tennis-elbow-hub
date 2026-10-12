@@ -67,6 +67,9 @@ export interface GameServer {
     // Live win probability {p1, p2} — singles matches only; null for
     // doubles, bot opponents, or matches with 0 ELO on either side.
     win_probability: { p1: number; p2: number } | null
+    // Point scores seen so far in the game in progress, e.g. ['15-0', '30-15 BP'];
+    // singles matches only, null for doubles.
+    point_trail: string[] | null
     player_names: [string, string]
     match_id: string
     live_state: LiveMatchState | null

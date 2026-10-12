@@ -3,6 +3,7 @@ import { computed, nextTick, ref, toRef, watch } from 'vue'
 import { apiUrl } from '@/config/api'
 import { useModalAccessibility } from '@/composables/useModalAccessibility'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import PointTrail from '@/components/scores/PointTrail.vue'
 import type { GameServer, MatchRef } from '@/stores/scores'
 import { buildSets, isBreak, isMatchOver, type GameEntry, type Side } from '@/utils/gameLog'
 import { X } from 'lucide-vue-next'
@@ -75,6 +76,13 @@ const liveState = computed(() => {
 const liveServerSide = computed<Side | null>(() => {
   const server = liveState.value?.server
   return server === 1 || server === 2 ? server : null
+})
+
+const currentTrail = computed(() => {
+  const trail = props.liveServer?.point_trail
+  if (trail) return trail
+  const points = liveState.value?.current_points
+  return points ? [`${points[0]}-${points[1]}`] : []
 })
 
 const sets = computed(() => {
@@ -223,7 +231,7 @@ function onTabKeydown(event: KeyboardEvent) {
                   </div>
                 </div>
                 <p class="game-trail">
-                  <template v-if="game.points?.length">{{ `${game.points.join(', ')}, ` }}</template>
+                  <template v-if="game.points?.length"><PointTrail :points="game.points" />, </template>
                   <strong class="game-result">{{ isBreak(game) ? 'Break' : 'Game' }} {{ game.p1_games }}-{{ game.p2_games }}</strong>
                 </p>
               </li>
@@ -241,14 +249,15 @@ function onTabKeydown(event: KeyboardEvent) {
                     ></span>
                   </div>
                 </div>
-                <p v-if="liveState.current_points" class="game-trail">
-                  <strong class="game-result">{{ liveState.current_points[0] }}-{{ liveState.current_points[1] }}</strong>
+                <p v-if="currentTrail.length" class="game-trail">
+                  <template v-if="currentTrail.length > 1"><PointTrail :points="currentTrail.slice(0, -1)" />, </template>
+                  <strong class="game-result"><PointTrail :points="currentTrail.slice(-1)" /></strong>
                 </p>
               </li>
             </ol>
           </div>
 
-          <p class="detail-caption">Point trail is best effort, polling can miss points.</p>
+          <p class="detail-caption">BP break point, SP set point, MP match point. Point trail is best effort, polling can miss points.</p>
         </template>
 
         <p v-else-if="hasError" class="detail-status detail-error">Could not load the game log.</p>

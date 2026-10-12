@@ -53,12 +53,19 @@ class TestFetchServersFailureHandling:
 class _RecordingGameLog:
     def __init__(self, error: Exception | None = None) -> None:
         self.calls: list[dict[str, LiveMatchState]] = []
+        self.sets_to_win: list[dict[str, int]] = []
         self._error = error
 
-    async def record_tick(self, states: dict[str, LiveMatchState]) -> None:
+    async def record_tick(
+        self, states: dict[str, LiveMatchState], sets_to_win: dict[str, int]
+    ) -> None:
         self.calls.append(states)
+        self.sets_to_win.append(sets_to_win)
         if self._error:
             raise self._error
+
+    def trail(self, match_id: str) -> list[str]:
+        return ["0-0", "15-0"]
 
 
 async def _fetch_with_game_log(monkeypatch, game_log, *, track_stats: bool):
@@ -95,6 +102,15 @@ class TestGameLogWiring:
         assert len(game_log.calls) == 1
         assert list(game_log.calls[0]) == [singles_id]
         assert game_log.calls[0][singles_id].current_points == ("0", "0")
+        assert game_log.sets_to_win == [{singles_id: 1}]
+
+    async def test_singles_servers_carry_the_live_point_trail(self, monkeypatch):
+        result = await _fetch_with_game_log(
+            monkeypatch, _RecordingGameLog(), track_stats=True
+        )
+
+        trails = {s.player_names[0]: s.point_trail for s in result.servers}
+        assert trails == {"Alice": ["0-0", "15-0"], "A/B": None}
 
     async def test_not_recorded_when_stats_tracking_is_off(self, monkeypatch):
         game_log = _RecordingGameLog()

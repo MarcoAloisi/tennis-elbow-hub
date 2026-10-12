@@ -121,6 +121,10 @@ class GameServer(BaseModel):
         default=None,
         description="Live win probability {p1, p2} — singles matches only, set by ScraperService after construction",
     )
+    point_trail: list[str] | None = Field(
+        default=None,
+        description="Point scores seen so far in the game in progress (['15-0', '30-15 BP']) — singles matches only, set by ScraperService after construction",
+    )
 
     @computed_field
     @property
