@@ -16,6 +16,7 @@ const AdminPlayersView = () => import('../views/AdminPlayersView.vue')
 const AdminPanelView = () => import('../views/AdminPanelView.vue')
 const AdminUsersView = () => import('../views/AdminUsersView.vue')
 const PredictionView = () => import('../views/PredictionView.vue')
+const AboutProjectView = () => import('../views/AboutProjectView.vue')
 
 const SignupView = () => import('../views/SignupView.vue')
 const ResetPasswordView = () => import('../views/ResetPasswordView.vue')
@@ -181,6 +182,15 @@ export const routes: RouteRecordRaw[] = [
         meta: {
             title: 'Guide',
             description: 'Read guide on Tennis Elbow Hub.'
+        }
+    },
+    {
+        path: '/about',
+        name: 'About',
+        component: AboutProjectView,
+        meta: {
+            title: 'About',
+            description: 'Who builds Tennis Elbow Hub, where its data comes from, and how to reach the people behind it.'
         }
     },
     {

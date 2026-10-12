@@ -157,10 +157,12 @@ import { RouterLink } from 'vue-router'
         <details class="faq-item">
           <summary>Does Tennis Elbow Hub store my data?</summary>
           <p>
-            Tennis Elbow Hub does not create user accounts or permanently store uploaded
-            match logs. Your analysis data is processed in the browser session and is
-            not saved on our servers after the session ends. We use Google Analytics for
-            anonymous usage statistics — see our
+            Accounts are optional. Live scores, match analysis and guides work without
+            one. You only need an account for community features such as uploading
+            outfits and managing a profile, and signing up stores your display name and
+            email address. Uploaded match logs are read by our server to produce your
+            statistics and are not saved to our database. We use Google Analytics for
+            anonymous usage statistics and Google AdSense for advertising — see our
             <RouterLink to="/privacy-policy">Privacy Policy</RouterLink> for details.
           </p>
         </details>

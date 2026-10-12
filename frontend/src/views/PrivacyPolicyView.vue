@@ -6,7 +6,7 @@
   <div class="privacy-view">
     <div class="privacy-content">
       <h1>Privacy Policy</h1>
-      <p class="last-updated">Last updated: February 11, 2026</p>
+      <p class="last-updated">Last updated: October 12, 2026</p>
 
       <section>
         <h2>Introduction</h2>
@@ -21,16 +21,20 @@
       <section>
         <h2>Information We Collect</h2>
         <p>
-          Tennis Elbow Hub does not require user accounts or registration. We do not
-          collect personally identifiable information such as names, email addresses,
-          or passwords.
+          Accounts are optional. Live scores, match analysis and guides work without
+          one. If you create an account to upload outfits or manage a profile, we
+          collect the display name, email address and password you sign up with. The
+          password is handled by our authentication provider (Supabase) and is not
+          readable by us. We also store the content you add to your account, such as
+          outfits you upload.
         </p>
         <h3>Uploaded Files</h3>
         <p>
           When you use the Match Log Analysis feature, you upload HTML match log files
-          from Tennis Elbow 4. These files are processed in your browser session to
-          generate statistics. <strong>We do not permanently store uploaded files on
-          our servers.</strong> Once your session ends, the data is no longer retained.
+          from Tennis Elbow 4. Our server reads these files to generate statistics.
+          <strong>We do not save uploaded files to our database.</strong> If you ask for
+          an AI review of a match, the match statistics are sent to an AI service
+          provider (OpenRouter) to write that review.
         </p>
         <h3>Automatically Collected Data</h3>
         <p>
@@ -93,6 +97,16 @@
               Google Ads Policy</a>
           </li>
           <li>
+            <strong>Supabase</strong> — for account sign-up and login.
+            <a href="https://supabase.com/privacy" target="_blank" rel="noopener noreferrer">
+              Supabase Privacy Policy</a>
+          </li>
+          <li>
+            <strong>OpenRouter</strong> — for the optional AI match review.
+            <a href="https://openrouter.ai/privacy" target="_blank" rel="noopener noreferrer">
+              OpenRouter Privacy Policy</a>
+          </li>
+          <li>
             <strong>Ko-fi</strong> — for voluntary donations.
             <a href="https://ko-fi.com/privacy" target="_blank" rel="noopener noreferrer">
               Ko-fi Privacy Policy</a>
@@ -103,9 +117,9 @@
       <section>
         <h2>Data Retention</h2>
         <p>
-          We do not store personal data. Analytics data is retained by Google according
-          to their data retention policies. Uploaded match logs are not stored beyond
-          the active browser session.
+          Account data is kept for as long as your account exists. Analytics data is
+          retained by Google according to their data retention policies. Uploaded match
+          logs are not saved to our database.
         </p>
       </section>
 
@@ -129,8 +143,10 @@
           <li>Withdraw consent at any time</li>
         </ul>
         <p>
-          Since we do not collect personal data or require accounts, most of these
-          rights are automatically fulfilled.
+          If you have an account, ask us through the contact channels below to see or
+          delete the data tied to it. Without an account we hold no personal data
+          about you beyond what the analytics and advertising services described above
+          collect.
         </p>
       </section>
 

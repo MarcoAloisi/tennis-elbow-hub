@@ -70,7 +70,7 @@ onMounted(() => {
 })
 
 const showAds = computed(() => {
-  const noAdRoutes = ['/', '/privacy-policy', '/terms-of-service', '/contact']
+  const noAdRoutes = ['/', '/about', '/privacy-policy', '/terms-of-service', '/contact']
   return adsAllowed.value && !noAdRoutes.includes(route.path)
 })
 
@@ -261,7 +261,7 @@ async function submitNameChange() {
       <p>Tennis Elbow Hub &copy; 2026 — Tennis Elbow 4 Live Scores & Analysis</p>
       <p v-if="presenceStore.isConnected" class="footer-presence">{{ presenceStore.registeredCount }} members · {{ presenceStore.guestCount }} guests online</p>
       <div class="footer-links">
-        <RouterLink to="/">About</RouterLink>
+        <RouterLink to="/about">About</RouterLink>
         <span class="footer-sep">·</span>
         <RouterLink to="/privacy-policy">Privacy Policy</RouterLink>
         <span class="footer-sep">·</span>
