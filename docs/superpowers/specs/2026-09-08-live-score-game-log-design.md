@@ -1,134 +1,123 @@
 # Live score game-by-game detail (design)
 
+Revised 2026-10-12: adds the best-effort point trail, drops the metadata half of the endpoint, wires the Results tab (saved scores), and trims the schema.
+
 ## Problem
 
-Live score cards show only the current snapshot (current game points, set scores). The user wants a flashscore-style detail view: click a card, see how the match unfolded game by game (who served, final point score of each game, set by set), and have that history persisted forever, for both live and finished matches.
+Live score cards show only the current snapshot. The user wants a Sofascore-style detail view. Click a match, see how it unfolded game by game (who served, how each game went, set by set). History is persisted for live and finished matches.
 
-## Source constraint (drives the whole design)
+## Source constraint (drives the design)
 
-The TE4 master server only returns a current-state snapshot per poll (`"6/3 4/6 -- 40:30•"`), re-parsed fresh every tick by `parse_live_state` (`backend/app/services/score_parser.py`). There is no event log or point-level history in the source — each poll is a full state, not a delta. Poll interval defaults to 5s (`Settings.score_refresh_interval` in `config.py`; the `60` fallback in `main.py`'s `getattr(settings, "score_refresh_interval", 60)` is dead code — the field always exists), floored at 5s. That's still not fast enough to reliably catch every individual point (average ~15-20s/point — two points can close between polls) without dropping well under 5s and raising load on the master server further.
+The TE4 master server returns only a current-state snapshot per poll (`"6/3 4/6 -- 40:30•"`), re-parsed every tick by `parse_live_state` (`backend/app/services/score_parser.py`). There is no event log. The poll interval defaults to 5s (`Settings.score_refresh_interval`), floored at 5s. A point takes roughly 15-20s (estimate from the first draft, not measured), so two points can close between polls.
 
-**Decision: game-by-game granularity, not point-by-point.** Games change slowly enough (many points each) that diffing consecutive polls reliably catches every game transition at the current poll interval, with zero risk of missing a game. True point-by-point would require dropping the interval to ~2s and would still occasionally miss a point — rejected as not worth the reliability and load tradeoff.
+**Decision: two layers of granularity.**
+- **Game rows are exact.** A game changes slowly enough that diffing consecutive polls catches every game close.
+- **Point trail is best effort.** Per game, store the distinct point scores that polling happened to observe, in order (`["0-0", "15-0", "30-15", "40-15"]`). Points between two polls can be missing. The winning point is never observed (the snapshot resets once the game closes), so the UI appends the winner as the last step.
+
+True point-by-point stays rejected. It would need ~2s polling against the master server and would still be lossy.
 
 ## Scope
 
-- Singles matches only (same universe as `StatsService`/`FinishedMatch`: real player names, both Elo present).
-- Persisted permanently — game log rows are written incrementally as each game completes, independent of whether the match later qualifies for a `FinishedMatch` row (so even an abandoned/short match keeps whatever game history it accrued).
-- Detail view works for both in-progress and finished matches, keyed by the same `match_id` used today (stable hash of `creation_time_ms:match_name:port`, see `GameServer.match_id`).
+- Singles only, same universe as `StatsService`/`FinishedMatch`.
+- Persisted permanently. Rows are written as each game completes, independent of whether the match later qualifies for a `FinishedMatch` row.
+- Works for live and finished matches, keyed by `match_id` (stable hash of `creation_time_ms:match_name:port`, `GameServer.match_id`).
+- Entry points are the live `MatchCard` and the Results tab `ResultCard`. Results older than this feature have no rows and show an empty state.
+
+## Where the data lives
+
+Prod Postgres is on the IONOS VPS (`localhost:5432/te4hub`). Supabase is Auth only (`DEPLOYMENT.md`). The new table goes through Alembic like every other table, and `infra/deploy.sh` runs `alembic upgrade head` on the VPS. Two rules follow.
+- Generate the migration against the local Docker Postgres (`te4-pg`), not SQLite, so column types match prod.
+- Never apply it through the Supabase MCP. That project is a stale copy and does not show prod.
 
 ## Data model
 
-New table `match_game_events`, new Alembic migration.
+New table `match_game_events`, new Alembic migration. The natural key is the identity, so no surrogate `id`, no separate unique constraint and no extra index. The composite primary key already serves `WHERE match_id = ? ORDER BY set_number, game_number`.
 
 ```python
 class MatchGameEvent(Base):
     __tablename__ = "match_game_events"
 
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    match_id: Mapped[str] = mapped_column(String, index=True)
-    set_number: Mapped[int] = mapped_column(Integer)
-    game_number: Mapped[int] = mapped_column(Integer)  # p1_games + p2_games after this game
+    match_id: Mapped[str] = mapped_column(String, primary_key=True)
+    set_number: Mapped[int] = mapped_column(Integer, primary_key=True)
+    game_number: Mapped[int] = mapped_column(Integer, primary_key=True)  # p1_games + p2_games after this game
     p1_games: Mapped[int] = mapped_column(Integer)
     p2_games: Mapped[int] = mapped_column(Integer)
     winner: Mapped[int] = mapped_column(Integer)  # 1 or 2
-    server: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 1 or 2, who served this game
-    final_point_score: Mapped[str | None] = mapped_column(String, nullable=True)  # e.g. "40-30", "7-5" if tiebreak
+    server: Mapped[int | None] = mapped_column(Integer, nullable=True)  # who served this game
     is_tiebreak: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-
-    __table_args__ = (
-        UniqueConstraint("match_id", "set_number", "game_number", name="uq_match_game_event"),
-    )
+    points: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)  # observed point scores, best effort
 ```
 
-The unique constraint makes writes idempotent — if a tick's diff logic ever double-fires for the same game (e.g. after a transient fetch failure and cache replay), the duplicate insert raises `IntegrityError` and is dropped. Written the same way `_try_finish_match` already does it in `stats_service.py` (`session.add()` + `flush()` inside `try/except IntegrityError: rollback`) — no dialect-specific `ON CONFLICT`/`INSERT OR IGNORE` SQL, which would need a Postgres and a SQLite branch to keep working on both backends. One idiom for "insert, ignore if it already exists" in this codebase, not two.
+Dropped from the first draft. `final_point_score` was really the last observed score, not the final one, and equals `points[-1]`. `created_at` had no reader. Both extra indexes were redundant with the primary key.
 
-Rows are independent of `FinishedMatch` — no foreign key, joined only by `match_id` string at query time. This keeps the write path simple (no need to know at game-completion time whether the match will later qualify as finished).
+The Pydantic response schema `GameEventOut` (`from_attributes=True`, no `match_id`) lives in the same file, per the repo's co-location convention.
+
+A duplicate insert raises `IntegrityError` and is dropped, the same idiom as `stats_service._try_finish_match` (`add` + `commit` in `try/except IntegrityError`). No dialect-specific SQL.
+
+Rows are independent of `FinishedMatch`. No foreign key, joined only by the `match_id` string.
 
 ## Backend: tick-diff service
 
-New `backend/app/services/game_log_service.py`. State-tracking shape follows `stats_service._previous_matches`, but the two caches are **not shared** — `stats_service` needs full `GameServer` objects for rename detection and match-finish bookkeeping; this service only ever needs the parsed `LiveMatchState` (games/sets/server/points), a strictly smaller and simpler need. Sharing a cache between them would couple two independent concerns for no benefit; keeping them separate is the simpler code, not the duplicated code.
+New `backend/app/services/game_log_service.py`. It keeps its own per-match cache, separate from `stats_service._previous_matches`. This service needs only the parsed `LiveMatchState` plus the observed point trail.
 
-**Avoiding a duplicate parse:** `GameServer.live_state` is a Pydantic `@computed_field` — it re-runs `parse_live_state` on every access, it isn't cached. `scraper.fetch_servers` already calls `server.live_state` once per singles server inside `_apply_win_probability`. Rather than have `game_log_service` call `.live_state` again on the same `GameServer` object in the same tick (parsing the same score string twice), `fetch_servers` computes it once per singles server into a local `dict[str, LiveMatchState]` and passes that to both `_apply_win_probability` and `game_log_service.record_tick` — one parse per server per tick, not two.
+`GameServer.live_state` is a `@computed_field` that re-parses on every access. `fetch_servers` computes it once per singles server into a `dict[str, LiveMatchState]` and passes that to both `_apply_win_probability` and `record_tick`.
 
-`record_tick(current_states: dict[str, LiveMatchState]) -> None`, called once per poll tick from `ScraperService.fetch_servers` right after that dict is built:
-
-```python
-for match_id, current in current_states.items():
-    previous = self._previous.get(match_id)
-    if previous is not None:
-        await self._maybe_record_game(match_id, previous, current)
-    self._previous[match_id] = current
-
-# Drop state for matches no longer present this tick — this service only
-# needs to stop tracking them, not run stats_service's rename/finish
-# detection, so a plain key-set difference against this tick's own dict
-# is enough; no need to depend on stats_service's bookkeeping.
-for stale_id in self._previous.keys() - current_states.keys():
-    del self._previous[stale_id]
-```
-
-`_maybe_record_game(match_id, previous, current)` — the exact, unambiguous diff (no hand-wavy "sum increased" check):
+The logic is a small state machine with a pure, synchronous core.
 
 ```python
-prev_sets_total = sum(previous.sets_won)
-curr_sets_total = sum(current.sets_won)
+@dataclass
+class _Tracked:
+    state: LiveMatchState
+    points: list[str]   # distinct point scores seen during the game in progress
 
-if curr_sets_total > prev_sets_total:
-    # The game in progress last tick closed out the set (straight games or tiebreak).
-    set_number = prev_sets_total + 1
-    winner = 1 if current.sets_won[0] > previous.sets_won[0] else 2
-elif sum(current.current_set_games) > sum(previous.current_set_games) and curr_sets_total == prev_sets_total:
-    # A game closed mid-set.
-    set_number = curr_sets_total + 1
-    winner = 1 if current.current_set_games[0] > previous.current_set_games[0] else 2
-else:
-    return  # no game completed this tick
-
-# `previous.current_set_games` is always the pre-game count in both branches
-# above (branch 1 never bumped it — that snapshot's set was still "in
-# progress" — and branch 2 diffs against it directly), so the +1 is applied
-# exactly once here, not per-branch.
-p1, p2 = previous.current_set_games
-if winner == 1:
-    p1 += 1
-else:
-    p2 += 1
-
-await self._insert_event(
-    match_id, set_number, game_number=p1 + p2, p1_games=p1, p2_games=p2,
-    winner=winner, server=previous.server,
-    final_point_score=f"{previous.current_points[0]}-{previous.current_points[1]}" if previous.current_points else None,
-    is_tiebreak=previous.is_tiebreak,
-)
+def step(self, match_id, current) -> MatchGameEvent | None:
+    tracked = self._tracked.get(match_id)
+    trail = tracked.points if tracked else []
+    event = diff_game(match_id, tracked.state, current, trail) if tracked else None
+    if event:
+        trail = []  # the closed game's trail is on the event; the new game starts empty
+    snap = f"{current.current_points[0]}-{current.current_points[1]}" if current.current_points else None
+    if snap and (not trail or trail[-1] != snap):
+        trail.append(snap)
+    self._tracked[match_id] = _Tracked(current, trail)
+    return event
 ```
 
-`server`/`final_point_score`/`is_tiebreak` always come from `previous` — that's the last point state seen before the game closed. `_insert_event` writes and swallows/logs its own errors per match, called via `asyncio.gather(..., return_exceptions=True)` across matches in the same tick — same isolation pattern already used for win-probability in `scraper.py`, so one match's write failure never blocks another's.
+`diff_game(match_id, previous, current, points)` returns a `MatchGameEvent` (unpersisted ORM instance, no intermediate dataclass) or `None`.
+- If `sum(current.sets_won) > sum(previous.sets_won)`, the game closed a set. `set_number = prev_sets_total + 1`, and the winner is whoever's `sets_won` rose.
+- Else if the games in the current set rose and `sets_won` is unchanged, a game closed mid-set. `set_number = curr_sets_total + 1`, and the winner is whoever's games rose.
+- Else return `None`.
+- `p1, p2 = previous.current_set_games`, then the winner gets +1 exactly once. `game_number = p1 + p2`. `server` and `is_tiebreak` come from `previous`. `points` is the trail so far.
+
+`record_tick(states)` calls `step` for every match, drops tracked state for matches absent from this tick, then persists the collected events one at a time. A failed insert is logged and never raised.
+
+**Last game of a match.** A match is "finished" when it vanishes from the feed. Measured on the stale Sep-6 copy of `finished_matches`, 47,772 of 56,194 parseable scores (85%) end on a completed set. The last snapshot before a match vanishes therefore normally shows the clinching game, and the diff records it. The remainder are quits and short formats, where no clinching game exists.
 
 ## API
 
-`GET /api/scores/{match_id}/games` in `live_scores.py`:
-
-- `@limiter.limit("60/minute")`, public, no auth.
-- Metadata: if the match is still in the live cache (`scraper.get_latest_data()`), pull players/elo/surface/mod/current score from there; otherwise fall back to the `FinishedMatch` row by `match_id`. If neither exists, 404.
-- Body: metadata block + `games: list[...]` ordered by `(set_number, game_number)`, queried from `match_game_events` by `match_id`.
-- No pagination — a full match tops out around 20-30 rows.
+`GET /api/scores/{match_id}/games` in `live_scores.py`.
+- Public, `@limiter.limit("60/minute")`, `response_model=list[GameEventOut]`.
+- Returns the rows ordered by `(set_number, game_number)`. An unknown or pre-feature match returns `[]`, not 404.
+- No metadata. The client already holds players, Elo, surface, mod and score on the live card or the Results row, so the endpoint does no live-cache lookup and no `FinishedMatch` fallback.
+- No pagination (a match is at most a few dozen rows).
 
 ## Frontend
 
-- New modal component (e.g. `MatchDetailModal.vue`), opened on score-card click from the live scores view.
-- Fetches `apiUrl('/api/scores/{match_id}/games')` on open.
-- Renders grouped by set: each set header (final set score) followed by its games in order — "Juego 3: 40-30, sacó Player1, ganó Player1" style rows, tiebreaks flagged distinctly.
-- If the match is still live (metadata says in-progress), the modal polls the same endpoint on an interval (reuse an existing polling composable pattern) to append new games as they complete; no new WebSocket channel.
-- Modal closes back to the same scroll position in the live scores list (no route change, per the modal-not-page decision).
+- One `MatchDetailModal.vue` mounted once in `LiveScoresView`. Props are `open`, a `MatchRef` (`matchId`, `player1`, `player2`, `isLive`) and an optional `refreshKey`.
+- Entry points are a real `<button>` inside `MatchCard` (hidden for doubles) and inside `ResultCard`, forwarded through `ResultsTab`. A button instead of a clickable card keeps keyboard access and avoids nested interactive controls.
+- The modal fetches `apiUrl('/api/scores/{id}/games')` on open and refetches when `refreshKey` changes. For a live match the view passes the live `score` string from the scores store. No timer, no extra WebSocket, and requests fire only when the match state moves. `record_tick` commits before the broadcast, so a changed score always has its row ready.
+- A failed refetch keeps the games already shown. The error state appears only when nothing has loaded.
+- Rendering groups games by set. Each row shows `Game N`, the game score, the server and the point trail (`0-0 → 15-0 → 30-15 → 40-15 → Game <winner>`), tiebreaks flagged. A caption says the point trail is best effort. The empty state reads "No game history recorded for this match."
+- Reuse the global `.modal-overlay` from `components.css` and `useModalAccessibility`. Scoped CSS covers only the game list.
 
 ## Error handling
 
-- Missing/incomplete snapshot diffs (e.g. a game count that jumps by more than 1 between polls, which can happen after a transient fetch failure that skipped a tick) are recorded as a single game event using the last known state — no attempt to fabricate the missing intermediate game. This is a known gap inherent to snapshot polling, not something to solve here.
-- `match_game_events` writes never block or fail the score broadcast — same isolation pattern as the existing win-probability computation in `scraper.py`.
+- A skipped tick can make a game count jump by more than one. That is recorded as one event from the last known state. No fabricated intermediate games.
+- A backend restart loses the in-memory trail for the game in progress, so that one game has a partial trail. Known and accepted.
+- `record_tick` is called inside `try/except` at the call site, so no failure can break the score broadcast. This is the same isolation as win probability. Like `track_matches` it awaits DB writes in the poll loop, an accepted precedent.
 
 ## Testing
 
-- Parser/diff unit tests: feed `game_log_service` a sequence of synthetic `LiveMatchState` snapshots (game win, set win via tiebreak, set win by 2-game margin, match end) and assert the exact rows it would write.
-- API test: seed `match_game_events` + a `FinishedMatch`, assert `GET /api/scores/{match_id}/games` shape.
-- Frontend: no component-test framework exists yet in this repo (`vitest` is a bare script with no config, no `@vue/test-utils`, zero test files anywhere under `frontend/src`) — standing one up is out of scope for this feature. Verified manually instead: run the dev server, click a live card, confirm the modal shows the right games grouped by set for both a live and a finished match.
+- Pure tests, no DB. Feed `step`/`diff_game` snapshot sequences (game win both ways, set win by games, set win by tiebreak, no-change tick, trail dedupe and reset between games, first-sighting).
+- Two DB tests against an in-memory SQLite session factory injected by monkeypatch (duplicate insert is a no-op, endpoint returns ordered rows with `points` round-tripped). No test writes to the dev database.
+- No frontend test framework exists in the repo, so the UI is verified manually in the browser.
