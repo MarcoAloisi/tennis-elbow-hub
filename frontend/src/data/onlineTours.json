@@ -101,6 +101,11 @@
                     "url": "https://www.playwtsl.com/TE4/",
                     "icon": "/wtsl_logo.webp"
                 },
+                "forum": {
+                    "label": "WTSL Forum",
+                    "url": "https://wtslforum.space/",
+                    "icon": "🌐"
+                },
                 "rankings": {
                     "label": "Rankings",
                     "url": "https://www.playwtsl.com/TE4/pages/rankings.php?tour=TE4",
