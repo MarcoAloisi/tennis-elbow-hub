@@ -1,4 +1,7 @@
+from sqlalchemy import select
+
 from app.models.match_game_event import MatchGameEvent
+from app.services import game_log_service
 from app.services.game_log_service import GameLogService
 from app.services.score_parser import LiveMatchState
 
@@ -196,3 +199,54 @@ def test_game_closing_without_observed_points_has_empty_trail():
         ]
     )
     assert [e.points for e in events] == [[]]
+
+
+async def _rows(factory) -> list[dict]:
+    async with factory() as session:
+        result = await session.execute(
+            select(MatchGameEvent).order_by(
+                MatchGameEvent.set_number, MatchGameEvent.game_number
+            )
+        )
+        return [_fields(e) for e in result.scalars()]
+
+
+async def test_record_tick_persists_a_closed_game_once(
+    sqlite_session_factory, monkeypatch
+):
+    monkeypatch.setattr(
+        game_log_service, "get_session_factory", lambda: sqlite_session_factory
+    )
+    before = _state(current_points=("40", "15"), server=1)
+    after = _state(current_set_games=(1, 0), server=2)
+
+    first_run = GameLogService()
+    await first_run.record_tick({"m": before})
+    await first_run.record_tick({"m": after})
+    restarted = GameLogService()
+    await restarted.record_tick({"m": before})
+    await restarted.record_tick({"m": after})
+
+    assert await _rows(sqlite_session_factory) == [
+        {
+            "match_id": "m",
+            "set_number": 1,
+            "game_number": 1,
+            "p1_games": 1,
+            "p2_games": 0,
+            "winner": 1,
+            "server": 1,
+            "is_tiebreak": False,
+            "points": ["40-15"],
+        }
+    ]
+
+
+async def test_record_tick_forgets_matches_missing_from_the_tick():
+    svc = GameLogService()
+    await svc.record_tick({"m": _state()})
+    assert set(svc._tracked) == {"m"}
+
+    await svc.record_tick({})
+
+    assert svc._tracked == {}
