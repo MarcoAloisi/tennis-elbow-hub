@@ -2,7 +2,7 @@
 import { onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import ResultsTab from '@/components/scores/ResultsTab.vue'
-import { useScoresStore } from '@/stores/scores'
+import { useScoresStore, type MatchRef } from '@/stores/scores'
 import { useAuthStore } from '@/stores/auth'
 import { useWebSocket } from '@/composables/useWebSocket'
 import { useModalAccessibility } from '@/composables/useModalAccessibility'
@@ -13,6 +13,7 @@ import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import ErrorAlert from '@/components/common/ErrorAlert.vue'
 import MonthlyOverview from '@/components/scores/MonthlyOverview.vue'
 import PlayerDetailsModal from '@/components/players/PlayerDetailsModal.vue'
+import MatchDetailModal from '@/components/scores/MatchDetailModal.vue'
 import { Activity } from 'lucide-vue-next'
 
 const store = useScoresStore()
@@ -21,6 +22,7 @@ const activeTab = ref<'te4' | 'results'>('te4')
 const showDetails = ref(false)
 const detailsName = ref('')
 const detailsElo = ref(0)
+const detail = ref<MatchRef | null>(null)
 const showSignupPrompt = ref(false)
 const signupPlayerName = ref('')
 
@@ -209,6 +211,7 @@ function onSelectPlayer(payload: { name: string; elo: number }) {
           :key="server.match_id"
           :server="server"
           @select-player="onSelectPlayer"
+          @open-match-detail="detail = $event"
         />
       </div>
 
@@ -219,13 +222,20 @@ function onSelectPlayer(payload: { name: string; elo: number }) {
     </template>
 
     <!-- Results content -->
-    <ResultsTab v-else />
+    <ResultsTab v-else @open-match-detail="detail = $event" />
 
     <PlayerDetailsModal
       :open="showDetails"
       :name="detailsName"
       :elo="detailsElo"
       @close="showDetails = false"
+    />
+
+    <MatchDetailModal
+      :open="detail !== null"
+      :match="detail"
+      :live-server="store.servers.find((s) => s.match_id === detail?.matchId)"
+      @close="detail = null"
     />
 
     <div

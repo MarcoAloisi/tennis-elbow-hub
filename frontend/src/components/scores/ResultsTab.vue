@@ -4,6 +4,7 @@ import { useResults } from '@/composables/useResults'
 import { usePagination } from '@/composables/usePagination'
 import { useDebouncedSearch } from '@/composables/useDebouncedSearch'
 import ResultCard from './ResultCard.vue'
+import type { MatchRef } from '@/stores/scores'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import ErrorAlert from '@/components/common/ErrorAlert.vue'
 import { Activity } from 'lucide-vue-next'
@@ -25,6 +26,8 @@ function toLocalISO(d: Date): string {
 function todayLocalISO(): string {
   return toLocalISO(new Date())
 }
+
+const emit = defineEmits<{ 'open-match-detail': [match: MatchRef] }>()
 
 const dateStr = ref(todayLocalISO())
 const mod = ref<string | null>(null)
@@ -141,7 +144,12 @@ onMounted(load)
     </div>
 
     <div v-else class="results-list">
-      <ResultCard v-for="r in results" :key="r.match_id" :result="r" />
+      <ResultCard
+        v-for="r in results"
+        :key="r.match_id"
+        :result="r"
+        @open-match-detail="emit('open-match-detail', $event)"
+      />
     </div>
 
     <div v-if="totalPages > 1" class="pagination-container">

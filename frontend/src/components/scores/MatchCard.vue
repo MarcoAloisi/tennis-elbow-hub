@@ -10,7 +10,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['select-player'])
+const emit = defineEmits(['select-player', 'open-match-detail'])
 
 const isSinglesMatch = computed(() => {
   const mode = (props.server.game_info?.mode_display || '').toLowerCase()
@@ -23,6 +23,14 @@ function sideClickable(names) {
 
 function onSelectPlayer(name, elo) {
   emit('select-player', { name, elo: typeof elo === 'number' ? elo : 0 })
+}
+
+function onOpenMatchDetail() {
+  emit('open-match-detail', {
+    matchId: props.server.match_id,
+    player1: players.value.player1[0],
+    player2: players.value.player2?.[0] ?? '',
+  })
 }
 
 // ============ MATCH DURATION ============
@@ -461,6 +469,15 @@ const isOnlineMode = computed(() => {
       <span v-if="modDisplay" class="footer-tag mod-tag">{{ modDisplay }}</span>
       
       <span v-if="setsDisplay" class="footer-tag sets-tag">{{ setsDisplay }}</span>
+
+      <button
+        v-if="isSinglesMatch && server.is_started"
+        type="button"
+        class="game-log-btn"
+        @click.stop="onOpenMatchDetail"
+      >
+        Game log
+      </button>
     </div>
   </div>
 </template>
@@ -887,6 +904,24 @@ button.player-name.clickable:focus-visible {
   font-weight: 600; /* Increased weight */
   display: flex; /* Allow dot alignment */
   align-items: center;
+}
+
+.game-log-btn {
+  margin-left: auto;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.game-log-btn:hover,
+.game-log-btn:focus-visible {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
 }
 
 .online-tag {
