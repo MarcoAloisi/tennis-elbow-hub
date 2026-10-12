@@ -56,6 +56,13 @@ def test_advantage_p2():
     assert state.current_points_numeric == (4, 3)
 
 
+def test_advantage_is_case_insensitive():
+    """Some matches in the live feed send advantage as 'AD'."""
+    assert parse_live_state("0/0 -- 40:AD", 6).current_points_numeric == (3, 4)
+    assert parse_live_state("0/0 -- AD:40", 6).current_points_numeric == (4, 3)
+    assert parse_live_state("0/0 -- AD:40", 6).is_tiebreak is False
+
+
 def test_tiebreak_point_counts_as_raw_ints():
     state = parse_live_state("6/6 -- 3:5•", 6)
     assert state.is_tiebreak is True

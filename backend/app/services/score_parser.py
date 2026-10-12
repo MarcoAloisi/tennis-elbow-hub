@@ -118,9 +118,9 @@ def parse_live_state(score: str, games_per_set: int) -> LiveMatchState | None:
         current_points = (raw_p1, raw_p2)
         if raw_p1 in _POINT_TABLE and raw_p2 in _POINT_TABLE:
             current_points_numeric = (_POINT_TABLE[raw_p1], _POINT_TABLE[raw_p2])
-        elif raw_p1 in ("Ad", "A"):
+        elif raw_p1.upper() in ("AD", "A"):
             current_points_numeric = (4, 3)
-        elif raw_p2 in ("Ad", "A"):
+        elif raw_p2.upper() in ("AD", "A"):
             current_points_numeric = (3, 4)
         else:
             # Tokens outside the normal game vocabulary imply raw tiebreak
