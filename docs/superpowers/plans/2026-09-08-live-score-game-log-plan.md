@@ -209,6 +209,8 @@ git commit -m "feat: GET /api/scores/{match_id}/games"
 
 ### Task 5: Frontend, one modal and two entry points
 
+> **Built 2026-10-12.** Task 5 shipped as the Flashscore-style modal described in the spec's Frontend section (`liveServer` prop, set tabs, break pills, current-game block, helpers in `frontend/src/utils/gameLog.ts`). The steps below record the first, plain-list design.
+
 **Files:**
 - Create: `frontend/src/components/scores/MatchDetailModal.vue`
 - Modify: `frontend/src/components/scores/MatchCard.vue`, `ResultCard.vue`, `ResultsTab.vue`, `frontend/src/views/LiveScoresView.vue`
