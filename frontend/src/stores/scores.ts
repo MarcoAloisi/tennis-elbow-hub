@@ -40,9 +40,15 @@ interface GameInfo {
     sets_display: string
 }
 
+export interface MatchRef {
+    matchId: string
+    player1: string
+    player2: string
+}
+
 // Shape of a single server entry in the WS/REST scores payload
 // (matches backend `GameServer` in app/models/game_server.py).
-interface GameServer {
+export interface GameServer {
     ip: string
     port: number
     match_name: string
