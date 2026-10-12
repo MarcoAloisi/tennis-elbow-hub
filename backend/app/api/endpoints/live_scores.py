@@ -18,6 +18,7 @@ from app.core.logging import get_logger
 from app.core.utils import escape_like
 from app.models.finished_match import FinishedMatch
 from app.models.game_server import GameServerList
+from app.models.match_game_event import GameEventOut, MatchGameEvent
 
 logger = get_logger("api.live_scores")
 router = APIRouter(prefix="/scores", tags=["Live Scores"])
@@ -276,6 +277,25 @@ async def get_results(
         "page_size": page_size,
         "total_pages": max(1, math.ceil(total / page_size)),
     }
+
+
+@router.get(
+    "/{match_id}/games",
+    response_model=list[GameEventOut],
+    summary="Game-by-game history for a match",
+)
+@limiter.limit("60/minute")
+async def get_match_games(
+    request: Request,
+    match_id: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> list[MatchGameEvent]:
+    result = await db.execute(
+        select(MatchGameEvent)
+        .where(MatchGameEvent.match_id == match_id)
+        .order_by(MatchGameEvent.set_number, MatchGameEvent.game_number)
+    )
+    return list(result.scalars().all())
 
 
 class ConnectionManager:
