@@ -16,8 +16,13 @@ export const createApp = ViteSSG(
       return { top: 0 }
     },
   },
-  ({ app, router }) => {
-    app.use(createPinia())
+  ({ app, router, initialState }) => {
+    const pinia = createPinia()
+    app.use(pinia)
+    // Ship the store state fetched during prerender to the browser, so
+    // hydration starts from the same data the static HTML was rendered with.
+    if (import.meta.env.SSR) initialState.pinia = pinia.state.value
+    else pinia.state.value = initialState.pinia || {}
     setupGuards(router)
   },
 )

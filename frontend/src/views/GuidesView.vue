@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onServerPrefetch } from 'vue'
 import { useGuidesStore } from '@/stores/guides'
 import { useAuthStore } from '@/stores/auth'
 import GuideCard from '@/components/guides/GuideCard.vue'
@@ -46,6 +46,10 @@ function fetchFiltered(overrides = {}) {
   })
 }
 
+// Runs only while prerendering: bakes the first page of guides into the HTML.
+onServerPrefetch(() => Promise.all([guidesStore.fetchGuides(), guidesStore.fetchTags()]))
+
+// In the browser this refreshes the prerendered list in the background.
 onMounted(() => {
   guidesStore.fetchGuides()
   guidesStore.fetchTags()
@@ -189,7 +193,7 @@ function onFormSaved() {
 
     <!-- Empty / Loading State -->
     <div v-else class="empty-state-dashed">
-      <div v-if="guidesStore.loading" class="loading-spinner-lg"></div>
+      <div v-if="guidesStore.loading || !guidesStore.loaded" class="loading-spinner-lg"></div>
       <div v-else class="no-results">
         <div class="empty-icon-wrapper">
           <BookMarked class="empty-icon" :size="48" :stroke-width="1.5" />

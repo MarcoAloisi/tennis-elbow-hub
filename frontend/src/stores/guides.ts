@@ -7,6 +7,9 @@ export const useGuidesStore = defineStore('guides', () => {
     const currentGuide = ref<any | null>(null)
     const tags = ref<string[]>([])
     const loading = ref<boolean>(false)
+    // True once a list fetch has settled. Lets the view tell "not fetched yet"
+    // (prerender, first paint) apart from "fetched, nothing there".
+    const loaded = ref<boolean>(false)
     const error = ref<string | null>(null)
     const pagination = ref({
         total: 0,
@@ -24,7 +27,8 @@ export const useGuidesStore = defineStore('guides', () => {
     }
 
     async function fetchGuides({ tag = '', type = '', search = '', page = 1, pageSize = 12 }: FetchGuidesParams = {}) {
-        loading.value = true
+        // Refreshing a list that is already on screen stays silent.
+        if (!loaded.value) loading.value = true
         error.value = null
         try {
             const params = new URLSearchParams()
@@ -49,24 +53,34 @@ export const useGuidesStore = defineStore('guides', () => {
         } catch (err: any) {
             error.value = err.message
             console.error('Failed to fetch guides:', err)
+            // A prerender that cannot reach the API must fail the build, not
+            // ship a page that claims there are no guides.
+            if (import.meta.env.SSR) throw err
         } finally {
             loading.value = false
+            loaded.value = true
         }
     }
 
     async function fetchGuide(slug: string) {
-        loading.value = true
+        // A guide hydrated from the prerendered page stays on screen while it
+        // is refreshed, so the article does not flash a spinner.
+        if (currentGuide.value?.slug !== slug) {
+            loading.value = true
+            currentGuide.value = null
+        }
         error.value = null
-        currentGuide.value = null
         try {
             const response = await fetch(apiUrl(`/api/guides/${slug}`))
             if (!response.ok) {
+                if (response.status === 404) currentGuide.value = null
                 throw new Error(`Error fetching guide: ${response.statusText}`)
             }
             currentGuide.value = await response.json()
         } catch (err: any) {
-            error.value = err.message
+            if (!currentGuide.value) error.value = err.message
             console.error('Failed to fetch guide:', err)
+            if (import.meta.env.SSR) throw err
         } finally {
             loading.value = false
         }
@@ -177,6 +191,7 @@ export const useGuidesStore = defineStore('guides', () => {
         currentGuide,
         tags,
         loading,
+        loaded,
         error,
         pagination,
         fetchGuides,

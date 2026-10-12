@@ -291,7 +291,7 @@ const closeUploadModal = () => {
     
     <!-- Empty State / Loading -->
     <div v-else class="empty-state-dashed">
-      <div v-if="outfitsStore.loading" class="loading-spinner-lg"></div>
+      <div v-if="outfitsStore.loading || !outfitsStore.loaded" class="loading-spinner-lg"></div>
       <div v-else class="no-results">
         <div class="empty-icon-wrapper">
           <Shirt class="empty-icon" :size="64" :stroke-width="1.5" />

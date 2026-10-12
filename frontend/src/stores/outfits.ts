@@ -6,6 +6,8 @@ export const useOutfitsStore = defineStore('outfits', () => {
     const outfits = ref<any[]>([])
     const uploaders = ref<string[]>([])
     const loading = ref<boolean>(false)
+    // True once a list fetch has settled, so "not fetched yet" does not read as "no outfits".
+    const loaded = ref<boolean>(false)
     const error = ref<string | null>(null)
     const pagination = ref({
         total: 0,
@@ -54,6 +56,7 @@ export const useOutfitsStore = defineStore('outfits', () => {
             console.error('Failed to fetch outfits:', err)
         } finally {
             loading.value = false
+            loaded.value = true
         }
     }
 
@@ -198,6 +201,7 @@ export const useOutfitsStore = defineStore('outfits', () => {
         outfits,
         uploaders,
         loading,
+        loaded,
         error,
         pagination,
         userRatings,
