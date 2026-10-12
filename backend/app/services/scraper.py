@@ -13,7 +13,9 @@ import httpx
 from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.models.game_server import GameServer, GameServerList, PlayerConfig
+from app.services.game_log_service import get_game_log_service
 from app.services.parser import parse_server_data
+from app.services.score_parser import LiveMatchState
 from app.services.win_probability import live_win_probability
 
 logger = get_logger("scraper")
@@ -160,6 +162,10 @@ class ScraperService:
             and s.elo and s.other_elo
         ]
 
+        singles_live_states: dict[str, LiveMatchState] = {
+            s.match_id: state for s in singles_servers if (state := s.live_state)
+        }
+
         # Fetch the appearances list at most once per tick and share it
         # across every match's rate computation below, rather than each
         # cache-miss independently running its own full-table scan
@@ -178,7 +184,7 @@ class ScraperService:
 
         async def _apply_win_probability(server: GameServer) -> None:
             rates = await stats_service.get_or_compute_pre_match_rates(server, appearances)
-            live_state = server.live_state
+            live_state = singles_live_states.get(server.match_id)
             if rates is None or live_state is None:
                 return
             p0, g, s_rate = rates
@@ -205,6 +211,10 @@ class ScraperService:
             finished = await stats_service.track_matches(servers)
             if finished > 0:
                 logger.info(f"Detected {finished} finished matches")
+            try:
+                await get_game_log_service().record_tick(singles_live_states)
+            except Exception as e:
+                logger.error(f"game-log recording failed: {e}")
 
         # Update cache
         result = GameServerList(

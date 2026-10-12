@@ -2,8 +2,11 @@
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import StaticPool
 
 from app.main import app
+from app.models.match_game_event import MatchGameEvent
 
 
 @pytest.fixture
@@ -14,6 +17,15 @@ def client() -> TestClient:
         TestClient instance.
     """
     return TestClient(app)
+
+
+@pytest.fixture
+async def sqlite_session_factory():
+    engine = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
+    async with engine.begin() as conn:
+        await conn.run_sync(MatchGameEvent.__table__.create)
+    yield async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    await engine.dispose()
 
 
 @pytest.fixture
@@ -159,4 +171,3 @@ def sample_polish_match_html() -> str:
     </body>
     </html>
     """
-

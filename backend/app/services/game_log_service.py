@@ -8,8 +8,14 @@ therefore best effort.
 
 from dataclasses import dataclass
 
+from sqlalchemy.exc import IntegrityError
+
+from app.core.database import get_session_factory
+from app.core.logging import get_logger
 from app.models.match_game_event import MatchGameEvent
 from app.services.score_parser import LiveMatchState
+
+logger = get_logger("game_log")
 
 
 @dataclass
@@ -71,3 +77,35 @@ class GameLogService:
                 trail.append(snap)
         self._tracked[match_id] = _Tracked(current, trail)
         return event
+
+    async def record_tick(self, states: dict[str, LiveMatchState]) -> None:
+        events = [e for mid, cur in states.items() if (e := self.step(mid, cur))]
+        for stale in self._tracked.keys() - states.keys():
+            del self._tracked[stale]
+        for event in events:
+            await self._insert(event)
+
+    async def _insert(self, event: MatchGameEvent) -> None:
+        async with get_session_factory()() as session:
+            try:
+                session.add(event)
+                await session.commit()
+            except IntegrityError:
+                await session.rollback()
+                logger.debug(
+                    f"game already recorded: {event.match_id} "
+                    f"set {event.set_number} game {event.game_number}"
+                )
+            except Exception as e:
+                await session.rollback()
+                logger.error(f"failed to record game for {event.match_id}: {e}")
+
+
+_game_log_service: GameLogService | None = None
+
+
+def get_game_log_service() -> GameLogService:
+    global _game_log_service
+    if _game_log_service is None:
+        _game_log_service = GameLogService()
+    return _game_log_service
