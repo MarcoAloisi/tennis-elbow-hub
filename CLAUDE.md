@@ -134,6 +134,7 @@ await fetch(
 - **`/docs`**: only enabled when `DEBUG=true` or `APP_ENV=development`.
 - **Match log parser**: handles English, Spanish, and Polish stat labels. `def`/`vs`/`Przegrana` as winner separators.
 - **Scraper User-Agent**: must always be `TennisTracker/1.0` — never change this value in any scraper (`scraper.py`, `tournament_scraper.py`). Managames whitelists this UA.
+- **Frontend build is not static-only**: `npm run build` prerenders `/guides/<slug>` for every guide it fetches from the live API (`VITE_API_URL` must be set and reachable, or the build fails on purpose), writes `sitemap.xml`, and appends SPA rewrites to `_redirects` (derived from the router, see `frontend/ssg/routes.ts`). A top-level `404.html` turns off Cloudflare Pages' SPA fallback, so unknown URLs return a real 404. A guide published after a build has no static page until the next deploy. Needs Node ^20.19, ^22.12 or >=24 (jsdom sanitizes guide HTML at build time).
 - **Presence state**: in-memory only in `services/presence.py`, single-process — not safe to assume shared counts across multiple backend instances/workers.
 
 ## Environment Variables

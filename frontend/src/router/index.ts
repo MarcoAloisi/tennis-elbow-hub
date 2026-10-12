@@ -16,6 +16,7 @@ const AdminPlayersView = () => import('../views/AdminPlayersView.vue')
 const AdminPanelView = () => import('../views/AdminPanelView.vue')
 const AdminUsersView = () => import('../views/AdminUsersView.vue')
 const PredictionView = () => import('../views/PredictionView.vue')
+const NotFoundView = () => import('../views/NotFoundView.vue')
 const AboutProjectView = () => import('../views/AboutProjectView.vue')
 
 const SignupView = () => import('../views/SignupView.vue')
@@ -248,6 +249,15 @@ export const routes: RouteRecordRaw[] = [
             title: 'Registered Users',
             description: 'Admin-only list of registered users with live online status.',
             requiresAdmin: true
+        }
+    },
+    {
+        path: '/:pathMatch(.*)*',
+        name: 'NotFound',
+        component: NotFoundView,
+        meta: {
+            title: 'Page Not Found',
+            description: 'The page you were looking for does not exist on Tennis Elbow Hub.'
         }
     }
 ]

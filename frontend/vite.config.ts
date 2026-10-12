@@ -1,10 +1,22 @@
 import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
+import { appendFileSync, writeFileSync } from 'node:fs'
+import {
+  GUIDE_ENTRY,
+  NOT_FOUND_PATH,
+  PRERENDERED_ROUTES,
+  fetchGuideSlugs,
+  renderSitemap,
+  spaRewrites,
+} from './ssg/routes'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
+  // Filled by includedRoutes, written out by onFinished.
+  let sitemap: Parameters<typeof renderSitemap>[0] = []
+  let rewrites: string[] = []
 
   return {
     plugins: [vue()],
@@ -31,24 +43,19 @@ export default defineConfig(({ mode }) => {
       __API_URL__: JSON.stringify(env.VITE_API_URL || ''),
     },
     ssgOptions: {
-      // Only prerender the public, indexable content routes — the ones in
-      // the live sitemap that AdSense/search crawlers actually evaluate.
-      // Everything else (auth, admin, profile, predictions) stays pure SPA,
-      // rendered client-side exactly as before.
-      includedRoutes(paths) {
-        const prerendered = new Set([
-          '/',
-          '/live',
-          '/analysis',
-          '/guides',
-          '/online-tours/xkt',
-          '/online-tours/wtsl',
-          '/outfit-gallery',
-          '/privacy-policy',
-          '/terms-of-service',
-          '/contact',
-        ])
-        return paths.filter((p) => prerendered.has(p))
+      // Prerender the public, indexable routes, one page per guide fetched from
+      // the API, and the 404 page. Everything else (auth, admin, profile,
+      // predictions) stays pure SPA, rendered client-side.
+      async includedRoutes(paths, routes) {
+        const guidePaths = (await fetchGuideSlugs(env.VITE_API_URL)).map((slug) => `/guides/${slug}`)
+        sitemap = [...PRERENDERED_ROUTES, ...guidePaths.map((path) => ({ path, ...GUIDE_ENTRY }))]
+        rewrites = spaRewrites(paths, routes)
+        return [...PRERENDERED_ROUTES.map((r) => r.path), ...guidePaths, NOT_FOUND_PATH]
+      },
+      onFinished() {
+        const dist = resolve(__dirname, 'dist')
+        writeFileSync(resolve(dist, 'sitemap.xml'), renderSitemap(sitemap))
+        appendFileSync(resolve(dist, '_redirects'), ['', ...rewrites, ''].join('\n'))
       },
     },
   }

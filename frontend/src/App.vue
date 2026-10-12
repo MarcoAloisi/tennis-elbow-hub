@@ -71,7 +71,7 @@ onMounted(() => {
 
 const showAds = computed(() => {
   const noAdRoutes = ['/', '/about', '/privacy-policy', '/terms-of-service', '/contact']
-  return adsAllowed.value && !noAdRoutes.includes(route.path)
+  return adsAllowed.value && route.name !== 'NotFound' && !noAdRoutes.includes(route.path)
 })
 
 const showUserMenu = ref(false)

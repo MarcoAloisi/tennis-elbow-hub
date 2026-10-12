@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { onMounted, computed, ref } from 'vue'
-import DOMPurify from 'dompurify'
+import { onMounted, onServerPrefetch, computed, ref } from 'vue'
+import { useHead } from '@unhead/vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useGuidesStore } from '@/stores/guides'
+import { ensureSanitizer, sanitizeHtml } from '@/utils/sanitizeHtml'
 
 const route = useRoute()
 const router = useRouter()
@@ -11,8 +12,17 @@ const guidesStore = useGuidesStore()
 const isVideoPlaying = ref(false)
 const expandedImage = ref<string | null>(null)
 
+const slug = route.params.slug as string
+
+// Runs only while prerendering: bakes the article into the HTML.
+onServerPrefetch(async () => {
+  await ensureSanitizer()
+  await guidesStore.fetchGuide(slug)
+})
+
+// In the browser this refreshes the prerendered article in the background.
 onMounted(() => {
-  guidesStore.fetchGuide(route.params.slug as string)
+  guidesStore.fetchGuide(slug)
 })
 
 const guide = computed(() => guidesStore.currentGuide)
@@ -45,7 +55,19 @@ const formattedDate = computed(() => {
 })
 
 const sanitizedContent = computed(() => {
-  return DOMPurify.sanitize(guide.value?.content || '')
+  return sanitizeHtml(guide.value?.content || '')
+})
+
+const pageTitle = computed(() => `${guide.value?.title || 'Guide'} | Tennis Elbow Hub`)
+const pageDescription = computed(() => guide.value?.description || (route.meta.description as string))
+
+useHead({
+  title: pageTitle,
+  meta: [
+    { name: 'description', content: pageDescription },
+    { property: 'og:title', content: pageTitle },
+    { property: 'og:description', content: pageDescription },
+  ],
 })
 
 function goBack() {
