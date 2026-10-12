@@ -103,12 +103,15 @@ def step(self, match_id, current) -> MatchGameEvent | None:
 
 ## Frontend
 
-- One `MatchDetailModal.vue` mounted once in `LiveScoresView`. Props are `open`, a `MatchRef` (`matchId`, `player1`, `player2`, `isLive`) and an optional `refreshKey`.
-- Entry points are a real `<button>` inside `MatchCard` (hidden for doubles) and inside `ResultCard`, forwarded through `ResultsTab`. A button instead of a clickable card keeps keyboard access and avoids nested interactive controls.
-- The modal fetches `apiUrl('/api/scores/{id}/games')` on open and refetches when `refreshKey` changes. For a live match the view passes the live `score` string from the scores store. No timer, no extra WebSocket, and requests fire only when the match state moves. `record_tick` commits before the broadcast, so a changed score always has its row ready.
-- A failed refetch keeps the games already shown. The error state appears only when nothing has loaded.
-- Rendering groups games by set. Each row shows `Game N`, the game score, the server and the point trail (`0-0 → 15-0 → 30-15 → 40-15 → Game <winner>`), tiebreaks flagged. A caption says the point trail is best effort. The empty state reads "No game history recorded for this match."
-- Reuse the global `.modal-overlay` from `components.css` and `useModalAccessibility`. Scoped CSS covers only the game list.
+Revised 2026-10-12 after the first build: the plain list became a Flashscore-style point-by-point layout.
+
+- One `MatchDetailModal.vue` mounted once in `LiveScoresView`. Props are `open`, a `MatchRef` (`matchId`, `player1`, `player2`) and an optional `liveServer` (the matching entry from the scores store, absent for finished matches and once a match leaves the feed).
+- Entry points are a real `<button>` inside `MatchCard` (singles only) and inside `ResultCard`, forwarded through `ResultsTab`. A button instead of a clickable card keeps keyboard access and avoids nested interactive controls.
+- The modal fetches `apiUrl('/api/scores/{id}/games')` on open and refetches when `liveServer.score` changes. No timer and no extra WebSocket. `record_tick` commits before the broadcast, so a changed score always has its row ready. A failed refetch keeps the games already shown.
+- Layout. A scoreboard (players by set, set winner in bold, LIVE badge, ball on the live server). One tab per set labelled with its score. One block per game with the running score centred, a ball on the server's side, a BREAK pill on the winner's side when the receiver won (`server !== winner`, not a tiebreak), a TB pill for tiebreaks, and the point trail ending in a `Game 3-2` or `Break 3-2` tag. Set scores come from the last game row of each set, so a set joined mid-way still shows the right total.
+- Live matches add a "Current game" block from the card's `live_state` (games, server, current points). It shows only while the match is running. `nb_set` gives the sets needed to win (`max(1, nb_set)`), so a finished match that still sits in the feed shows no live set.
+- Pure helpers (`buildSets`, `isBreak`, `isMatchOver`) live in `frontend/src/utils/gameLog.ts` with vitest tests.
+- A caption says the point trail is best effort. The empty state reads "No game history recorded for this match." The global `.modal-overlay` and `useModalAccessibility` are reused.
 
 ## Error handling
 
