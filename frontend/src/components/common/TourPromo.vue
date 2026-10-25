@@ -11,15 +11,15 @@ defineProps<{
 
 <template>
   <a
-    class="tour-banner"
+    class="tour-promo"
     :href="href"
     target="_blank"
     rel="noopener"
     :aria-label="`${label} (opens in a new tab)`"
   >
     <video
-      class="tour-banner-media"
-      :poster="`/banners/${tour}-banner.jpg`"
+      class="tour-promo-media"
+      :poster="`/tours/${tour}.jpg`"
       :autoplay="!still"
       muted
       loop
@@ -27,15 +27,15 @@ defineProps<{
       preload="metadata"
       aria-hidden="true"
     >
-      <source :src="`/banners/${tour}-banner.webm`" type="video/webm" />
-      <source :src="`/banners/${tour}-banner.mp4`" type="video/mp4" />
+      <source :src="`/tours/${tour}.webm`" type="video/webm" />
+      <source :src="`/tours/${tour}.mp4`" type="video/mp4" />
     </video>
-    <span class="tour-banner-cta">{{ label }}</span>
+    <span class="tour-promo-cta">{{ label }}</span>
   </a>
 </template>
 
 <style scoped>
-.tour-banner {
+.tour-promo {
   position: sticky;
   top: 100px;
   display: block;
@@ -46,14 +46,14 @@ defineProps<{
   background: #0B1210;
 }
 
-.tour-banner-media {
+.tour-promo-media {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.tour-banner-cta {
+.tour-promo-cta {
   position: absolute;
   left: var(--space-3);
   right: var(--space-3);
@@ -69,12 +69,12 @@ defineProps<{
   transition: background var(--transition-fast);
 }
 
-.tour-banner:hover .tour-banner-cta,
-.tour-banner:focus-visible .tour-banner-cta {
+.tour-promo:hover .tour-promo-cta,
+.tour-promo:focus-visible .tour-promo-cta {
   background: rgba(255, 255, 255, 0.24);
 }
 
-.tour-banner:focus-visible {
+.tour-promo:focus-visible {
   outline: 2px solid var(--color-brand-primary);
   outline-offset: 2px;
 }

@@ -19,7 +19,7 @@ const vClickOutside = {
 import { useAuthStore } from './stores/auth'
 import { usePresenceStore } from './stores/presence'
 import ThemeToggle from './components/common/ThemeToggle.vue'
-import TourBanner from './components/common/TourBanner.vue'
+import TourPromo from './components/common/TourPromo.vue'
 import KofiWidget from './components/common/KofiWidget.vue'
 import CookieConsent from './components/common/CookieConsent.vue'
 import InstagramCTA from './components/common/InstagramCTA.vue'
@@ -203,8 +203,8 @@ async function submitNameChange() {
 
     <!-- Content Wrapper with Ads -->
     <div class="content-wrapper">
-      <aside v-if="showBanners" class="ad-rail left">
-        <TourBanner tour="xkt" href="https://xkt-tour.com/" label="Visit xkt-tour.com" />
+      <aside v-if="showBanners" class="side-rail left">
+        <TourPromo tour="xkt" href="https://xkt-tour.com/" label="Visit xkt-tour.com" />
       </aside>
 
       <!-- Main Content -->
@@ -212,8 +212,8 @@ async function submitNameChange() {
         <RouterView />
       </main>
 
-      <aside v-if="showBanners" class="ad-rail right">
-        <TourBanner tour="wtsl" href="https://www.wtslforum.com/" label="Visit wtslforum.com" />
+      <aside v-if="showBanners" class="side-rail right">
+        <TourPromo tour="wtsl" href="https://www.wtslforum.com/" label="Visit wtslforum.com" />
       </aside>
     </div>
     
@@ -518,7 +518,7 @@ async function submitNameChange() {
 }
 
 /* Ad Rails */
-.ad-rail {
+.side-rail {
   display: none; /* Hidden by default */
   width: 200px; /* Base width for rail */
   padding-top: var(--space-8);
@@ -526,16 +526,16 @@ async function submitNameChange() {
 
 /* Responsive Ads: Show only on large screens */
 @media (min-width: 1600px) {
-  .ad-rail {
+  .side-rail {
     display: flex;
   }
 
-  .ad-rail.left {
+  .side-rail.left {
     justify-content: flex-end;
     padding-right: var(--space-4);
   }
 
-  .ad-rail.right {
+  .side-rail.right {
     justify-content: flex-start;
     padding-left: var(--space-4);
   }
