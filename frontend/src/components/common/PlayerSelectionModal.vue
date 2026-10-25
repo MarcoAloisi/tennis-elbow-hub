@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Check } from 'lucide-vue-next'
 import { ref, computed, watch } from 'vue'
 
 interface Player {
@@ -66,7 +67,7 @@ const subtitle = computed(() => props.initialSelected.length > 0 ? 'Update the p
              <span class="count">{{ p.count }} matches</span>
           </div>
           <div class="checkbox">
-            <span v-if="selectedPlayers.includes(p.name)">✅</span>
+            <Check v-if="selectedPlayers.includes(p.name)" :size="16" aria-hidden="true" />
             <span v-else class="empty-box"></span>
           </div>
         </div>

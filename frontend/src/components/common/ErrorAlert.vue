@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { AlertTriangle, CheckCircle2, Info, XCircle } from 'lucide-vue-next'
 defineProps({
   type: {
     type: String,
@@ -18,16 +19,16 @@ defineProps({
 defineEmits(['dismiss'])
 
 const icons = {
-  error: '❌',
-  warning: '⚠️',
-  info: 'ℹ️',
-  success: '✅'
+  error: XCircle,
+  warning: AlertTriangle,
+  info: Info,
+  success: CheckCircle2
 }
 </script>
 
 <template>
   <div class="alert" :class="`alert-${type}`" role="alert">
-    <span class="alert-icon">{{ icons[type] }}</span>
+    <component :is="icons[type]" class="alert-icon" :size="18" aria-hidden="true" />
     <span class="alert-message">{{ message }}</span>
     <button 
       v-if="dismissible" 

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { CheckCircle2 } from 'lucide-vue-next'
 import { ref, computed } from 'vue'
 import { apiUrl } from '../config/api'
 
@@ -74,7 +75,7 @@ const resetForm = () => {
 
       <!-- Success State -->
       <div v-if="status === 'success'" class="success-card">
-        <div class="success-icon">✅</div>
+        <CheckCircle2 class="success-icon" :size="48" aria-hidden="true" />
         <h2>Message Sent!</h2>
         <p>Thanks for reaching out. We'll get back to you as soon as possible.</p>
         <button class="btn-primary" @click="resetForm">Send Another Message</button>

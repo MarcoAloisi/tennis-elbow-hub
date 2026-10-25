@@ -237,7 +237,7 @@ onMounted(fetchAll)
   margin: 0;
 }
 
-.title-icon { color: #6366f1; }
+.title-icon { color: #3b82f6; }
 
 .btn-refresh {
   display: flex;
@@ -288,7 +288,7 @@ onMounted(fetchAll)
 }
 
 .badge {
-  background: #6366f1;
+  background: #3b82f6;
   color: white;
   font-size: var(--font-size-xs);
   font-weight: 700;
@@ -344,8 +344,8 @@ onMounted(fetchAll)
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: rgba(99, 102, 241, 0.12);
-  color: #6366f1;
+  background: rgba(59, 130, 246, 0.12);
+  color: #3b82f6;
   flex-shrink: 0;
 }
 
@@ -359,7 +359,7 @@ onMounted(fetchAll)
 .display-name { font-weight: 600; color: var(--color-text-primary); font-size: var(--font-size-base); }
 
 .meta { font-size: var(--font-size-sm); color: var(--color-text-secondary); }
-.player-claim { color: #6366f1; }
+.player-claim { color: #3b82f6; }
 .date { color: var(--color-text-muted); font-size: var(--font-size-xs); }
 
 .card-actions { display: flex; gap: var(--space-2); flex-shrink: 0; }

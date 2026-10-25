@@ -402,7 +402,7 @@ const closeUploadModal = () => {
               
               <div class="drop-zone-content">
                 <div v-if="formModel.image" class="file-name-container">
-                  <span class="file-name">✅ {{ formModel.image.name }}</span>
+                  <span class="file-name">{{ formModel.image.name }}</span>
                   <button type="button" class="remove-image-btn" @click="removeImage" title="Remove image">✕</button>
                 </div>
                 <span v-else>
@@ -443,7 +443,7 @@ const closeUploadModal = () => {
 .gallery-view {
   max-width: 1200px;
   margin: 0 auto;
-  padding: var(--space-6) var(--space-4);
+  padding: 0;
 }
 
 .gallery-header {
@@ -457,7 +457,7 @@ const closeUploadModal = () => {
 
 .gallery-header h1 {
   font-family: var(--font-heading);
-  font-size: var(--font-size-3xl);
+  font-size: 2rem;
   color: var(--color-text-primary);
   margin: 0 0 var(--space-2) 0;
 }

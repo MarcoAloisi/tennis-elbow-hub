@@ -159,10 +159,10 @@ function formatDeadline(dt: string) {
                 </div>
                 <div class="banner-right">
                     <span v-if="isOpen && !deadlinePassed" class="deadline-badge">
-                        ⏱ Closes {{ formatDeadline(store.activeTournament.predictions_close_at) }}
+                        Closes {{ formatDeadline(store.activeTournament.predictions_close_at) }}
                     </span>
                     <span v-else-if="isPredictionsClosed" class="deadline-badge closed">
-                        🔒 Predictions closed
+                        Predictions closed
                     </span>
                     <span
                         class="status-badge"
@@ -179,22 +179,22 @@ function formatDeadline(dt: string) {
                     class="tab"
                     :class="{ active: activeTab === 'prediction' }"
                     @click="activeTab = 'prediction'"
-                >🎯 My Prediction</button>
+                >My prediction</button>
                 <button
                     class="tab"
                     :class="{ active: activeTab === 'draw' }"
                     @click="activeTab = 'draw'"
-                >🗺️ Tournament Draw</button>
+                >Tournament draw</button>
                 <button
                     class="tab"
                     :class="{ active: activeTab === 'leaderboard' }"
                     @click="activeTab = 'leaderboard'"
-                >🏆 Leaderboard <span class="count">{{ store.entries.length }}</span></button>
+                >Leaderboard <span class="count">{{ store.entries.length }}</span></button>
                 <button
                     class="tab"
                     :class="{ active: activeTab === 'all' }"
                     @click="activeTab = 'all'"
-                >📋 All Predictions</button>
+                >All predictions</button>
             </div>
 
             <!-- Tab content -->
@@ -263,7 +263,7 @@ function formatDeadline(dt: string) {
                         </div>
 
                         <div v-if="submitSuccess" class="success-notice">
-                            🎉 Prediction submitted! Check the leaderboard tab.
+                            Prediction submitted! Check the leaderboard tab.
                         </div>
                     </template>
                 </div>
@@ -343,7 +343,7 @@ function formatDeadline(dt: string) {
 
 <style scoped>
 .prediction-view { min-height: 100%; display: flex; flex-direction: column; gap: var(--space-6); }
-.page-header h1 { font-size: var(--font-size-3xl); font-weight: var(--font-weight-bold); color: var(--color-text-primary); margin-bottom: var(--space-2); }
+.page-header h1 { font-size: 2rem; font-weight: var(--font-weight-bold); color: var(--color-text-primary); margin-bottom: var(--space-2); }
 .intro { color: var(--color-text-secondary); font-size: var(--font-size-base); }
 
 /* Tournament picker */

@@ -362,7 +362,7 @@ code {
 }
 
 .ml-card {
-  background: linear-gradient(135deg, var(--color-bg-secondary) 0%, var(--color-accent-light) 100%);
+  background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   padding: var(--space-8);
@@ -909,11 +909,7 @@ code {
     align-items: center;
     text-align: center;
     padding: var(--space-10) var(--space-6);
-    background: linear-gradient(
-        135deg,
-        var(--color-bg-secondary) 0%,
-        rgba(59, 177, 67, 0.05) 100%
-    );
+    background: var(--color-bg-secondary);
     border-radius: var(--radius-lg);
 }
 
@@ -959,7 +955,7 @@ code {
     background: rgba(255, 255, 255, 0.2);
 }
 
-.tab-global .tab-icon-wrapper { color: #a855f7; }
+.tab-global .tab-icon-wrapper { color: #3b82f6; }
 .tab-archetype .tab-icon-wrapper { color: #f43f5e; }
 .tab-performance .tab-icon-wrapper { color: #3b82f6; }
 
@@ -991,9 +987,9 @@ code {
 }
 
 .mod-bot {
-    background: rgba(168, 85, 247, 0.1);
-    color: #a855f7;
-    box-shadow: 0 0 20px rgba(168, 85, 247, 0.2);
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
 }
 
 .tag {
@@ -1562,7 +1558,7 @@ code {
 }
 
 .ml-card {
-  background: linear-gradient(135deg, var(--color-bg-secondary) 0%, var(--color-accent-light) 100%);
+  background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   padding: var(--space-8);
@@ -2097,11 +2093,7 @@ code {
     align-items: center;
     text-align: center;
     padding: var(--space-10) var(--space-6);
-    background: linear-gradient(
-        135deg,
-        var(--color-bg-secondary) 0%,
-        rgba(59, 177, 67, 0.05) 100%
-    );
+    background: var(--color-bg-secondary);
     border-radius: var(--radius-lg);
 }
 

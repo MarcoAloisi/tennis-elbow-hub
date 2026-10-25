@@ -548,7 +548,7 @@ const hasActiveFilters = computed(() =>
 
 .page-header h1 {
   margin-bottom: var(--space-1);
-  font-size: 2.5rem;
+  font-size: 2rem;
   letter-spacing: -0.03em;
 }
 
@@ -640,19 +640,19 @@ const hasActiveFilters = computed(() =>
 }
 
 .btn-mapper {
-  color: #a78bfa;
+  color: #60a5fa;
   border-color: rgba(167, 139, 250, 0.3);
 }
 
 .btn-mapper:hover:not(:disabled) {
   background: rgba(167, 139, 250, 0.08);
-  color: #a78bfa;
+  color: #60a5fa;
   border-color: rgba(167, 139, 250, 0.5);
 }
 
 .btn-mapper.active {
   background: rgba(167, 139, 250, 0.12);
-  color: #a78bfa;
+  color: #60a5fa;
   border-color: rgba(167, 139, 250, 0.5);
 }
 
@@ -701,7 +701,7 @@ const hasActiveFilters = computed(() =>
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  color: #a78bfa;
+  color: #60a5fa;
   margin-bottom: var(--space-2);
 }
 
@@ -789,7 +789,7 @@ const hasActiveFilters = computed(() =>
 
 .mapper-input:focus {
   outline: none;
-  border-color: #a78bfa;
+  border-color: #60a5fa;
   box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.15);
 }
 
@@ -846,7 +846,7 @@ const hasActiveFilters = computed(() =>
   background: rgba(167, 139, 250, 0.15);
   border: 1px solid rgba(167, 139, 250, 0.4);
   border-radius: var(--radius-md);
-  color: #a78bfa;
+  color: #60a5fa;
   font-size: var(--font-size-sm);
   font-weight: 700;
   font-family: inherit;
@@ -925,7 +925,7 @@ const hasActiveFilters = computed(() =>
   flex: 1;
   padding: 4px 8px;
   background: var(--color-bg-secondary);
-  border: 1px solid #a78bfa;
+  border: 1px solid #60a5fa;
   border-radius: var(--radius-sm);
   color: var(--color-text-primary);
   font-size: 0.95rem;

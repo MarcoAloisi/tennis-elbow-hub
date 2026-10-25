@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterView, RouterLink, useRoute, useRouter } from 'vue-router'
 import { useHead } from '@unhead/vue'
 type ElWithHandler = HTMLElement & { _clickOutsideHandler?: (e: MouseEvent) => void }
 const vClickOutside = {
   mounted(el: ElWithHandler, binding: { value: () => void }) {
     el._clickOutsideHandler = (event: MouseEvent) => {
-      if (!el.contains(event.target as Node)) binding.value()
+      if (!event.composedPath().includes(el)) binding.value()
     }
     document.addEventListener('click', el._clickOutsideHandler)
   },
@@ -19,13 +19,12 @@ const vClickOutside = {
 import { useAuthStore } from './stores/auth'
 import { usePresenceStore } from './stores/presence'
 import ThemeToggle from './components/common/ThemeToggle.vue'
-import AdSidebar from './components/common/AdSidebar.vue'
+import TourBanner from './components/common/TourBanner.vue'
 import KofiWidget from './components/common/KofiWidget.vue'
 import CookieConsent from './components/common/CookieConsent.vue'
 import InstagramCTA from './components/common/InstagramCTA.vue'
 import { useModalAccessibility } from './composables/useModalAccessibility'
-import { useAdSense } from './composables/useAdSense'
-import { Activity, BarChart2, Globe, Shirt, Clapperboard, LogOut, Database, Shield, ChevronDown, User } from 'lucide-vue-next'
+import { LogOut, Database, Shield, ChevronDown, User, Menu, X } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
@@ -63,18 +62,19 @@ useHead({
 
 const authStore = useAuthStore()
 const presenceStore = usePresenceStore()
-const { adsAllowed } = useAdSense()
 
 onMounted(() => {
   authStore.initAuth()
 })
 
-const showAds = computed(() => {
-  const noAdRoutes = ['/', '/about', '/privacy-policy', '/terms-of-service', '/contact']
-  return adsAllowed.value && route.name !== 'NotFound' && !noAdRoutes.includes(route.path)
-})
+const showBanners = computed(
+  () => route.path === '/live' || route.path.startsWith('/online-tours'),
+)
 
 const showUserMenu = ref(false)
+const showMobileMenu = ref(false)
+
+watch(() => route.fullPath, () => { showMobileMenu.value = false })
 
 // Display name edit modal state
 const showNameModal = ref(false)
@@ -113,106 +113,98 @@ async function submitNameChange() {
     <header class="app-header">
       <div class="header-content">
         <RouterLink to="/" class="logo">
-          <img src="/logo_fav.svg" alt="Tennis Elbow Hub" width="40" height="40" class="logo-image" />
+          <img src="/logo_fav.svg" alt="" width="28" height="28" class="logo-image" />
           <span class="logo-text">Tennis Elbow Hub</span>
         </RouterLink>
-        
+
         <nav class="nav-links" aria-label="Main navigation">
-          <RouterLink to="/live" class="nav-link" active-class="active">
-            <div class="icon-wrapper icon-live">
-              <Activity class="nav-icon" :size="20" stroke-width="2.5" />
-            </div>
-            <span>Live Scores</span>
-          </RouterLink>
-          <div class="nav-divider"></div>
-          <RouterLink to="/analysis" class="nav-link" active-class="active">
-            <div class="icon-wrapper icon-analysis">
-              <BarChart2 class="nav-icon" :size="20" stroke-width="2.5" />
-            </div>
-            <span>Match Log Analysis</span>
-          </RouterLink>
-          <div class="nav-divider"></div>
-          <RouterLink to="/online-tours" class="nav-link" active-class="active">
-            <div class="icon-wrapper icon-tours">
-              <Globe class="nav-icon" :size="20" stroke-width="2.5" />
-            </div>
-            <span>Online Tours</span>
-          </RouterLink>
-          <div class="nav-divider"></div>
-          <RouterLink to="/outfit-gallery" class="nav-link" active-class="active">
-            <div class="icon-wrapper icon-gallery">
-              <Shirt class="nav-icon" :size="20" stroke-width="2.5" />
-            </div>
-            <span>Outfit Gallery</span>
-          </RouterLink>
-          <div class="nav-divider"></div>
-          <RouterLink to="/guides" class="nav-link" active-class="active">
-            <div class="icon-wrapper icon-guides">
-              <Clapperboard class="nav-icon" :size="20" stroke-width="2.5" />
-            </div>
-            <span>Guides</span>
-          </RouterLink>
-          <template v-if="authStore.isAdmin">
-            <div class="nav-divider"></div>
-            <RouterLink to="/admin/players" class="nav-link" active-class="active">
-              <div class="icon-wrapper icon-admin">
-                <Database class="nav-icon" :size="20" stroke-width="2.5" />
-              </div>
-              <span>Players DB</span>
-            </RouterLink>
-          </template>
+          <RouterLink to="/live" class="nav-link" active-class="active">Live scores</RouterLink>
+          <RouterLink to="/analysis" class="nav-link" active-class="active">Match analysis</RouterLink>
+          <RouterLink to="/online-tours" class="nav-link" active-class="active">Online tours</RouterLink>
+          <RouterLink to="/outfit-gallery" class="nav-link" active-class="active">Outfits</RouterLink>
+          <RouterLink to="/guides" class="nav-link" active-class="active">Guides</RouterLink>
+          <RouterLink v-if="authStore.isAdmin" to="/admin/players" class="nav-link" active-class="active">Players DB</RouterLink>
         </nav>
-        
+
         <div class="header-actions">
-          <div class="nav-divider"></div>
-          
           <div v-if="!authStore.loading" class="auth-buttons">
             <template v-if="authStore.user">
               <div class="user-menu-wrapper" v-click-outside="() => { showUserMenu = false }">
-                <span
-                  class="user-greeting is-clickable"
+                <button
+                  type="button"
+                  class="user-greeting"
+                  :aria-expanded="showUserMenu"
                   @click="showUserMenu = !showUserMenu"
-                  title="Account menu"
                 >
-                  Hi, {{ authStore.user?.user_metadata?.display_name || authStore.user?.email.split('@')[0] || 'Admin' }}
+                  {{ authStore.user?.user_metadata?.display_name || authStore.user?.email.split('@')[0] || 'Admin' }}
                   <ChevronDown :size="14" class="menu-chevron" :class="{ rotated: showUserMenu }" />
-                </span>
+                </button>
                 <div v-if="showUserMenu" class="user-dropdown" @click="showUserMenu = false">
                   <RouterLink to="/profile" class="dropdown-item">
-                    <User :size="15" /> My Profile
+                    <User :size="15" /> My profile
                   </RouterLink>
                   <template v-if="authStore.isAdmin">
                     <div class="dropdown-divider"></div>
-                    <RouterLink to="/admin/players" class="dropdown-item dropdown-item--admin">
+                    <RouterLink to="/admin/players" class="dropdown-item">
                       <Database :size="15" /> Players DB
                     </RouterLink>
-                    <RouterLink to="/admin/panel" class="dropdown-item dropdown-item--admin">
-                      <Shield :size="15" /> Admin Panel
+                    <RouterLink to="/admin/panel" class="dropdown-item">
+                      <Shield :size="15" /> Admin panel
                     </RouterLink>
-                    <RouterLink to="/admin/users" class="dropdown-item dropdown-item--admin">
-                      <User :size="15" /> Registered Users
+                    <RouterLink to="/admin/users" class="dropdown-item">
+                      <User :size="15" /> Registered users
                     </RouterLink>
                   </template>
                 </div>
               </div>
-              <button class="btn-logout" @click="authStore.logout()" title="Log Out" aria-label="Log out">
+              <button class="btn-logout" @click="authStore.logout()" title="Log out" aria-label="Log out">
                 <LogOut class="logout-icon" :size="18" />
               </button>
             </template>
             <template v-else>
-              <button class="btn-login" @click="router.push('/login')">Log In</button>
+              <button class="btn-login" @click="router.push('/login')">Log in</button>
             </template>
           </div>
           <ThemeToggle />
+
+          <div class="mobile-menu" v-click-outside="() => { showMobileMenu = false }">
+            <button
+              type="button"
+              class="mobile-menu-toggle"
+              :aria-expanded="showMobileMenu"
+              aria-controls="mobile-menu-panel"
+              :aria-label="showMobileMenu ? 'Close menu' : 'Open menu'"
+              @click="showMobileMenu = !showMobileMenu"
+            >
+              <X v-if="showMobileMenu" :size="20" />
+              <Menu v-else :size="20" />
+            </button>
+            <nav v-if="showMobileMenu" id="mobile-menu-panel" class="mobile-menu-panel" aria-label="Menu">
+              <RouterLink to="/live" class="mobile-link" active-class="active">Live scores</RouterLink>
+              <RouterLink to="/analysis" class="mobile-link" active-class="active">Match analysis</RouterLink>
+              <RouterLink to="/online-tours" class="mobile-link" active-class="active">Online tours</RouterLink>
+              <RouterLink to="/outfit-gallery" class="mobile-link" active-class="active">Outfits</RouterLink>
+              <RouterLink to="/guides" class="mobile-link" active-class="active">Guides</RouterLink>
+              <template v-if="authStore.user">
+                <RouterLink to="/profile" class="mobile-link" active-class="active">My profile</RouterLink>
+                <template v-if="authStore.isAdmin">
+                  <RouterLink to="/admin/players" class="mobile-link" active-class="active">Players DB</RouterLink>
+                  <RouterLink to="/admin/panel" class="mobile-link" active-class="active">Admin panel</RouterLink>
+                  <RouterLink to="/admin/users" class="mobile-link" active-class="active">Registered users</RouterLink>
+                </template>
+                <button type="button" class="mobile-link" @click="authStore.logout()">Log out</button>
+              </template>
+              <RouterLink v-else to="/login" class="mobile-link">Log in</RouterLink>
+            </nav>
+          </div>
         </div>
       </div>
     </header>
-    
+
     <!-- Content Wrapper with Ads -->
     <div class="content-wrapper">
-      <!-- Left Ad Rail -->
-      <aside v-if="showAds" class="ad-rail left">
-        <AdSidebar side="left" />
+      <aside v-if="showBanners" class="ad-rail left">
+        <TourBanner tour="xkt" href="https://xkt-tour.com/" label="Visit xkt-tour.com" />
       </aside>
 
       <!-- Main Content -->
@@ -220,9 +212,8 @@ async function submitNameChange() {
         <RouterView />
       </main>
 
-      <!-- Right Ad Rail -->
-      <aside v-if="showAds" class="ad-rail right">
-        <AdSidebar side="right" />
+      <aside v-if="showBanners" class="ad-rail right">
+        <TourBanner tour="wtsl" href="https://www.wtslforum.com/" label="Visit wtslforum.com" />
       </aside>
     </div>
     
@@ -258,16 +249,17 @@ async function submitNameChange() {
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Tennis Elbow Hub &copy; 2026 — Tennis Elbow 4 Live Scores & Analysis</p>
-      <p v-if="presenceStore.isConnected" class="footer-presence">{{ presenceStore.registeredCount }} members · {{ presenceStore.guestCount }} guests online</p>
-      <div class="footer-links">
-        <RouterLink to="/about">About</RouterLink>
-        <span class="footer-sep">·</span>
-        <RouterLink to="/privacy-policy">Privacy Policy</RouterLink>
-        <span class="footer-sep">·</span>
-        <RouterLink to="/terms-of-service">Terms of Service</RouterLink>
-        <span class="footer-sep">·</span>
-        <RouterLink to="/contact">Contact</RouterLink>
+      <div class="footer-inner">
+        <div class="footer-meta">
+          <p>Tennis Elbow Hub &copy; 2026. Live scores and match analysis for Tennis Elbow 4.</p>
+          <p v-if="presenceStore.isConnected" class="footer-presence">{{ presenceStore.registeredCount }} members and {{ presenceStore.guestCount }} guests online</p>
+        </div>
+        <div class="footer-links">
+          <RouterLink to="/about">About</RouterLink>
+          <RouterLink to="/privacy-policy">Privacy Policy</RouterLink>
+          <RouterLink to="/terms-of-service">Terms of Service</RouterLink>
+          <RouterLink to="/contact">Contact</RouterLink>
+        </div>
       </div>
     </footer>
   </div>
@@ -278,73 +270,65 @@ async function submitNameChange() {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .app-header {
   position: sticky;
   top: 0;
   z-index: var(--z-sticky);
-  background: var(--color-surface); /* Clear separation from body bg */
-  border-bottom: 1px solid var(--color-border);
-  box-shadow: var(--shadow-md); /* Added shadow for lift */
-  backdrop-filter: blur(10px);
+  background: var(--color-surface);
 }
 
 .header-content {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  width: 100%;
-  padding: var(--space-4) var(--space-8);
+  gap: var(--space-6);
+  max-width: 1248px;
+  height: 60px;
+  margin: 0 auto;
+  padding: 0 var(--space-6);
 }
 
 .logo {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
   flex-shrink: 0;
   white-space: nowrap;
 }
 
 .logo-image {
-  height: 40px;
+  height: 28px;
   width: auto;
 }
 
 .logo-text {
-  font-size: 1.5rem; /* Increased from XL to roughly 2XL */
-  font-weight: 800; /* Extra bolc */
-  color: var(--color-brand-primary);
-  /* background: var(--color-accent-gradient); Removed broken gradient */
+  font-family: var(--font-heading);
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary);
 }
 
 .nav-links {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
+  gap: 2px;
   flex: 1;
-}
-
-.nav-divider {
-  width: 2px; /* Thicker */
-  height: 24px;
-  background-color: var(--color-text-secondary); /* Darker/More visible */
-  opacity: 0.3; /* Slight transparency to blend but stay visible */
-  margin: 0 var(--space-2);
 }
 
 .nav-link {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  min-height: 44px;
+  padding: 0 var(--space-4);
+  min-height: 40px;
   border-radius: var(--radius-md);
   color: var(--color-text-secondary);
   font-weight: var(--font-weight-medium);
-  transition: all var(--transition-fast);
+  font-size: 0.9375rem;
+  white-space: nowrap;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
 }
 
 .nav-link:hover {
@@ -354,64 +338,7 @@ async function submitNameChange() {
 
 .nav-link.active {
   color: var(--color-text-primary);
-  background: var(--color-bg-hover);
-  box-shadow: inset 0 -2px 0 var(--color-brand-primary);
-}
-
-.icon-wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  transition: all var(--transition-fast);
-}
-
-.nav-link:hover .icon-wrapper {
-  transform: scale(1.1) rotate(5deg);
-}
-
-/* Icon specific colors (Neon logic) */
-.icon-live {
-  background: rgba(34, 197, 94, 0.15); /* Green */
-  color: #22c55e;
-}
-.icon-analysis {
-  background: rgba(168, 85, 247, 0.15); /* Purple */
-  color: #a855f7;
-}
-.icon-tours {
-  background: rgba(59, 130, 246, 0.15); /* Blue */
-  color: #3b82f6;
-}
-.icon-gallery {
-  background: rgba(236, 72, 153, 0.15); /* Pink */
-  color: #ec4899;
-}
-.icon-guides {
-  background: rgba(245, 158, 11, 0.15); /* Orange */
-  color: #f59e0b;
-}
-.icon-admin {
-  background: rgba(239, 68, 68, 0.15); /* Red */
-  color: #ef4444;
-}
-.icon-admin-panel {
-  background: rgba(99, 102, 241, 0.15); /* Indigo */
-  color: #6366f1;
-}
-
-[data-theme="dark"] .icon-live { color: #4ade80; }
-[data-theme="dark"] .icon-analysis { color: #c084fc; }
-[data-theme="dark"] .icon-tours { color: #60a5fa; }
-[data-theme="dark"] .icon-gallery { color: #f472b6; }
-[data-theme="dark"] .icon-guides { color: #fbbf24; }
-[data-theme="dark"] .icon-admin { color: #f87171; }
-[data-theme="dark"] .icon-admin-panel { color: #818cf8; }
-
-.nav-icon {
-  /* Removed global size here since controlled by wrapper */
+  background: var(--color-bg-secondary);
 }
 
 .header-actions {
@@ -419,9 +346,7 @@ async function submitNameChange() {
   align-items: center;
   gap: var(--space-2);
   flex-shrink: 0;
-  /* Match logo width so nav-links centers perfectly between both sides */
-  min-width: 190px;
-  justify-content: flex-end;
+  margin-left: auto;
 }
 
 .auth-buttons {
@@ -430,20 +355,21 @@ async function submitNameChange() {
 }
 
 .user-greeting {
-  font-family: var(--font-heading);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 40px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: 0.9375rem;
+  font-weight: var(--font-weight-medium);
   color: var(--color-text-secondary);
-  letter-spacing: 0.02em;
-  transition: color var(--transition-fast);
+  transition: background-color var(--transition-fast), color var(--transition-fast);
 }
 
-.user-greeting.is-clickable {
-  cursor: pointer;
-}
-
-.user-greeting.is-clickable:hover {
+.user-greeting:hover {
   color: var(--color-text-primary);
+  background: var(--color-bg-hover);
 }
 
 .user-menu-wrapper {
@@ -451,9 +377,6 @@ async function submitNameChange() {
 }
 
 .menu-chevron {
-  display: inline-block;
-  vertical-align: middle;
-  margin-left: 2px;
   transition: transform var(--transition-fast);
 }
 
@@ -465,26 +388,25 @@ async function submitNameChange() {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
-  min-width: 160px;
+  min-width: 180px;
+  padding: var(--space-1);
   z-index: var(--z-dropdown);
-  overflow: hidden;
 }
 
 .dropdown-item {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-3) var(--space-3);
+  border-radius: var(--radius-md);
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
   font-weight: 500;
-  text-decoration: none;
-  transition: background var(--transition-fast), color var(--transition-fast);
   white-space: nowrap;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
 }
 
 .dropdown-item:hover {
@@ -492,64 +414,92 @@ async function submitNameChange() {
   color: var(--color-text-primary);
 }
 
-.dropdown-item--admin {
-  color: #6366f1;
-}
-
-.dropdown-item--admin:hover {
-  background: rgba(99, 102, 241, 0.08);
-  color: #6366f1;
-}
-
 .dropdown-divider {
-  height: 1px;
-  background: var(--color-border);
-  margin: var(--space-1) 0;
+  height: var(--space-1);
 }
 
 .btn-login {
   display: flex;
   align-items: center;
+  min-height: 40px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--color-text-secondary);
-  border: none;
-  padding: var(--space-2) var(--space-4);
-  min-height: 44px;
-  border-radius: var(--radius-md);
-  font-family: var(--font-heading);
   font-weight: var(--font-weight-medium);
-  font-size: 1rem;
+  font-size: 0.9375rem;
   cursor: pointer;
-  transition: all var(--transition-fast);
   white-space: nowrap;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
 }
 
 .btn-login:hover {
   color: var(--color-text-primary);
+  background: var(--color-bg-hover);
 }
 
 .btn-logout {
   background: transparent;
   color: var(--color-text-secondary);
-  border: 1px solid transparent;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all var(--transition-base);
-}
-
-.logout-icon {
-  font-size: 1.1rem;
-  line-height: 1;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
 }
 
 .btn-logout:hover {
   background: var(--color-error-light);
   color: var(--color-error);
+}
+
+.mobile-menu {
+  display: none;
+  position: relative;
+}
+
+.mobile-menu-toggle {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+}
+
+.mobile-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: 240px;
+  display: grid;
+  padding: var(--space-1);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  z-index: var(--z-dropdown);
+}
+
+.mobile-link {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+  text-align: left;
+  cursor: pointer;
+}
+
+.mobile-link:hover,
+.mobile-link.active {
+  color: var(--color-text-primary);
+  background: var(--color-bg-tertiary);
 }
 
 /* Layout Grid */
@@ -562,8 +512,8 @@ async function submitNameChange() {
 
 .app-main {
   width: 100%;
-  max-width: 1200px;
-  padding: var(--space-8) var(--space-6);
+  max-width: 1248px;
+  padding: var(--space-6) var(--space-6) var(--space-16);
   /* Removed margin: 0 auto as flex handles centering/layout */
 }
 
@@ -592,14 +542,27 @@ async function submitNameChange() {
 }
 
 .app-footer {
-  text-align: center;
-  padding: var(--space-6);
+  margin-top: var(--space-8);
+  background: var(--color-surface);
+  padding: var(--space-8) var(--space-6) calc(var(--space-16) + var(--space-4));
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
-  background: var(--color-surface);
-  border-top: 1px solid var(--color-border);
   position: relative;
   z-index: var(--z-dropdown);
+}
+
+.footer-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2) var(--space-8);
+}
+
+.app-footer p {
+  color: inherit;
 }
 
 .footer-presence {
@@ -609,84 +572,44 @@ async function submitNameChange() {
 }
 
 .footer-links {
-  margin-top: var(--space-2);
   display: flex;
-  justify-content: center;
-  gap: var(--space-2);
+  flex-wrap: wrap;
+  gap: 0 var(--space-6);
 }
 
 .footer-links a {
-  padding: var(--space-2);
-  color: var(--color-text-muted);
-  text-decoration: none;
-  transition: color var(--transition-fast);
+  color: var(--color-text-secondary);
   min-height: 44px;
   display: inline-flex;
   align-items: center;
+  transition: color var(--transition-fast);
 }
 
 .footer-links a:hover {
-  color: var(--color-accent);
-}
-
-.footer-sep {
-  color: var(--color-text-muted);
-  opacity: 0.5;
+  color: var(--color-text-primary);
 }
 
 /* Responsive */
+@media (max-width: 900px) {
+  .nav-links,
+  .auth-buttons {
+    display: none;
+  }
+
+  .mobile-menu {
+    display: block;
+  }
+}
+
 @media (max-width: 768px) {
   .header-content {
-    flex-wrap: wrap;
-    gap: var(--space-4);
+    height: 56px;
+    padding: 0 var(--space-4);
+    gap: var(--space-3);
+  }
+
+  .app-main {
     padding: var(--space-4);
-  }
-  
-  .logo-text {
-    font-size: var(--font-size-lg);
-  }
-
-  /* Make nav scrollable horizontally */
-  .nav-links {
-    position: static;
-    transform: none;
-    order: 3;
-    width: 100%;
-    justify-content: flex-start; /* Align start to allow scroll from left */
-    overflow-x: auto;
-    white-space: nowrap;
-    padding-bottom: var(--space-2); /* Space for scrollbar if visible */
-    gap: var(--space-2);
-    /* Hide scrollbar for cleaner look */
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
-  }
-  
-  .nav-links::-webkit-scrollbar {
-    display: none;
-  }
-
-  /* Scroll fade indicator */
-  .nav-links::after {
-    content: '';
-    position: sticky;
-    right: 0;
-    flex-shrink: 0;
-    width: 32px;
-    background: linear-gradient(to right, transparent, var(--color-surface));
-    pointer-events: none;
-  }
-
-  /* Hide divider on mobile to save space */
-  .nav-divider {
-    display: none;
-  }
-
-  .nav-link {
-    background: var(--color-bg-secondary);
-    padding: var(--space-2) var(--space-3);
-    font-size: var(--font-size-sm);
-    flex-shrink: 0;
   }
 }
 
@@ -712,7 +635,6 @@ async function submitNameChange() {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
   display: flex;
   justify-content: center;
   align-items: center;

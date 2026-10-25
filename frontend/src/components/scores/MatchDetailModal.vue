@@ -166,6 +166,7 @@ function onTabKeydown(event: KeyboardEvent) {
               <tbody>
                 <tr v-for="side in sides" :key="side">
                   <th scope="row" class="score-name">
+                    <i class="marker" :class="`marker-${side}`" aria-hidden="true"></i>
                     <span class="score-name-text">{{ playerName(side) }}</span>
                     <span
                       v-if="liveServerSide === side"
@@ -212,6 +213,12 @@ function onTabKeydown(event: KeyboardEvent) {
             class="set-panel"
             :aria-labelledby="`match-detail-tab-${activeSet.setNumber}`"
           >
+            <div class="side-heads" aria-hidden="true">
+              <span class="side-head side-head-1"><i class="marker marker-1"></i>{{ playerName(1) }}</span>
+              <span class="side-head-mid">Games</span>
+              <span class="side-head side-head-2"><i class="marker marker-2"></i>{{ playerName(2) }}</span>
+            </div>
+
             <ol class="game-list">
               <li v-for="game in activeSet.games" :key="game.game_number" class="game">
                 <div class="game-head">
@@ -270,9 +277,8 @@ function onTabKeydown(event: KeyboardEvent) {
 
 <style scoped>
 .detail-modal {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
   width: 100%;
   max-width: 580px;
   max-height: 85vh;
@@ -287,7 +293,6 @@ function onTabKeydown(event: KeyboardEvent) {
   justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-4) var(--space-6);
-  border-bottom: 1px solid var(--color-border);
 }
 
 .detail-modal-header h2 {
@@ -300,20 +305,18 @@ function onTabKeydown(event: KeyboardEvent) {
 }
 
 .detail-vs {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   font-weight: 400;
-  text-transform: uppercase;
   color: var(--color-text-muted);
 }
 
 .modal-close {
   flex-shrink: 0;
   background: transparent;
-  border: 1px solid var(--color-border);
   color: var(--color-text-secondary);
   border-radius: var(--radius-md);
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -346,8 +349,7 @@ function onTabKeydown(event: KeyboardEvent) {
 
 .scoreboard {
   position: relative;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
+  background: var(--color-bg-tertiary);
   border-radius: var(--radius-lg);
   padding: var(--space-3) var(--space-4);
 }
@@ -363,8 +365,6 @@ function onTabKeydown(event: KeyboardEvent) {
   color: var(--color-brand-live);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
 }
 
 .live-dot {
@@ -429,6 +429,62 @@ function onTabKeydown(event: KeyboardEvent) {
   vertical-align: middle;
 }
 
+.marker {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: var(--space-2);
+  border-radius: 50%;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.marker-1 {
+  background: #60A5FA;
+}
+
+.marker-2 {
+  background: #2DD4BF;
+}
+
+.side-heads {
+  position: sticky;
+  top: calc(var(--space-4) * -1);
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--space-3);
+  padding: var(--space-3) 0 var(--space-2);
+  background: var(--color-bg-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.side-head {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.side-head-1 {
+  justify-content: flex-end;
+}
+
+.side-head-2 {
+  justify-content: flex-start;
+}
+
+.side-head-mid {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+}
+
 .score-cell {
   width: 2.25rem;
   text-align: center;
@@ -452,7 +508,6 @@ function onTabKeydown(event: KeyboardEvent) {
   height: 10px;
   border-radius: 50%;
   background: var(--color-accent);
-  box-shadow: 0 0 0 1px var(--color-surface);
 }
 
 .set-tabs {
@@ -494,10 +549,8 @@ function onTabKeydown(event: KeyboardEvent) {
 }
 
 .set-tab-name {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   white-space: nowrap;
 }
 
@@ -556,8 +609,6 @@ function onTabKeydown(event: KeyboardEvent) {
   border-radius: var(--radius-sm);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 .pill-break {
@@ -592,10 +643,8 @@ function onTabKeydown(event: KeyboardEvent) {
   justify-content: center;
   gap: var(--space-2);
   margin: 0 0 var(--space-2);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   color: var(--color-text-secondary);
 }
 

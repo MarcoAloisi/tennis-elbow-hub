@@ -219,7 +219,7 @@ function formatContent(text: string): string {
 }
 
 .ai-prompt-card {
-  background: linear-gradient(135deg, var(--color-bg-secondary) 0%, rgba(59, 177, 67, 0.08) 100%);
+  background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   padding: var(--space-8);

@@ -1,5 +1,6 @@
 <!-- frontend/src/components/predictions/ScoringLegend.vue -->
 <script setup lang="ts">
+import { Star } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import type { DrawData } from '@/stores/predictions'
 
@@ -38,7 +39,7 @@ const rounds = computed(() => {
     <div class="scoring-legend">
         <button class="legend-header" @click="expanded = !expanded">
             <span class="legend-title">
-                <span class="legend-icon">⭐</span>
+                <Star class="legend-icon" :size="16" aria-hidden="true" />
                 How scoring works
             </span>
             <span class="legend-toggle">{{ expanded ? '▾' : '▸' }}</span>

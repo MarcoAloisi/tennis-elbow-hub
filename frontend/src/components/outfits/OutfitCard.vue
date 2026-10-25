@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Copy, Pencil, Trash2, User } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useOutfitsStore } from '@/stores/outfits'
@@ -94,18 +95,18 @@ const formattedDate = computed(() => {
 
       <div class="meta-info">
         <span class="uploader">
-          <span class="icon">👤</span> {{ outfit.uploader_name }}
+          <User class="icon" :size="14" aria-hidden="true" /> {{ outfit.uploader_name }}
         </span>
         <span class="date">{{ formattedDate }}</span>
       </div>
       
       <div v-if="authStore.isAdmin" class="admin-actions">
         <button class="btn-edit" @click="emit('edit', outfit)" title="Edit Outfit">
-          ✏️ Edit
+          <Pencil :size="14" aria-hidden="true" /> Edit
         </button>
         <button class="btn-delete" @click="deleteOutfit" :disabled="isDeleting" title="Delete Outfit">
-          <span v-if="isDeleting">🗑️...</span>
-          <span v-else>🗑️ Delete</span>
+          <span v-if="isDeleting">Deleting...</span>
+          <span v-else><Trash2 :size="14" aria-hidden="true" /> Delete</span>
         </button>
       </div>
       
@@ -120,7 +121,7 @@ const formattedDate = computed(() => {
           :title="copied ? 'Copied!' : 'Copy to clipboard'"
         >
           <span v-if="copied">✓ Copied</span>
-          <span v-else>📋 Copy Code</span>
+          <span v-else><Copy :size="14" aria-hidden="true" /> Copy code</span>
         </button>
       </div>
     </div>

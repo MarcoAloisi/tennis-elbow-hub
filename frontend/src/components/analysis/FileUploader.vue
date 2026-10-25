@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { X } from 'lucide-vue-next'
+import { BarChart2, FileText, X } from 'lucide-vue-next'
 
 const props = defineProps({
   isLoading: {
@@ -142,7 +142,7 @@ const totalSize = () => {
       />
       
       <template v-if="selectedFiles.length === 0">
-        <div class="drop-icon">📄</div>
+        <FileText class="drop-icon" :size="40" aria-hidden="true" />
         <h4 class="drop-title">Drop your match logs here</h4>
         <p class="drop-subtitle">or click to browse</p>
         <p class="drop-hint">Supports multiple HTML files from Tennis Elbow 4</p>
@@ -156,7 +156,7 @@ const totalSize = () => {
           </div>
           <div class="files-list">
             <div v-for="(file, index) in selectedFiles" :key="file.name + file.size" class="file-item">
-              <div class="file-icon">📋</div>
+              <FileText class="file-icon" :size="20" aria-hidden="true" />
               <div class="file-info">
                 <span class="file-name">{{ file.name }}</span>
                 <span class="file-size">{{ formatSize(file.size) }}</span>
@@ -197,7 +197,7 @@ const totalSize = () => {
         @click="uploadFiles"
       >
         <span v-if="isLoading" class="spinner"></span>
-        <span v-else>📊</span>
+        <BarChart2 v-else :size="16" aria-hidden="true" />
         {{ isLoading ? 'Analyzing...' : `Analyze ${selectedFiles.length} File${selectedFiles.length > 1 ? 's' : ''}` }}
       </button>
     </div>

@@ -162,7 +162,7 @@ function openGuide() {
 }
 
 .type-badge.video {
-  background: rgba(99, 102, 241, 0.85);
+  background: rgba(59, 130, 246, 0.85);
   color: var(--color-text-inverse);
 }
 
@@ -231,7 +231,7 @@ function openGuide() {
 }
 
 .tag-pill.xkt {
-  background: rgba(99, 102, 241, 0.15);
+  background: rgba(59, 130, 246, 0.15);
   color: var(--color-tag-xkt);
 }
 

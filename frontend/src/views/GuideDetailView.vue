@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { AlertTriangle } from 'lucide-vue-next'
 import { onMounted, onServerPrefetch, computed, ref } from 'vue'
 import { useHead } from '@unhead/vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -100,7 +101,7 @@ function closeExpanded() {
 
     <!-- Error state -->
     <div v-else-if="guidesStore.error" class="error-container">
-      <span class="error-icon">⚠️</span>
+      <AlertTriangle class="error-icon" :size="32" aria-hidden="true" />
       <h2>Guide not found</h2>
       <p>{{ guidesStore.error }}</p>
       <button class="btn-back" @click="goBack">← Back to Guides</button>
@@ -145,7 +146,7 @@ function closeExpanded() {
             {{ tag }}
           </span>
           <span class="type-badge" :class="guide.guide_type">
-            {{ isVideo ? '📹 Video' : '📖 Article' }}
+            {{ isVideo ? 'Video' : 'Article' }}
           </span>
         </div>
         <h1 class="article-title">{{ guide.title }}</h1>

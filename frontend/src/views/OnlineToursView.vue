@@ -245,7 +245,7 @@ watch(currentTourKey, (newKey) => {
 }
 
 .page-header h1 {
-  font-size: var(--font-size-3xl);
+  font-size: 2rem;
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   margin-bottom: var(--space-3);
@@ -425,7 +425,7 @@ watch(currentTourKey, (newKey) => {
   gap: var(--space-5);
   padding: var(--space-7, 2rem) var(--space-6);
   padding-top: var(--space-8, 2.5rem);
-  background: linear-gradient(135deg, rgba(88, 101, 242, 0.15), rgba(88, 101, 242, 0.05));
+  background: rgba(88, 101, 242, 0.15);
   border: 2px solid rgba(88, 101, 242, 0.4);
   border-radius: var(--radius-lg);
   transition: all var(--transition-fast);
@@ -440,13 +440,13 @@ watch(currentTourKey, (newKey) => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(45deg, transparent, rgba(88, 101, 242, 0.1));
+  background: none;
   opacity: 0;
   transition: opacity var(--transition-fast);
 }
 
 .discord-card:hover {
-  background: linear-gradient(135deg, rgba(88, 101, 242, 0.25), rgba(88, 101, 242, 0.1));
+  background: rgba(88, 101, 242, 0.25);
   border-color: rgba(88, 101, 242, 0.7);
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(88, 101, 242, 0.2);
@@ -460,7 +460,7 @@ watch(currentTourKey, (newKey) => {
   position: absolute;
   top: 0;
   right: 0;
-  background: linear-gradient(135deg, #5865F2, #7289da);
+  background: #5865F2;
   color: var(--color-text-inverse);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
@@ -589,13 +589,13 @@ watch(currentTourKey, (newKey) => {
 }
 
 .tour-logs-highlight {
-  background: linear-gradient(135deg, rgba(59, 177, 67, 0.1), rgba(59, 177, 67, 0.05));
+  background: rgba(59, 177, 67, 0.1);
   border: 1px solid rgba(59, 177, 67, 0.3);
   padding: var(--space-5);
 }
 
 .tour-logs-highlight:hover {
-  background: linear-gradient(135deg, rgba(59, 177, 67, 0.2), rgba(59, 177, 67, 0.1));
+  background: rgba(59, 177, 67, 0.2);
   border-color: var(--color-brand-primary);
 }
 
@@ -642,14 +642,14 @@ watch(currentTourKey, (newKey) => {
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-4);
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(168, 85, 247, 0.1));
-  border: 1px solid rgba(99, 102, 241, 0.3);
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
   border-radius: var(--radius-lg);
   transition: all var(--transition-fast);
 }
 
 .guide-link:hover {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.2));
+  background: rgba(59, 130, 246, 0.2);
   border-color: var(--color-accent);
   transform: translateX(4px);
 }
@@ -661,9 +661,9 @@ watch(currentTourKey, (newKey) => {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  color: #a855f7;
-  background: rgba(168, 85, 247, 0.15);
-  box-shadow: 0 0 15px rgba(168, 85, 247, 0.2);
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.15);
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);
 }
 
 .guide-content {
@@ -694,17 +694,17 @@ watch(currentTourKey, (newKey) => {
 }
 
 .tour-predictions-highlight {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(245, 158, 11, 0.05));
+  background: rgba(245, 158, 11, 0.1);
   border: 1px solid rgba(245, 158, 11, 0.3);
   padding: var(--space-5);
 }
 .tour-predictions-highlight:hover {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.1));
+  background: rgba(245, 158, 11, 0.2);
   border-color: var(--color-warning);
 }
 .mod-predictions { color: var(--color-warning); background: rgba(245, 158, 11, 0.1); }
 
-.mod-build { color: #8b5cf6; background: rgba(139, 92, 246, 0.1); }
+.mod-build { color: #d6b84a; background: rgba(214, 184, 74, 0.1); }
 
 .wip-card {
   cursor: default;
@@ -725,9 +725,9 @@ watch(currentTourKey, (newKey) => {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #8b5cf6;
-  background: rgba(139, 92, 246, 0.12);
-  border: 1px solid rgba(139, 92, 246, 0.3);
+  color: #d6b84a;
+  background: rgba(214, 184, 74, 0.12);
+  border: 1px solid rgba(214, 184, 74, 0.3);
   border-radius: var(--radius-full);
   vertical-align: middle;
 }

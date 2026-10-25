@@ -10,7 +10,7 @@ const props = defineProps<{
 // Stat categories for display
 const statCategories = [
     {
-        title: '🎾 Serve Stats',
+        title: 'Serve stats',
         stats: [
             { key: 'firstServePct', label: '1st Serve %', format: 'pct', higher: true },
             { key: 'aces', label: 'Aces', format: 'decimal', higher: true },
@@ -21,14 +21,14 @@ const statCategories = [
         ]
     },
     {
-        title: '🎯 Serve Won',
+        title: 'Serve won',
         stats: [
             { key: 'firstServeWonPct', label: '1st Serve Won %', format: 'pct', higher: true },
             { key: 'secondServeWonPct', label: '2nd Serve Won %', format: 'pct', higher: true },
         ]
     },
     {
-        title: '💥 Points & Errors',
+        title: 'Points and errors',
         stats: [
             { key: 'winners', label: 'Winners', format: 'decimal', higher: true },
             { key: 'forcedErrors', label: 'Forced Errors', format: 'decimal', higher: false },
@@ -37,7 +37,7 @@ const statCategories = [
         ]
     },
     {
-        title: '🌐 Net & Return',
+        title: 'Net and return',
         stats: [
             { key: 'netPointsWonPct', label: 'Net Points Won %', format: 'pct', higher: true },
             { key: 'returnPointsWonPct', label: 'Return Points Won %', format: 'pct', higher: true },
@@ -45,7 +45,7 @@ const statCategories = [
         ]
     },
     {
-        title: '⚡ Break Points',
+        title: 'Break points',
         stats: [
             { key: 'breakPointsWonPct', label: 'Break Points Won %', format: 'pct', higher: true },
             { key: 'breaksPerGamePct', label: 'Breaks / Games %', format: 'pct', higher: true },
@@ -54,7 +54,7 @@ const statCategories = [
         ]
     },
     {
-        title: '📊 Rally Stats',
+        title: 'Rally stats',
         stats: [
             { key: 'shortRalliesWonPct', label: 'Short Rallies (<5)', format: 'pct', higher: true },
             { key: 'mediumRalliesWonPct', label: 'Medium Rallies (5-8)', format: 'pct', higher: true },
@@ -80,11 +80,8 @@ function formatValue(value, format) {
     return value.toFixed(1)
 }
 
-// Get medal
+// Rank label
 function getMedal(index) {
-    if (index === 0) return '🥇'
-    if (index === 1) return '🥈'
-    if (index === 2) return '🥉'
     return `#${index + 1}`
 }
 </script>

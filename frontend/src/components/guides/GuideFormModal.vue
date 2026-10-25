@@ -347,7 +347,7 @@ async function submitForm() {
               :class="{ active: formModel.guide_type === 'written' }"
               @click="formModel.guide_type = 'written'"
             >
-              📖 Written Article
+              Written article
             </button>
             <button
               type="button"
@@ -355,7 +355,7 @@ async function submitForm() {
               :class="{ active: formModel.guide_type === 'video' }"
               @click="formModel.guide_type = 'video'"
             >
-              📹 Video Guide
+              Video guide
             </button>
           </div>
         </div>
@@ -454,33 +454,33 @@ async function submitForm() {
           <Transition name="help-fade">
             <div v-if="showFormattingHelp" class="formatting-help">
               <div class="help-header">
-                <strong>✨ Formatting Guide</strong>
+                <strong>Formatting guide</strong>
                 <button type="button" class="help-close" @click="showFormattingHelp = false">✕</button>
               </div>
               <div class="help-grid">
                 <div class="help-section">
-                  <h4>📝 Text</h4>
+                  <h4>Text</h4>
                   <ul>
                     <li><strong>B</strong> — Bold</li>
                     <li><em>I</em> — Italic</li>
                     <li><strong>H2 / H3</strong> — Headings</li>
                     <li><strong>•</strong> / <strong>1.</strong> — Lists</li>
-                    <li><strong>❝</strong> — Blockquote</li>
+                    <li><strong>Quote button</strong> — Blockquote</li>
                     <li><strong>&lt;/&gt;</strong> — Code block</li>
                   </ul>
                 </div>
                 <div class="help-section">
-                  <h4>🖼️ Images</h4>
+                  <h4>Images</h4>
                   <ul>
                     <li><strong>Paste</strong> — Ctrl+V / Cmd+V a copied image</li>
                     <li><strong>Drag & Drop</strong> — Drop an image file into the editor</li>
-                    <li><strong>🖼️ button</strong> — Insert by URL</li>
+                    <li><strong>Image button</strong> — Insert by URL</li>
                   </ul>
                 </div>
                 <div class="help-section">
-                  <h4>🔗 Links</h4>
+                  <h4>Links</h4>
                   <ul>
-                    <li>Select text → click <strong>🔗</strong> → enter URL</li>
+                    <li>Select text → click <strong>Link</strong> → enter URL</li>
                   </ul>
                 </div>
               </div>
@@ -507,13 +507,13 @@ async function submitForm() {
               1.
             </button>
             <button type="button" @click="setLink" :class="{ 'is-active': editor?.isActive('link') }" title="Link">
-              🔗
+              Link
             </button>
             <button type="button" @click="addImage" title="Insert image by URL">
-              🖼️
+              Image
             </button>
             <button type="button" @click="editor?.chain().focus().toggleBlockquote().run()" :class="{ 'is-active': editor?.isActive('blockquote') }" title="Quote">
-              ❝
+              Quote
             </button>
             <button type="button" @click="editor?.chain().focus().toggleCodeBlock().run()" :class="{ 'is-active': editor?.isActive('codeBlock') }" title="Code Block">
               &lt;/&gt;
@@ -551,7 +551,7 @@ async function submitForm() {
             />
             <div class="drop-zone-content">
               <div v-if="thumbnailFile" class="file-name-container">
-                <span class="file-name">✅ {{ thumbnailFile.name }}</span>
+                <span class="file-name">{{ thumbnailFile.name }}</span>
                 <button type="button" class="remove-image-btn" @click="removeThumbnail" title="Remove image">✕</button>
               </div>
               <span v-else>

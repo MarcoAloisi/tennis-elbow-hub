@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import ResultsTab from '@/components/scores/ResultsTab.vue'
 import { useScoresStore, type MatchRef } from '@/stores/scores'
@@ -23,6 +23,19 @@ const showDetails = ref(false)
 const detailsName = ref('')
 const detailsElo = ref(0)
 const detail = ref<MatchRef | null>(null)
+const MOD_LABELS: Record<string, string> = { xkt: 'XKT', wtsl: 'WTSL' }
+
+const liveCount = computed(() => store.servers.filter((s) => s.is_started).length)
+const waitingCount = computed(() => store.servers.length - liveCount.value)
+const modTotals = computed(() =>
+  Object.entries(store.stats)
+    .filter(([name]) => name !== 'date')
+    .map(([name, m]) => ({
+      name: MOD_LABELS[name] ?? name.charAt(0).toUpperCase() + name.slice(1),
+      total: (m as any).total,
+      title: `1 set ${(m as any).bo1}, Bo3 ${(m as any).bo3}, Bo5 ${(m as any).bo5}`,
+    })),
+)
 const showSignupPrompt = ref(false)
 const signupPlayerName = ref('')
 
@@ -85,95 +98,37 @@ function onSelectPlayer(payload: { name: string; elo: number }) {
 
 <template>
   <div class="live-scores-view">
-    <!-- Header -->
     <div class="page-header">
       <div class="header-content">
-        <h1>Live Scores</h1>
-        <p>Real-time Tennis Elbow 4 match scores</p>
-        <p class="intro-text">
-          Matches update live over WebSocket — no refresh needed. Each card shows ELO, surface, score, and duration.
-          The win probability bar updates as the match plays out; click it for head-to-head form, or click a
-          player's name for their full match history.
+        <h1>Live scores</h1>
+        <p class="finding">
+          <span><i class="dot" :class="{ on: isConnected }"></i><b>{{ liveCount }}</b> {{ liveCount === 1 ? 'match' : 'matches' }} live now</span>
+          <span v-if="waitingCount > 0"><b>{{ waitingCount }}</b> waiting for an opponent</span>
+          <span><b>{{ store.dailyStatsTotal }}</b> finished today</span>
+          <span v-for="mod in modTotals" :key="mod.name" class="mod-total" :title="mod.title">
+            {{ mod.name }} <b>{{ mod.total }}</b>
+          </span>
+          <span class="conn">{{ isConnected ? 'Connected' : 'Connecting…' }}</span>
         </p>
       </div>
-      
-      <div class="header-right">
-        <div class="stats-group">
-          <!-- Today's Finished Matches -->
-          <div class="single-stat-card">
-              <span class="stat-value">{{ store.dailyStatsTotal }}</span>
-              <span class="stat-label">Today</span>
-          </div>
 
-          <!-- Mod Breakdown Loop (skip 'date' key) -->
-          <template v-for="(modStats, modName) in store.stats" :key="modName">
-            <template v-if="modName !== 'date'">
-              <div class="stat-divider"></div>
-              
-              <div class="stats-breakdown mod-group">
-                <div class="mod-header">
-                  <span class="mod-name">{{ modName }}</span>
-                  <span class="mod-total">{{ modStats.total }}</span>
-                </div>
-                
-                <div class="format-grid">
-                  <div class="mini-stat-row" title="1 set">
-                    <span class="mini-label-row">1s</span>
-                    <span class="mini-val-row">{{ modStats.bo1 }}</span>
-                  </div>
-                  <div class="mini-stat-row" title="Best of 3">
-                    <span class="mini-label-row">Bo3</span>
-                    <span class="mini-val-row">{{ modStats.bo3 }}</span>
-                  </div>
-                  <div class="mini-stat-row" title="Best of 5">
-                    <span class="mini-label-row">Bo5</span>
-                    <span class="mini-val-row">{{ modStats.bo5 }}</span>
-                  </div>
-                </div>
-              </div>
-            </template>
-          </template>
-        </div>
-        
-        <div class="connection-pill" :class="{ connected: isConnected }">
-          <span class="status-dot"></span>
-          {{ isConnected ? 'Online' : 'Connecting...' }}
+      <div class="tools">
+        <div class="seg" role="group" aria-label="View">
+          <button type="button" :aria-pressed="activeTab === 'te4'" @click="activeTab = 'te4'">TE4 live</button>
+          <button type="button" :aria-pressed="activeTab === 'results'" @click="activeTab = 'results'">Results</button>
         </div>
       </div>
-    </div>
-
-
-    <!-- Tab switcher -->
-    <div class="tab-switcher">
-      <button
-        class="tab-btn"
-        :class="{ active: activeTab === 'te4' }"
-        @click="activeTab = 'te4'"
-      >
-        TE4 Live
-      </button>
-      <button
-        class="tab-btn"
-        :class="{ active: activeTab === 'results' }"
-        @click="activeTab = 'results'"
-      >
-        Results
-      </button>
     </div>
 
     <!-- TE4 content -->
     <template v-if="activeTab === 'te4'">
-      <!-- Monthly Stats & Top Players Section -->
-      <MonthlyOverview />
-
-      <!-- Filters -->
       <FilterBar
+        class="filters"
         :filters="store.filters"
         @update:filters="handleFilterUpdate"
         @refresh="handleRefresh"
       />
 
-      <!-- Error state -->
       <ErrorAlert
         v-if="store.error || wsError"
         :message="store.error || wsError"
@@ -181,19 +136,17 @@ function onSelectPlayer(payload: { name: string; elo: number }) {
         @dismiss="store.clearError()"
       />
 
-      <!-- Loading state -->
       <div v-if="store.isLoading && !store.servers.length" class="loading-state">
         <LoadingSpinner size="lg" />
         <p>Loading matches...</p>
       </div>
 
-      <!-- Empty state -->
       <div
         v-else-if="!store.filteredServers.length"
         class="empty-state"
       >
         <div class="empty-icon-wrapper">
-          <Activity class="empty-icon" :size="64" :stroke-width="1.5" />
+          <Activity class="empty-icon" :size="40" :stroke-width="1.5" />
         </div>
         <h3>No matches found</h3>
         <p v-if="store.filters.searchQuery || store.filters.surface || store.filters.startedOnly">
@@ -204,7 +157,6 @@ function onSelectPlayer(payload: { name: string; elo: number }) {
         </p>
       </div>
 
-      <!-- Match grid -->
       <div v-else class="matches-grid">
         <MatchCard
           v-for="server in store.filteredServers"
@@ -215,13 +167,22 @@ function onSelectPlayer(payload: { name: string; elo: number }) {
         />
       </div>
 
-      <!-- Last updated -->
       <div v-if="store.lastUpdated" class="last-updated">
-        Last updated: {{ formatTime(store.lastUpdated) }}
+        Last updated {{ formatTime(store.lastUpdated) }}
       </div>
+
+      <MonthlyOverview />
+
+      <section class="how-it-works" aria-labelledby="how-heading">
+        <h2 id="how-heading">How the board works</h2>
+        <p class="intro-text">
+          Matches update live over WebSocket, so the page needs no refresh. Each card shows ELO, surface, score, and duration.
+          The win probability bar updates as the match plays out. Click it for head-to-head form, or click a
+          player's name for their full match history.
+        </p>
+      </section>
     </template>
 
-    <!-- Results content -->
     <ResultsTab v-else @open-match-detail="detail = $event" />
 
     <PlayerDetailsModal
@@ -267,183 +228,73 @@ function onSelectPlayer(payload: { name: string; elo: number }) {
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: var(--space-10);
-  padding-top: var(--space-8);
-}
-
-.header-right {
-  margin-top: var(--space-1);
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-6);
+  margin-bottom: var(--space-4);
 }
 
 .header-content h1 {
-  margin-bottom: var(--space-3); /* Increased spacing below title */
-  font-size: 3rem; /* Increased for impact */
-  letter-spacing: -0.03em;
+  font-size: 2rem;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
 }
 
-.header-content .intro-text {
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-  max-width: 65ch;
+.finding {
   margin-top: var(--space-2);
-  line-height: 1.6;
-}
-
-.header-right {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-6);
-}
-
-.stats-group {
-  display: flex;
-  gap: var(--space-4);
-}
-
-.single-stat-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-2) var(--space-4);
-  min-width: 80px;
-  box-shadow: var(--shadow-sm);
-}
-
-.stat-divider {
-  width: 1px;
-  background-color: var(--color-border);
-  height: 48px; /* Increased height for content */
-  align-self: center;
-}
-
-.stats-breakdown {
-  display: flex;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-2) var(--space-3);
-  box-shadow: var(--shadow-sm);
-  gap: var(--space-3);
-}
-
-.mod-group {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-1);
-}
-
-.mod-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  width: 100%;
-  border-bottom: 1px solid var(--color-border);
-  padding-bottom: 2px;
-  margin-bottom: 2px;
-}
-
-.mod-name {
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
+  gap: var(--space-1) var(--space-4);
+  font-size: var(--font-size-base);
   color: var(--color-text-secondary);
 }
 
-.mod-total {
-  font-size: 0.8rem;
-  font-weight: var(--font-weight-bold);
-  color: var(--color-brand-live);
-  margin-left: auto;
+.finding {
+  font-variant-numeric: tabular-nums;
 }
 
-.format-grid {
-  display: flex;
-  gap: var(--space-3);
-}
-
-.mini-stat-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-}
-
-.mini-label-row {
-  font-size: 0.6rem;
-  color: var(--color-text-muted);
-}
-
-.mini-val-row {
-  font-size: 0.75rem;
-  font-weight: 600;
+.finding b {
   color: var(--color-text-primary);
-}
-
-.stat-value {
-  font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-brand-live); /* Use Live color for numbers */
-  line-height: 1.2;
-}
-
-.stat-label {
-  font-size: 0.7rem;
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
-.connection-pill {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  background: var(--color-bg-secondary);
-  border-radius: var(--radius-full);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-  border: 1px solid transparent;
-}
-
-.connection-pill.connected {
-  background: var(--color-success-light);
-  color: var(--color-success);
-  border-color: var(--color-success-border);
-}
-
-.status-dot {
+.dot {
+  display: inline-block;
   width: 8px;
   height: 8px;
+  margin-right: var(--space-2);
   border-radius: 50%;
   background: var(--color-text-muted);
 }
 
-.connection-pill.connected .status-dot {
-  background: var(--color-success);
-  box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
-  animation: pulse-green 2s infinite;
+.dot.on {
+  background: var(--color-brand-live);
+  animation: live-pulse 2s ease-out infinite;
 }
 
-@keyframes pulse-green {
-  0% {
-    transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
-  }
-  
-  70% {
-    transform: scale(1);
-    box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
-  }
-  
-  100% {
-    transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
-  }
+@keyframes live-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55); }
+  70%, 100% { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+}
+
+.mod-total,
+.conn {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.mod-total b {
+  color: var(--color-text-secondary);
+}
+
+.conn {
+  margin-left: auto;
+}
+
+.filters {
+  margin-bottom: var(--space-4);
 }
 
 .loading-state {
@@ -461,7 +312,7 @@ function onSelectPlayer(payload: { name: string; elo: number }) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: var(--space-16);
+  padding: var(--space-16) var(--space-4);
   text-align: center;
 }
 
@@ -475,119 +326,69 @@ function onSelectPlayer(payload: { name: string; elo: number }) {
 }
 
 .empty-icon-wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 96px;
-  height: 96px;
-  border-radius: 50%;
-  background: rgba(34, 197, 94, 0.1);
-  color: #22c55e;
-  margin-bottom: var(--space-6);
-  box-shadow: 0 0 20px rgba(34, 197, 94, 0.2);
-}
-
-[data-theme="dark"] .empty-icon-wrapper {
-  color: var(--color-brand-primary);
-  background: rgba(212, 255, 95, 0.1);
-  box-shadow: 0 0 20px rgba(212, 255, 95, 0.15);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-4);
 }
 
 .matches-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   gap: var(--space-4);
 }
 
 .last-updated {
-  margin-top: var(--space-6);
-  text-align: center;
+  margin-top: var(--space-4);
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
 }
 
-
-@media (max-width: 768px) {
-  .page-header {
-    flex-direction: column;
-    gap: var(--space-6);
-  }
-
-  .header-content {
-    text-align: center;
-  }
-  
-  .header-right {
-    width: 100%;
-    flex-direction: column;
-    gap: var(--space-4);
-  }
-
-  .stats-group {
-    flex-direction: column;
-    width: 100%;
-    gap: var(--space-3);
-  }
-
-  .stat-divider {
-    display: none;
-  }
-
-  .single-stat-card,
-  .stats-breakdown {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .single-stat-card {
-    flex-direction: row;
-    gap: var(--space-4);
-    justify-content: center;
-  }
-  
-  .matches-grid {
-    grid-template-columns: 1fr;
-  }
+.how-it-works {
+  margin-top: var(--space-12);
 }
 
-/* Tab switcher */
-.tab-switcher {
-  display: flex;
-  gap: var(--space-2);
-  margin-bottom: var(--space-6);
-  border-bottom: 1px solid var(--color-border);
-  padding-bottom: var(--space-2);
+.how-it-works h2 {
+  font-size: 1.25rem;
+  letter-spacing: -0.01em;
 }
 
-.tab-btn {
-  padding: var(--space-2) var(--space-5);
-  border-radius: var(--radius-full);
-  font-family: var(--font-heading);
-  font-weight: 700;
+.intro-text {
+  margin-top: var(--space-3);
+  max-width: 65ch;
+  color: var(--color-text-secondary);
+}
+
+.tools .seg {
+  display: inline-flex;
+  background: var(--color-bg-card);
+  border-radius: var(--radius-md);
+  padding: 3px;
+}
+
+.tools .seg button {
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 var(--space-4);
+  border-radius: 6px;
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
   font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-  background: transparent;
-  border: 1px solid transparent;
   cursor: pointer;
-  transition: all var(--transition-base);
-  letter-spacing: 0.02em;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
 }
 
-.tab-btn:hover {
+.tools .seg button:hover {
   color: var(--color-text-primary);
-  border-color: var(--color-border);
 }
 
-.tab-btn.active {
-  color: var(--color-brand-primary);
-  border-color: var(--color-brand-primary);
-  background: var(--color-bg-secondary);
+.tools .seg button[aria-pressed="true"] {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
 }
 
 .signup-prompt-card {
   padding: var(--space-6);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
   border-radius: var(--radius-lg);
 }
 
@@ -600,4 +401,17 @@ function onSelectPlayer(payload: { name: string; elo: number }) {
   text-decoration: none;
 }
 
+@media (max-width: 768px) {
+  .header-content h1 {
+    font-size: 1.75rem;
+  }
+
+  .matches-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .conn {
+    margin-left: 0;
+  }
+}
 </style>

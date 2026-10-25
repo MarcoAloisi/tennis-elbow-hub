@@ -265,7 +265,7 @@ function onFormSaved() {
 .guides-view {
   max-width: 1200px;
   margin: 0 auto;
-  padding: var(--space-6) var(--space-4);
+  padding: 0;
   min-height: 100%;
 }
 
@@ -281,7 +281,7 @@ function onFormSaved() {
 
 .guides-header h1 {
   font-family: var(--font-heading);
-  font-size: var(--font-size-3xl);
+  font-size: 2rem;
   color: var(--color-text-primary);
   margin: 0 0 var(--space-2) 0;
 }

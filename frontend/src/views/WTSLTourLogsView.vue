@@ -413,7 +413,7 @@ function onPlayerInputBlur() {
 
 .tab-data .tab-icon-wrapper { color: #60a5fa; }
 .tab-leaders .tab-icon-wrapper { color: #f59e0b; }
-.tab-playerstats .tab-icon-wrapper { color: #a855f7; }
+.tab-playerstats .tab-icon-wrapper { color: #3b82f6; }
 
 .subtab-btn.active .tab-icon-wrapper {
     color: currentColor; 

@@ -326,14 +326,14 @@ const matchCount = computed(() => {
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background: rgba(168, 85, 247, 0.1); 
-  color: #a855f7;
+  background: rgba(59, 130, 246, 0.1); 
+  color: #3b82f6;
   margin: 0 auto var(--space-4);
-  box-shadow: 0 0 20px rgba(168, 85, 247, 0.2);
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
 }
 
 [data-theme="dark"] .empty-icon-wrapper {
-  color: #c084fc;
+  color: #60a5fa;
   background: rgba(192, 132, 252, 0.1);
   box-shadow: 0 0 20px rgba(192, 132, 252, 0.15);
 }

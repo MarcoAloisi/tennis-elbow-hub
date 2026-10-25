@@ -40,7 +40,6 @@ const rejectNonEssential = () => {
     <div v-if="visible" class="cookie-consent" role="dialog" aria-label="Cookie consent">
       <div class="consent-content">
         <div class="consent-text">
-          <span class="consent-icon">🍪</span>
           <p>
             We use cookies for analytics (Google Analytics) and advertising (Google AdSense)
             to improve your experience. See our
@@ -49,10 +48,10 @@ const rejectNonEssential = () => {
         </div>
         <div class="consent-actions">
           <button class="btn-reject" @click="rejectNonEssential">
-            Essential Only
+            Essential only
           </button>
           <button class="btn-accept" @click="acceptAll">
-            Accept All
+            Accept all
           </button>
         </div>
       </div>
@@ -67,10 +66,8 @@ const rejectNonEssential = () => {
   left: 0;
   right: 0;
   z-index: 9999;
-  background: var(--color-surface);
-  border-top: 1px solid var(--color-border);
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
-  padding: var(--space-4) var(--space-6);
+  background: var(--color-bg-secondary);
+  padding: var(--space-3) var(--space-6);
 }
 
 .consent-content {
@@ -83,15 +80,7 @@ const rejectNonEssential = () => {
 }
 
 .consent-text {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
   flex: 1;
-}
-
-.consent-icon {
-  font-size: 1.5rem;
-  flex-shrink: 0;
 }
 
 .consent-text p {
@@ -102,84 +91,80 @@ const rejectNonEssential = () => {
 }
 
 .consent-text a {
-  color: var(--color-accent);
-  text-decoration: none;
-  font-weight: var(--font-weight-medium);
-}
-
-.consent-text a:hover {
+  color: var(--color-text-primary);
   text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .consent-actions {
   display: flex;
-  gap: var(--space-3);
+  gap: var(--space-2);
   flex-shrink: 0;
 }
 
 .btn-accept,
 .btn-reject {
-  padding: var(--space-2) var(--space-5);
+  min-height: 40px;
+  padding: 0 var(--space-5);
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: all var(--transition-fast);
-  border: none;
+  transition: background-color var(--transition-fast), color var(--transition-fast), transform 100ms;
   white-space: nowrap;
 }
 
+.btn-accept:active,
+.btn-reject:active {
+  transform: translateY(1px);
+}
+
 .btn-accept {
-  background: var(--color-accent);
+  background: var(--color-brand-primary);
   color: var(--color-text-inverse);
 }
 
 .btn-accept:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+  filter: brightness(1.08);
 }
 
 .btn-reject {
-  background: var(--color-bg-secondary);
-  color: var(--color-text-secondary);
-  border: 1px solid var(--color-border);
-}
-
-.btn-reject:hover {
-  background: var(--color-bg-hover);
+  background: var(--color-bg-tertiary);
   color: var(--color-text-primary);
 }
 
-/* Slide animation */
-.consent-slide-enter-active {
-  transition: transform 0.4s ease-out, opacity 0.3s ease-out;
+.btn-reject:hover {
+  filter: brightness(1.15);
 }
+
+.consent-slide-enter-active,
 .consent-slide-leave-active {
-  transition: transform 0.3s ease-in, opacity 0.2s ease-in;
+  transition: transform 0.3s cubic-bezier(0.23, 1, 0.32, 1), opacity 0.2s;
 }
-.consent-slide-enter-from {
-  transform: translateY(100%);
-  opacity: 0;
-}
+.consent-slide-enter-from,
 .consent-slide-leave-to {
   transform: translateY(100%);
   opacity: 0;
 }
 
 @media (max-width: 768px) {
-  .consent-content {
-    flex-direction: column;
-    text-align: center;
-    gap: var(--space-4);
+  .cookie-consent {
+    padding: var(--space-3) var(--space-4);
   }
 
-  .consent-text {
+  .consent-content {
     flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
   }
 
   .consent-actions {
     width: 100%;
-    justify-content: center;
+  }
+
+  .btn-accept,
+  .btn-reject {
+    flex: 1;
   }
 }
 </style>

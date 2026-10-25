@@ -27,6 +27,7 @@ body {
     color: var(--color-text-primary);
     background-color: var(--color-bg-primary);
     min-height: 100vh;
+    min-height: 100dvh;
     transition: background-color var(--transition-base), color var(--transition-base);
 }
 
@@ -44,7 +45,7 @@ h6 {
 }
 
 h1 {
-    font-size: var(--font-size-4xl);
+    font-size: 2rem;
     letter-spacing: -0.02em;
 }
 
@@ -154,7 +155,6 @@ td {
 th {
     font-weight: var(--font-weight-medium);
     color: var(--color-text-secondary);
-    background-color: var(--color-bg-secondary);
 }
 
 /* === Scrollbar === */
@@ -178,7 +178,7 @@ th {
 
 /* === Selection === */
 ::selection {
-    background: var(--color-accent);
+    background: var(--color-brand-primary);
     color: var(--color-text-inverse);
 }
 

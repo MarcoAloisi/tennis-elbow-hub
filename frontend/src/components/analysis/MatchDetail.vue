@@ -371,7 +371,7 @@ code {
 }
 
 .ml-card {
-  background: linear-gradient(135deg, var(--color-bg-secondary) 0%, var(--color-accent-light) 100%);
+  background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   padding: var(--space-8);
@@ -906,11 +906,7 @@ code {
     align-items: center;
     text-align: center;
     padding: var(--space-10) var(--space-6);
-    background: linear-gradient(
-        135deg,
-        var(--color-bg-secondary) 0%,
-        rgba(59, 177, 67, 0.05) 100%
-    );
+    background: var(--color-bg-secondary);
     border-radius: var(--radius-lg);
 }
 

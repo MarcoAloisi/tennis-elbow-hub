@@ -1,83 +1,111 @@
 <script setup lang="ts">
-import { RouterLink } from 'vue-router'
+import { computed, onMounted } from 'vue'
+import { RouterLink, useRouter } from 'vue-router'
+import MatchCard from '@/components/scores/MatchCard.vue'
+import { useScoresStore } from '@/stores/scores'
+
+const router = useRouter()
+const store = useScoresStore()
+
+// Fetched on the client only, so the prerendered page ships without a stale board.
+onMounted(() => {
+  store.fetchScores()
+})
+
+const liveMatches = computed(() => store.servers.filter((s) => s.is_started))
+const heroMatches = computed(() => liveMatches.value.slice(0, 3))
+
+function openLive() {
+  router.push('/live')
+}
 </script>
 
 <template>
   <div class="about-view">
     <!-- Hero Section -->
     <section class="hero">
-      <div class="hero-badge">🎾 Community Hub</div>
-      <h1>Tennis Elbow Hub</h1>
-      <p class="hero-subtitle">
-        The ultimate companion for <strong>Tennis Elbow 4</strong> players.
-        Track live matches, analyze your performance, follow online tours,
-        and improve your game — all in one place.
-      </p>
-      <div class="hero-actions">
-        <RouterLink to="/live" class="btn btn-primary">
-          <span>📡</span> View Live Scores
-        </RouterLink>
-        <RouterLink to="/analysis" class="btn btn-secondary">
-          <span>📊</span> Analyze Matches
-        </RouterLink>
+      <div class="hero-copy">
+        <h1>Tennis Elbow 4 online matches, live.</h1>
+        <p class="hero-subtitle">
+          Follow the XKT, WTSL and Vanilla boards as they play, upload your match logs for a
+          full breakdown, and find the tour that fits your game.
+        </p>
+        <div class="hero-actions">
+          <RouterLink to="/live" class="btn btn-primary">Open live scores</RouterLink>
+          <RouterLink to="/analysis" class="btn btn-quiet">Analyze a match log</RouterLink>
+        </div>
+      </div>
+
+      <div v-if="heroMatches.length" class="hero-board" aria-label="Matches playing now">
+        <MatchCard
+          v-for="server in heroMatches"
+          :key="server.match_id"
+          :server="server"
+          @select-player="openLive"
+          @open-match-detail="openLive"
+        />
       </div>
     </section>
 
-    <!-- Features Section -->
-    <section class="features">
-      <h2>What You Can Do</h2>
-      <div class="features-grid">
-        <div class="feature-card">
-          <div class="feature-icon">📡</div>
-          <h3>Live Scores</h3>
-          <p>
-            Watch Tennis Elbow 4 online matches unfold in real-time. Our WebSocket-powered
-            scoreboard updates every few seconds, showing player names, ELO ratings,
-            match scores, surfaces, and tournament details. Filter by surface, search
-            by player name, track the most active players, view daily matches played,
-            and see today's match statistics at a glance.
-          </p>
-          <RouterLink to="/live" class="feature-link">Go to Live Scores →</RouterLink>
-        </div>
-
-        <div class="feature-card">
-          <div class="feature-icon">📊</div>
-          <h3>Match Log Analysis</h3>
-          <p>
-            Upload your Tennis Elbow 4 HTML match logs and unlock AI-powered match
-            review analysis with detailed statistical breakdowns. Explore historical
-            data charts, view radar charts comparing power, serve accuracy, net game,
-            consistency, pressure points, and stamina. Analyze head-to-head records,
-            filter by opponent, surface, or tournament, and track your improvement
-            over time with win rate calculations.
-          </p>
-          <RouterLink to="/analysis" class="feature-link">Go to Match Analysis →</RouterLink>
-        </div>
-
-        <div class="feature-card">
-          <div class="feature-icon">🌐</div>
-          <h3>Online Tours</h3>
-          <p>
-            Stay informed about the competitive Tennis Elbow 4 scene. Browse online
-            tours like XKT and WTSL, check tournament schedules, read the rules,
-            and connect with the community. Upload WTSL tour CSV files to see player
-            rankings, statistical leaders, and complete match histories.
-          </p>
-          <RouterLink to="/online-tours" class="feature-link">Go to Online Tours →</RouterLink>
-        </div>
-
-        <div class="feature-card">
-          <div class="feature-icon">🎬</div>
-          <h3>Guides</h3>
-          <p>
-            Learn the ropes with curated video tutorials for Tennis Elbow 4 online play.
-            Whether you're a newcomer looking to set up your first online match or an
-            experienced player looking for advanced strategies, our guide collection
-            has something for every level.
-          </p>
-          <RouterLink to="/guides" class="feature-link">Go to Guides →</RouterLink>
-        </div>
-      </div>
+    <!-- Destinations -->
+    <section class="destinations" aria-labelledby="destinations-heading">
+      <h2 id="destinations-heading">What you can do here</h2>
+      <ul>
+        <li>
+          <RouterLink to="/live" class="destination">
+            <span class="destination-title">Live scores</span>
+            <span class="destination-text">
+              Watch Tennis Elbow 4 online matches unfold in real time. The WebSocket-powered
+              scoreboard updates every few seconds, showing player names, ELO ratings, match
+              scores, surfaces, and tournament details. Filter by surface, search by player
+              name, track the most active players, view daily matches played, and see
+              today's match statistics at a glance.
+            </span>
+            <span class="destination-meta">
+              <template v-if="liveMatches.length"><i class="dot"></i>{{ liveMatches.length }} playing now</template>
+              <template v-else>Open board</template>
+            </span>
+          </RouterLink>
+        </li>
+        <li>
+          <RouterLink to="/analysis" class="destination">
+            <span class="destination-title">Match log analysis</span>
+            <span class="destination-text">
+              Upload your Tennis Elbow 4 HTML match logs and get AI-powered match review
+              analysis with detailed statistical breakdowns. Explore historical data charts,
+              view radar charts comparing power, serve accuracy, net game, consistency,
+              pressure points, and stamina. Analyze head-to-head records, filter by opponent,
+              surface, or tournament, and track your improvement over time with win rate
+              calculations.
+            </span>
+            <span class="destination-meta">Upload logs</span>
+          </RouterLink>
+        </li>
+        <li>
+          <RouterLink to="/online-tours" class="destination">
+            <span class="destination-title">Online tours</span>
+            <span class="destination-text">
+              Stay informed about the competitive Tennis Elbow 4 scene. Browse online tours
+              like XKT and WTSL, check tournament schedules, read the rules, and connect with
+              the community. Upload WTSL tour CSV files to see player rankings, statistical
+              leaders, and complete match histories.
+            </span>
+            <span class="destination-meta">XKT and WTSL</span>
+          </RouterLink>
+        </li>
+        <li>
+          <RouterLink to="/guides" class="destination">
+            <span class="destination-title">Guides</span>
+            <span class="destination-text">
+              Learn the ropes with curated video tutorials for Tennis Elbow 4 online play.
+              Whether you're a newcomer setting up your first online match or an experienced
+              player looking for advanced strategies, the guide collection has something for
+              every level.
+            </span>
+            <span class="destination-meta">Read and watch</span>
+          </RouterLink>
+        </li>
+      </ul>
     </section>
 
     <!-- What is TE4 Section -->
@@ -162,7 +190,7 @@ import { RouterLink } from 'vue-router'
             outfits and managing a profile, and signing up stores your display name and
             email address. Uploaded match logs are read by our server to produce your
             statistics and are not saved to our database. We use Google Analytics for
-            anonymous usage statistics and Google AdSense for advertising — see our
+            anonymous usage statistics and Google AdSense for advertising. See our
             <RouterLink to="/privacy-policy">Privacy Policy</RouterLink> for details.
           </p>
         </details>
@@ -174,172 +202,185 @@ import { RouterLink } from 'vue-router'
 <style scoped>
 .about-view {
   min-height: 100%;
-  max-width: 900px;
-  margin: 0 auto;
 }
 
 /* Hero */
 .hero {
-  text-align: center;
-  padding: var(--space-12) 0 var(--space-16);
-  border-bottom: 1px solid var(--color-border);
-  margin-bottom: var(--space-12);
+  display: grid;
+  grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+  gap: var(--space-12);
+  align-items: center;
+  padding: var(--space-12) 0 var(--space-6);
 }
 
-.hero-badge {
-  display: inline-block;
-  padding: var(--space-2) var(--space-4);
-  background: var(--color-accent-light);
-  color: var(--color-accent);
-  border-radius: var(--radius-full);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  margin-bottom: var(--space-6);
-  letter-spacing: 0.02em;
+.hero:not(:has(.hero-board)) {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .hero h1 {
-  font-size: 3.5rem;
+  font-size: clamp(2rem, 4.4vw, 3.75rem);
   font-weight: 800;
-  color: var(--color-text-primary);
-  margin-bottom: var(--space-4);
-  letter-spacing: -0.03em;
-  line-height: 1.1;
+  line-height: 1;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
 }
 
 .hero-subtitle {
-  font-size: var(--font-size-lg);
+  font-size: 1.1875rem;
   color: var(--color-text-secondary);
-  max-width: 600px;
-  margin: 0 auto var(--space-8);
-  line-height: 1.7;
+  max-width: 44ch;
+  margin-top: var(--space-5);
+  line-height: 1.55;
 }
 
 .hero-actions {
   display: flex;
-  gap: var(--space-4);
-  justify-content: center;
+  gap: var(--space-3);
   flex-wrap: wrap;
+  align-items: center;
+  margin-top: var(--space-8);
+}
+
+.hero-board {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.hero-board > :nth-child(2) {
+  margin-left: var(--space-8);
+}
+
+.hero-board > :nth-child(3) {
+  margin-left: var(--space-16);
 }
 
 .btn {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-6);
-  border-radius: var(--radius-lg);
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 var(--space-6);
+  border-radius: var(--radius-md);
   font-weight: var(--font-weight-semibold);
   font-size: var(--font-size-base);
-  transition: all var(--transition-fast);
-  text-decoration: none;
+  transition: background-color var(--transition-fast), color var(--transition-fast), filter var(--transition-fast), transform 100ms;
+}
+
+.btn:active {
+  transform: translateY(1px);
 }
 
 .btn-primary {
-  background: var(--color-accent);
+  background: var(--color-brand-primary);
   color: var(--color-text-inverse);
-  box-shadow: 0 2px 8px var(--color-accent-light);
 }
 
 .btn-primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 16px var(--color-accent-light);
+  color: var(--color-text-inverse);
+  filter: brightness(1.08);
+}
+
+.btn-quiet {
+  color: var(--color-text-secondary);
+}
+
+.btn-quiet:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
 }
 
 .btn-secondary {
   background: var(--color-bg-secondary);
   color: var(--color-text-primary);
-  border: 1px solid var(--color-border);
 }
 
 .btn-secondary:hover {
-  background: var(--color-bg-hover);
-  transform: translateY(-1px);
+  background: var(--color-bg-tertiary);
 }
 
-/* Features */
-.features {
-  margin-bottom: var(--space-12);
+/* Destinations */
+.destinations {
+  margin-top: var(--space-16);
 }
 
-.features h2 {
-  font-size: var(--font-size-2xl);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-primary);
-  margin-bottom: var(--space-8);
-  text-align: center;
+.destinations h2,
+.about-te4 h2,
+.faq h2 {
+  font-size: 1.5rem;
+  letter-spacing: -0.01em;
 }
 
-.features-grid {
+.destinations ul {
+  margin-top: var(--space-4);
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  gap: 2px;
+}
+
+.destination {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) auto;
   gap: var(--space-6);
+  align-items: start;
+  padding: var(--space-5) var(--space-4);
+  border-radius: var(--radius-lg);
+  color: inherit;
+  transition: background-color var(--transition-fast);
 }
 
-.feature-card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  padding: var(--space-6);
-  transition: all var(--transition-fast);
+.destination:hover {
+  background: var(--color-bg-card);
+  color: inherit;
 }
 
-.feature-card:hover {
-  border-color: var(--color-accent);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  transform: translateY(-2px);
-}
-
-.feature-icon {
-  font-size: 2rem;
-  margin-bottom: var(--space-3);
-}
-
-.feature-card h3 {
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
+.destination-title {
+  font-family: var(--font-heading);
+  font-size: 1.375rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   color: var(--color-text-primary);
-  margin-bottom: var(--space-3);
 }
 
-.feature-card p {
-  font-size: var(--font-size-sm);
+.destination-text {
+  max-width: 62ch;
   color: var(--color-text-secondary);
-  line-height: 1.7;
-  margin-bottom: var(--space-4);
 }
 
-.feature-link {
+.destination-meta {
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-top: 4px;
+  white-space: nowrap;
   font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-accent);
-  text-decoration: none;
-  transition: color var(--transition-fast);
+  color: var(--color-text-muted);
 }
 
-.feature-link:hover {
-  text-decoration: underline;
+.destination:hover .destination-meta {
+  color: var(--color-brand-primary);
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-brand-live);
 }
 
 /* TE4 Section */
 .about-te4 {
-  margin-bottom: var(--space-12);
-  padding: var(--space-8);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
+  margin-top: var(--space-16);
 }
 
-.about-te4 h2 {
-  font-size: var(--font-size-2xl);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-primary);
-  margin-bottom: var(--space-6);
+.te4-content {
+  margin-top: var(--space-4);
+  max-width: 68ch;
 }
 
 .te4-content p {
   font-size: var(--font-size-base);
   color: var(--color-text-secondary);
-  line-height: 1.8;
+  line-height: 1.75;
   margin-bottom: var(--space-4);
 }
 
@@ -347,39 +388,32 @@ import { RouterLink } from 'vue-router'
   margin-bottom: 0;
 }
 
-/* FAQ */
-.faq {
-  margin-bottom: var(--space-12);
+.te4-content strong {
+  color: var(--color-text-primary);
+  font-weight: 600;
 }
 
-.faq h2 {
-  font-size: var(--font-size-2xl);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-primary);
-  margin-bottom: var(--space-8);
-  text-align: center;
+/* FAQ */
+.faq {
+  margin-top: var(--space-16);
 }
 
 .faq-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
+  display: grid;
+  gap: 2px;
+  margin-top: var(--space-4);
+  max-width: 820px;
 }
 
 .faq-item {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  background: var(--color-bg-card);
   border-radius: var(--radius-lg);
   overflow: hidden;
-  transition: border-color var(--transition-fast);
-}
-
-.faq-item[open] {
-  border-color: var(--color-accent);
 }
 
 .faq-item summary {
-  padding: var(--space-4) var(--space-6);
+  padding: var(--space-4) var(--space-5);
+  min-height: 56px;
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   cursor: pointer;
@@ -387,11 +421,12 @@ import { RouterLink } from 'vue-router'
   display: flex;
   align-items: center;
   justify-content: space-between;
-  transition: background var(--transition-fast);
+  gap: var(--space-4);
+  transition: background-color var(--transition-fast);
 }
 
 .faq-item summary:hover {
-  background: var(--color-bg-hover);
+  background: var(--color-bg-secondary);
 }
 
 .faq-item summary::after {
@@ -399,11 +434,10 @@ import { RouterLink } from 'vue-router'
   font-size: 1.25rem;
   font-weight: 300;
   color: var(--color-text-muted);
-  transition: transform var(--transition-fast);
 }
 
 .faq-item[open] summary::after {
-  content: '−';
+  content: '\2212';
 }
 
 .faq-item summary::-webkit-details-marker {
@@ -411,35 +445,46 @@ import { RouterLink } from 'vue-router'
 }
 
 .faq-item p {
-  padding: 0 var(--space-6) var(--space-5);
-  font-size: var(--font-size-sm);
+  padding: 0 var(--space-5) var(--space-5);
+  max-width: 70ch;
+  font-size: var(--font-size-base);
   color: var(--color-text-secondary);
-  line-height: 1.8;
+  line-height: 1.7;
 }
 
 .faq-item a {
-  color: var(--color-accent);
-  text-decoration: none;
-  font-weight: var(--font-weight-medium);
-}
-
-.faq-item a:hover {
+  color: var(--color-text-primary);
   text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 /* Responsive */
-@media (max-width: 768px) {
-  .hero h1 {
-    font-size: 2.5rem;
-  }
-
-  .features-grid {
+@media (max-width: 1024px) {
+  .hero {
     grid-template-columns: 1fr;
+    gap: var(--space-8);
+    padding-top: var(--space-6);
   }
 
-  .hero-actions {
-    flex-direction: column;
-    align-items: center;
+  .hero-board > :nth-child(n) {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .destination {
+    grid-template-columns: 1fr auto;
+    gap: var(--space-2) var(--space-4);
+    padding: var(--space-4) var(--space-2);
+  }
+
+  .destination-text {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .hero-actions .btn-primary {
+    flex: 1 1 100%;
   }
 }
 </style>

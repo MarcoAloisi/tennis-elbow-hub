@@ -110,9 +110,9 @@ const top3 = computed(() => props.entries.slice(0, 3))
 .silver-text { color: #94A3B8; background: rgba(148,163,184,0.08); }
 .bronze-text { color: #b45309; background: rgba(180,83,9,0.08); }
 .podium-block { border-radius: 6px 6px 0 0; display: flex; align-items: center; justify-content: center; font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); color: var(--color-bg-primary); }
-.gold-block { width: 84px; height: 90px; background: linear-gradient(160deg, var(--color-warning), #92400e); }
-.silver-block { width: 74px; height: 68px; background: linear-gradient(160deg, #94A3B8, #475569); }
-.bronze-block { width: 74px; height: 52px; background: linear-gradient(160deg, #b45309, #292524); }
+.gold-block { width: 84px; height: 90px; background: var(--color-warning); }
+.silver-block { width: 74px; height: 68px; background: #94A3B8; }
+.bronze-block { width: 74px; height: 52px; background: #b45309; }
 
 /* Live badge */
 .live-badge {

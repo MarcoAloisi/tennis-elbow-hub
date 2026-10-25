@@ -96,7 +96,7 @@ async function saveQualifierMap() {
 
 <template>
     <div class="admin-panel">
-        <div class="admin-header">⚙ Admin Panel</div>
+        <div class="admin-header">Admin panel</div>
 
         <div v-if="adminError" class="admin-error">{{ adminError }}</div>
 
@@ -125,7 +125,7 @@ async function saveQualifierMap() {
                     :disabled="adminLoading"
                     @click="run(() => store.refreshResults(tournament!.id))"
                 >
-                    🔄 Refresh Results
+                    Refresh results
                 </button>
                 <button
                     v-if="tournament.status === 'open'"
@@ -133,7 +133,7 @@ async function saveQualifierMap() {
                     :disabled="adminLoading"
                     @click="run(() => store.closePredictions(tournament!.id))"
                 >
-                    🔒 Close Predictions
+                    Close predictions
                 </button>
                 <button
                     v-if="tournament.status !== 'finished'"
@@ -141,14 +141,14 @@ async function saveQualifierMap() {
                     :disabled="adminLoading"
                     @click="run(() => store.markFinished(tournament!.id))"
                 >
-                    🏁 Mark Finished
+                    Mark finished
                 </button>
                 <button
                     class="admin-btn danger"
                     :disabled="adminLoading"
                     @click="run(() => store.deleteTournament(tournament!.id))"
                 >
-                    🗑 Delete Tournament
+                    Delete tournament
                 </button>
             </div>
         </div>

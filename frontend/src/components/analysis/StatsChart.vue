@@ -310,14 +310,14 @@ const barOptions: any = {
           :class="{ active: selectedChart === 'radar' }"
           @click="selectedChart = 'radar'"
         >
-          📊 Radar
+          Radar
         </button>
         <button 
           class="chart-btn"
           :class="{ active: selectedChart === 'bar' }"
           @click="selectedChart = 'bar'"
         >
-          📈 Bar
+          Bar
         </button>
       </div>
     </div>

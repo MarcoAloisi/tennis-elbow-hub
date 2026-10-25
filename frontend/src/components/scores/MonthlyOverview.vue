@@ -7,8 +7,8 @@ const store = useScoresStore()
 const activeTimeRange = ref('this_month')
 
 const timeRanges = [
-  { id: 'this_month', label: 'This Month' },
-  { id: 'last_month', label: 'Last Month' },
+  { id: 'this_month', label: 'This month' },
+  { id: 'last_month', label: 'Last month' },
   { id: 'year', label: 'Yearly' }
 ]
 
@@ -21,240 +21,261 @@ function handleTabChange(rangeId: string) {
 // Map the range ID to the title text
 function getRangeTitle(rangeId: string) {
   const match = timeRanges.find(tr => tr.id === rangeId)
-  return match ? match.label : 'This Month'
+  return match ? match.label : 'This month'
 }
 </script>
 
 <template>
-  <div class="monthly-overview-section">
-    <!-- Time Range Tabs -->
-    <div class="time-range-tabs">
-      <button 
-        v-for="range in timeRanges" 
-        :key="range.id"
-        class="time-tab-btn"
-        :class="{ active: activeTimeRange === range.id }"
-        @click="handleTabChange(range.id)"
-      >
-        {{ range.label }}
-      </button>
+  <section class="monthly-overview-section" aria-labelledby="activity-heading">
+    <div class="overview-head">
+      <h2 id="activity-heading">{{ getRangeTitle(activeTimeRange) }}</h2>
+      <div class="seg" role="group" aria-label="Period">
+        <button
+          v-for="range in timeRanges"
+          :key="range.id"
+          type="button"
+          :aria-pressed="activeTimeRange === range.id"
+          @click="handleTabChange(range.id)"
+        >
+          {{ range.label }}
+        </button>
+      </div>
     </div>
 
-    <!-- Top 5 Players Card -->
-    <div class="overview-card top-players-card">
-      <div class="card-header">
-        <h3>Most active players ({{ getRangeTitle(activeTimeRange) }})</h3>
-      </div>
-      <div class="card-content">
+    <div class="overview-grid">
+      <div class="overview-card top-players-card">
+        <div class="card-header">
+          <h3>Most active players</h3>
+          <span class="card-note">By matches played</span>
+        </div>
         <table class="simple-table" v-if="store.topPlayers.length > 0">
           <thead>
             <tr>
-              <th>Rank</th>
-              <th>Player</th>
-              <th class="text-right">ELO</th>
-              <th class="text-right">Matches</th>
+              <th scope="col">Player</th>
+              <th scope="col" class="num-col">ELO</th>
+              <th scope="col" class="num-col">Matches</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="(player, index) in store.topPlayers" :key="player.name">
-              <td class="rank-col">#{{ index + 1 }}</td>
-              <td class="player-col">{{ player.name }}</td>
-              <td class="text-right font-bold elo-highlight">{{ player.latest_elo || '-' }}</td>
-              <td class="matches-col text-right">{{ player.matches }}</td>
+              <td class="player-col"><span class="rank-col">{{ index + 1 }}</span>{{ player.name }}</td>
+              <td class="num-col">{{ player.latest_elo || '-' }}</td>
+              <td class="num-col key-col">{{ player.matches }}</td>
             </tr>
           </tbody>
         </table>
-        <p v-else class="text-muted">No players found.</p>
+        <p v-else class="empty-note">No players found.</p>
       </div>
-    </div>
 
-    <!-- Monthly Averages Card -->
-    <div class="overview-card monthly-averages-card">
-      <div class="card-header">
-        <h3>Daily Averages ({{ getRangeTitle(activeTimeRange) }})</h3>
-        <span class="days-recorded">Based on {{ store.monthlyStats.days_recorded }} days</span>
-      </div>
-      <div class="card-content">
-        <table class="simple-table averages-table" v-if="store.monthlyStats.days_recorded > 0">
+      <div class="overview-card monthly-averages-card">
+        <div class="card-header">
+          <h3>Daily averages by mod</h3>
+          <span class="card-note" v-if="store.monthlyStats.days_recorded > 0">Based on {{ store.monthlyStats.days_recorded }} days</span>
+        </div>
+        <table class="simple-table" v-if="store.monthlyStats.days_recorded > 0">
           <thead>
             <tr>
-              <th>Mod</th>
-              <th class="text-center">Total/Day</th>
-              <th class="text-center">BO1</th>
-              <th class="text-center">BO3</th>
-              <th class="text-center">BO5</th>
+              <th scope="col">Mod</th>
+              <th scope="col" class="num-col">Per day</th>
+              <th scope="col" class="num-col">1 set</th>
+              <th scope="col" class="num-col">Bo3</th>
+              <th scope="col" class="num-col">Bo5</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td class="mod-name">XKT</td>
-              <td class="text-center font-bold">{{ store.monthlyStats.xkt.avg_total }}</td>
-              <td class="text-center">{{ store.monthlyStats.xkt.avg_bo1 }}</td>
-              <td class="text-center">{{ store.monthlyStats.xkt.avg_bo3 }}</td>
-              <td class="text-center">{{ store.monthlyStats.xkt.avg_bo5 }}</td>
+              <td class="player-col">XKT</td>
+              <td class="num-col key-col">{{ store.monthlyStats.xkt.avg_total }}</td>
+              <td class="num-col">{{ store.monthlyStats.xkt.avg_bo1 }}</td>
+              <td class="num-col">{{ store.monthlyStats.xkt.avg_bo3 }}</td>
+              <td class="num-col">{{ store.monthlyStats.xkt.avg_bo5 }}</td>
             </tr>
             <tr>
-              <td class="mod-name">WTSL</td>
-              <td class="text-center font-bold">{{ store.monthlyStats.wtsl.avg_total }}</td>
-              <td class="text-center">{{ store.monthlyStats.wtsl.avg_bo1 }}</td>
-              <td class="text-center">{{ store.monthlyStats.wtsl.avg_bo3 }}</td>
-              <td class="text-center">{{ store.monthlyStats.wtsl.avg_bo5 }}</td>
+              <td class="player-col">WTSL</td>
+              <td class="num-col key-col">{{ store.monthlyStats.wtsl.avg_total }}</td>
+              <td class="num-col">{{ store.monthlyStats.wtsl.avg_bo1 }}</td>
+              <td class="num-col">{{ store.monthlyStats.wtsl.avg_bo3 }}</td>
+              <td class="num-col">{{ store.monthlyStats.wtsl.avg_bo5 }}</td>
             </tr>
             <tr>
-              <td class="mod-name">Vanilla</td>
-              <td class="text-center font-bold">{{ store.monthlyStats.vanilla.avg_total }}</td>
-              <td class="text-center">{{ store.monthlyStats.vanilla.avg_bo1 }}</td>
-              <td class="text-center">{{ store.monthlyStats.vanilla.avg_bo3 }}</td>
-              <td class="text-center">{{ store.monthlyStats.vanilla.avg_bo5 }}</td>
+              <td class="player-col">Vanilla</td>
+              <td class="num-col key-col">{{ store.monthlyStats.vanilla.avg_total }}</td>
+              <td class="num-col">{{ store.monthlyStats.vanilla.avg_bo1 }}</td>
+              <td class="num-col">{{ store.monthlyStats.vanilla.avg_bo3 }}</td>
+              <td class="num-col">{{ store.monthlyStats.vanilla.avg_bo5 }}</td>
             </tr>
           </tbody>
           <tfoot>
             <tr class="totals-row">
-              <td class="mod-name totals-label">Total Avg</td>
-              <td class="text-center font-bold totals-value">{{ store.monthlyStats.xkt.avg_total + store.monthlyStats.wtsl.avg_total + store.monthlyStats.vanilla.avg_total }}</td>
-              <td class="text-center font-bold">{{ store.monthlyStats.xkt.avg_bo1 + store.monthlyStats.wtsl.avg_bo1 + store.monthlyStats.vanilla.avg_bo1 }}</td>
-              <td class="text-center font-bold">{{ store.monthlyStats.xkt.avg_bo3 + store.monthlyStats.wtsl.avg_bo3 + store.monthlyStats.vanilla.avg_bo3 }}</td>
-              <td class="text-center font-bold">{{ store.monthlyStats.xkt.avg_bo5 + store.monthlyStats.wtsl.avg_bo5 + store.monthlyStats.vanilla.avg_bo5 }}</td>
+              <td class="player-col">All mods</td>
+              <td class="num-col key-col">{{ store.monthlyStats.xkt.avg_total + store.monthlyStats.wtsl.avg_total + store.monthlyStats.vanilla.avg_total }}</td>
+              <td class="num-col">{{ store.monthlyStats.xkt.avg_bo1 + store.monthlyStats.wtsl.avg_bo1 + store.monthlyStats.vanilla.avg_bo1 }}</td>
+              <td class="num-col">{{ store.monthlyStats.xkt.avg_bo3 + store.monthlyStats.wtsl.avg_bo3 + store.monthlyStats.vanilla.avg_bo3 }}</td>
+              <td class="num-col">{{ store.monthlyStats.xkt.avg_bo5 + store.monthlyStats.wtsl.avg_bo5 + store.monthlyStats.vanilla.avg_bo5 }}</td>
             </tr>
           </tfoot>
         </table>
+        <p v-else class="empty-note">No daily data recorded yet.</p>
       </div>
     </div>
-
-  </div>
+  </section>
 </template>
 
 <style scoped>
-/* Time Range Tabs */
-.time-range-tabs {
-  grid-column: 1 / -1;
-  display: flex;
-  gap: var(--space-2);
-  margin-bottom: var(--space-1);
-  border-bottom: 1px solid var(--color-border);
-  padding-bottom: var(--space-3);
-}
-
-.time-tab-btn {
-  padding: var(--space-2) var(--space-4);
-  background: transparent;
-  border: 1px solid var(--color-border);
-  color: var(--color-text-secondary);
-  border-radius: var(--radius-full);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.time-tab-btn:hover {
-  background: var(--color-bg-secondary);
-  color: var(--color-text-primary);
-}
-
-.time-tab-btn.active {
-  background: var(--color-accent);
-  color: var(--color-text-inverse);
-  border-color: var(--color-accent);
-}
-
-/* Monthly Overview Section */
 .monthly-overview-section {
+  margin-top: var(--space-12);
+}
+
+.overview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.overview-head h2 {
+  font-size: 1.25rem;
+  letter-spacing: -0.01em;
+}
+
+.overview-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--space-6);
-  margin-bottom: var(--space-8);
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+  align-items: start;
 }
 
 .overview-card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  background: var(--color-bg-card);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+  padding: var(--space-2) var(--space-2) var(--space-3);
+  min-width: 0;
+  overflow-x: auto;
 }
 
-.overview-card .card-header {
-  padding: var(--space-4) var(--space-5);
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-bg-secondary);
+.card-header {
   display: flex;
+  align-items: baseline;
   justify-content: space-between;
-  align-items: center;
-}
-
-.overview-card .card-header h3 {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--color-text-primary);
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-3) var(--space-2);
   margin: 0;
 }
 
-.days-recorded {
-  font-size: 0.8rem;
+.card-header h3 {
+  font-family: var(--font-body);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+}
+
+.card-note {
+  font-size: 0.8125rem;
   color: var(--color-text-muted);
 }
 
-.overview-card .card-content {
-  padding: 0;
-  flex: 1;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* Simple Table Styling */
-.simple-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.simple-table th, 
+.simple-table th,
 .simple-table td {
-  padding: var(--space-3) var(--space-5);
+  border: none;
   border-bottom: 1px solid var(--color-border);
-  font-size: 0.9rem;
+  padding: 0 var(--space-3);
+  height: 44px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
 }
 
-.simple-table th {
-  text-align: left;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  background: var(--color-bg-secondary);
-  text-transform: uppercase;
-  font-size: 0.75rem;
-  letter-spacing: 0.05em;
+.simple-table thead th {
+  border-bottom-color: var(--color-border-hover);
 }
 
 .simple-table tbody tr:last-child td {
   border-bottom: none;
 }
 
-.simple-table tbody tr:hover {
-  background: var(--color-bg-hover);
+.simple-table th {
+  height: 36px;
+  font-size: 0.8125rem;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
 }
 
-.totals-row td {
-  border-top: 2px solid var(--color-border);
+.simple-table .num-col {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.simple-table tbody tr {
+  transition: background-color var(--transition-fast);
+}
+
+.simple-table tbody tr:hover {
   background: var(--color-bg-secondary);
 }
 
-.text-right, .simple-table th.text-right { text-align: right; }
-.text-center, .simple-table th.text-center { text-align: center; }
-.text-muted { color: var(--color-text-muted); padding: var(--space-4) var(--space-5); }
-.font-bold { font-weight: 700; color: var(--color-brand-live); }
+.player-col {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
 
-.rank-col { width: 60px; color: var(--color-text-muted); font-weight: 600; }
-.player-col { font-weight: 600; color: var(--color-text-primary); }
-.matches-col { font-weight: 700; color: var(--color-brand-primary); }
-.mod-name { font-weight: 600; }
-.elo-highlight { color: var(--color-brand-accent); }
-.totals-label { color: var(--color-text-secondary); text-transform: uppercase; }
-.totals-value { color: var(--color-brand-primary); }
+.rank-col {
+  display: inline-block;
+  width: 28px;
+  color: var(--color-text-muted);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
 
-@media (max-width: 768px) {
-  .monthly-overview-section {
+.key-col {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.totals-row td {
+  border-top: 1px solid var(--color-border-hover);
+  border-bottom: none;
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.empty-note {
+  padding: var(--space-4) var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.seg {
+  display: inline-flex;
+  background: var(--color-bg-card);
+  border-radius: var(--radius-md);
+  padding: 3px;
+}
+
+.seg button {
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 var(--space-4);
+  border-radius: 6px;
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.seg button:hover {
+  color: var(--color-text-primary);
+}
+
+.seg button[aria-pressed="true"] {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
+@media (max-width: 900px) {
+  .overview-grid {
     grid-template-columns: 1fr;
   }
 }
