@@ -108,7 +108,7 @@ function onSelectPlayer(payload: { name: string; elo: number }) {
           <span v-for="mod in modTotals" :key="mod.name" class="mod-total" :title="mod.title">
             {{ mod.name }} <b>{{ mod.total }}</b>
           </span>
-          <span class="conn">{{ isConnected ? 'Connected' : 'Connecting…' }}</span>
+          <span v-if="!isConnected" class="conn">Connecting…</span>
         </p>
       </div>
 
